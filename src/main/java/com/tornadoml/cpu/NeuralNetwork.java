@@ -354,12 +354,12 @@ public final class NeuralNetwork {
         //backward step
         var lastLayer = layers[lastLayerIndex];
         if (lastLayer instanceof TrainableLayer trainableLayer) {
-            trainableLayer.backwardLastLayer(input, activationArguments[lastLayerIndex - 1],
+            trainableLayer.backwardLastLayer(predictions[lastLayerIndex - 1], activationArguments[lastLayerIndex - 1],
                     activationArguments[lastLayerIndex], costErrors, weightsDelta[lastLayerIndex],
                     biasesDelta[lastLayerIndex],
                     submitSize);
         } else {
-            ((NonTrainableLayer)lastLayer).backwardLastLayer(predictions[lastLayerIndex - 1], target, costErrors, submitSize);
+            ((NonTrainableLayer)lastLayer).backwardLastLayer(predictions[lastLayerIndex], target, costErrors, submitSize);
         }
 
         for (int n = lastLayerIndex - 1; n > 0; n--) {

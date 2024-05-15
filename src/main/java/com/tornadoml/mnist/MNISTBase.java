@@ -3,6 +3,7 @@ package com.tornadoml.mnist;
 import com.tornadoml.cpu.*;
 
 import java.util.Arrays;
+
 import com.tornadoml.cpu.WeightsOptimizer.OptimizerType;
 
 public abstract class MNISTBase {
@@ -15,12 +16,12 @@ public abstract class MNISTBase {
         var learningRate = 0.001f;
 
         Layer[] layers = new Layer[neuronsCount.length + 2];
-        layers[0] = new DenseLayer(inputSize, neuronsCount[0], new LeakyLeRU(), OptimizerType.SIMPLE);
+        layers[0] = new DenseLayer(inputSize, neuronsCount[0], new GeLU(), OptimizerType.AMS_GRAD);
         for (int i = 1; i < neuronsCount.length; i++) {
-            layers[i] = new DenseLayer(neuronsCount[i - 1], neuronsCount[i], new LeakyLeRU(), OptimizerType.SIMPLE);
+            layers[i] = new DenseLayer(neuronsCount[i - 1], neuronsCount[i], new GeLU(), OptimizerType.AMS_GRAD);
         }
-        layers[neuronsCount.length] = new DenseLayer(neuronsCount[neuronsCount.length - 1], outputSize, new LeakyLeRU(),
-                OptimizerType.SIMPLE);
+        layers[neuronsCount.length] = new DenseLayer(neuronsCount[neuronsCount.length - 1], outputSize, new GeLU(),
+                OptimizerType.AMS_GRAD);
         layers[neuronsCount.length + 1] = new SoftMaxLayer(outputSize);
 
         var network = new NeuralNetwork(new CategoricalCrossEntropyFunction(), layers);

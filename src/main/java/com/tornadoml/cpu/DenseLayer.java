@@ -1,9 +1,9 @@
 package com.tornadoml.cpu;
 
 public final class DenseLayer implements TrainableLayer {
-    private static final ThreadLocal<float[]> firstOutputXBatchSizeBuffer = new ThreadLocal<>();
-    private static final ThreadLocal<float[]> secondOutputXBatchSizeBuffer = new ThreadLocal<>();
-    private static final ThreadLocal<float[]> inputXBatchSizeBuffer = new ThreadLocal<>();
+    private static final ThreadLocal<float[]> outputXBatchSizeBuffer = new ThreadLocal<>();
+    private static final ThreadLocal<float[]> firstInputXBatchSizeBuffer = new ThreadLocal<>();
+    private static final ThreadLocal<float[]> secondInputXBatchSizeBuffer = new ThreadLocal<>();
     private static final ThreadLocal<float[]> weightsSizeBuffer = new ThreadLocal<>();
 
     private final float[] weights;
@@ -37,46 +37,50 @@ public final class DenseLayer implements TrainableLayer {
 
     @Override
     public void predict(float[] input, float[] prediction, int batchSize) {
-        assert input.length == inputSize;
-        assert prediction.length == outputSize;
+        assert input.length >= inputSize * batchSize;
+        assert prediction.length >= outputSize * batchSize;
 
         //w * x
         MatrixOperations.matrixToMatrixMultiplication(weights, 0,
-                outputSize, inputSize, input, 0, inputSize, 1, prediction);
+                outputSize, inputSize, input, 0, inputSize, batchSize, prediction);
+
+        var biasesBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
+        //broadcast biases
+        MatrixOperations.broadcastVectorToMatrix(biases, biasesBuffer, outputSize, batchSize);
 
         //w * x + b
-        VectorOperations.addVectorToVector(prediction, biases, prediction, outputSize);
-
+        VectorOperations.addVectorToVector(prediction, biasesBuffer, prediction, batchSize * outputSize);
         //g(w * x + b)
-        activationFunction.value(prediction, prediction);
+        activationFunction.value(prediction, prediction, batchSize * outputSize);
     }
 
     @Override
     public void forwardTraining(float[] input, int inputOffset, float[] activationArgument, float[] prediction,
-                                int miniBatchSize) {
+                                int batchSize) {
         //w * x
         MatrixOperations.matrixToMatrixMultiplication(weights, 0,
                 outputSize, inputSize, input, inputOffset, inputSize,
-                miniBatchSize, activationArgument);
+                batchSize, activationArgument);
 
-        var buffer = getFirstOutputXBatchSizeBuffer(miniBatchSize * outputSize);
+        var buffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
-        MatrixOperations.broadcastVectorToMatrix(biases, buffer, outputSize, miniBatchSize);
+        MatrixOperations.broadcastVectorToMatrix(biases, buffer, outputSize, batchSize);
 
         //w * x + b
         VectorOperations.addVectorToVector(activationArgument, buffer, activationArgument,
-                miniBatchSize * outputSize);
+                batchSize * outputSize);
 
         //g(w * x + b)
-        activationFunction.value(activationArgument, prediction);
+        activationFunction.value(activationArgument, prediction, batchSize * outputSize);
     }
 
     @Override
     public void backwardLastLayer(float[] input, float[] previousLayerActivationArgument,
                                   float[] currentLayerActivationArgument,
-                                  float[] costFunctionDerivative, float[] calculatedWeightsDelta,
+                                  float[] currentLayerErrors, float[] previousLayerErrors,
+                                  float[] calculatedWeightsDelta,
                                   float[] calculatedBiasesDelta,
-                                  int miniBatchSize) {
+                                  int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -86,20 +90,20 @@ public final class DenseLayer implements TrainableLayer {
         //a[n-1] - input
         //a[n] - output
 
-        var inputBatchSizeBuffer = getInputXBatchSizeBuffer(miniBatchSize * inputSize);
+        var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //g'(z[n])
-        activationFunction.derivative(currentLayerActivationArgument, inputBatchSizeBuffer);
+        activationFunction.derivative(currentLayerActivationArgument, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
-        VectorOperations.vectorToVectorScalarMultiplication(costFunctionDerivative, inputBatchSizeBuffer,
-                costFunctionDerivative, inputSize * miniBatchSize);
+        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrors, outputBatchSizeBuffer,
+                currentLayerErrors, outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, 0, costFunctionDerivative, calculatedWeightsDelta, calculatedBiasesDelta,
-                miniBatchSize);
+        calculateWeightsDelta(input, 0, currentLayerErrors, calculatedWeightsDelta, calculatedBiasesDelta,
+                batchSize);
 
         //dL/dz[n-1] = w[n]^T * dL/dz[n] * g'(z[n-1])
-        calculatePreviousLayerError(costFunctionDerivative, previousLayerActivationArgument,
-                miniBatchSize);
+        calculatePreviousLayerError(currentLayerErrors, previousLayerActivationArgument, previousLayerErrors,
+                batchSize);
     }
 
     @Override
@@ -107,7 +111,7 @@ public final class DenseLayer implements TrainableLayer {
                                          float[] currentLayerActivationArgument,
                                          float[] costFunctionDerivative, float[] calculatedWeightsDelta,
                                          float[] calculatedBiasesDelta,
-                                         int miniBatchSize) {
+                                         int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -118,25 +122,25 @@ public final class DenseLayer implements TrainableLayer {
         //a[n] - output
 
 
-        var outputBatchSizeBuffer = getSecondOutputXBatchSizeBuffer(miniBatchSize * outputSize);
+        var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //g'(z[n])
-        activationFunction.derivative(currentLayerActivationArgument, outputBatchSizeBuffer);
+        activationFunction.derivative(currentLayerActivationArgument, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
         VectorOperations.vectorToVectorScalarMultiplication(costFunctionDerivative, outputBatchSizeBuffer,
-                costFunctionDerivative, outputSize * miniBatchSize);
+                costFunctionDerivative, outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
         calculateWeightsDelta(input, 0, costFunctionDerivative, calculatedWeightsDelta, calculatedBiasesDelta,
-                miniBatchSize);
+                batchSize);
     }
 
 
     @Override
     public void backwardMiddleLayer(float[] input,
-                                    float[] errors,
+                                    float[] currentLayerErrors,
                                     float[] previousLayerActivationArgument,
-                                    float[] weightsDelta, float[] biasesDelta,
-                                    int miniBatchSize) {
+                                    float[] previousLayerErrors, float[] weightsDelta, float[] biasesDelta,
+                                    int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -147,53 +151,55 @@ public final class DenseLayer implements TrainableLayer {
         //a[n] - output
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, 0, errors, weightsDelta, biasesDelta, miniBatchSize);
+        calculateWeightsDelta(input, 0, currentLayerErrors, weightsDelta, biasesDelta, batchSize);
 
         //dL/dz[n-1] = w[n]^T * dL/dz[n] * g'(z[n-1])
-        calculatePreviousLayerError(errors, previousLayerActivationArgument,
-                miniBatchSize);
+        calculatePreviousLayerError(currentLayerErrors, previousLayerErrors, previousLayerActivationArgument,
+                batchSize);
     }
 
     private void calculatePreviousLayerError(float[] currentLayerErrors,
                                              float[] previousLayerActivationArgument,
-                                             int miniBatchSize) {
+                                             float[] previousLayerErrors,
+                                             int batchSize) {
         var weightsSizeBuffer = getWeightsSizeBuffer(inputSize * outputSize);
         //w[n]^T
         MatrixOperations.transposeMatrix(weights, 0, outputSize, inputSize, weightsSizeBuffer);
 
-        var firstOutputBatchSizeBuffer = getFirstOutputXBatchSizeBuffer(miniBatchSize * outputSize);
+        var firstInputBatchSizeBuffer = getFirstInputXBatchSizeBuffer(batchSize * inputSize);
         //w[n]^T * dL/dz[n]
         MatrixOperations.matrixToMatrixMultiplication(weightsSizeBuffer, 0, inputSize, outputSize,
-                currentLayerErrors, 0, outputSize, miniBatchSize, firstOutputBatchSizeBuffer);
+                currentLayerErrors, 0, outputSize, batchSize, firstInputBatchSizeBuffer);
 
-        var inputBatchSizeBuffer = getInputXBatchSizeBuffer(miniBatchSize * inputSize);
+        var secondInputBatchSizeBuffer = getSecondInputXBatchSizeBuffer(batchSize * inputSize);
         //g'(z[n-1])
-        activationFunction.derivative(previousLayerActivationArgument, inputBatchSizeBuffer);
+        activationFunction.derivative(previousLayerActivationArgument, secondInputBatchSizeBuffer,
+                batchSize * inputSize);
 
         //w[n]^T * dL/dz[n] * g'(z[n-1])
-        VectorOperations.vectorToVectorScalarMultiplication(firstOutputBatchSizeBuffer, inputBatchSizeBuffer,
-                currentLayerErrors, inputSize * miniBatchSize);
+        VectorOperations.vectorToVectorScalarMultiplication(firstInputBatchSizeBuffer, secondInputBatchSizeBuffer,
+                previousLayerErrors, inputSize * batchSize);
     }
 
     private void calculateWeightsDelta(float[] input, int inputOffset,
                                        float[] errors,
                                        float[] weightsDelta,
                                        float[] biasesDelta,
-                                       int miniBatchSize) {
-        var inputBatchSizeBuffer = getInputXBatchSizeBuffer(miniBatchSize * inputSize);
+                                       int batchSize) {
+        var inputBatchSizeBuffer = getFirstInputXBatchSizeBuffer(batchSize * inputSize);
         //a[n-1]^T
-        MatrixOperations.transposeMatrix(input, inputOffset, inputSize, miniBatchSize, inputBatchSizeBuffer);
+        MatrixOperations.transposeMatrix(input, inputOffset, inputSize, batchSize, inputBatchSizeBuffer);
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        MatrixOperations.matrixToMatrixMultiplication(errors, 0, outputSize, miniBatchSize,
-                inputBatchSizeBuffer, 0, miniBatchSize, inputSize, weightsDelta);
+        MatrixOperations.matrixToMatrixMultiplication(errors, 0, outputSize, batchSize,
+                inputBatchSizeBuffer, 0, batchSize, inputSize, weightsDelta);
 
-        System.arraycopy(errors, 0, biasesDelta, 0, outputSize * miniBatchSize);
+        System.arraycopy(errors, 0, biasesDelta, 0, outputSize * batchSize);
     }
 
     @Override
     public void backwardZeroLayer(float[] input, int inputOffset, float[] errors, float[] weightsDelta,
                                   float[] biasesDelta,
-                                  int miniBatchSize) {
+                                  int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -204,7 +210,7 @@ public final class DenseLayer implements TrainableLayer {
         //a[n] - output
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, inputOffset, errors, weightsDelta, biasesDelta, miniBatchSize);
+        calculateWeightsDelta(input, inputOffset, errors, weightsDelta, biasesDelta, batchSize);
     }
 
     @Override
@@ -219,13 +225,13 @@ public final class DenseLayer implements TrainableLayer {
 
     @Override
     public void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta,
-                                       float learningRate, int miniBatchSize) {
-        var outputBatchSizeBuffer = getFirstOutputXBatchSizeBuffer(miniBatchSize * outputSize);
+                                       float learningRate, int batchSize) {
+        var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //calculate average of the weights and biases deltas
-        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, miniBatchSize, outputBatchSizeBuffer);
-        VectorOperations.multiplyVectorToScalar(outputBatchSizeBuffer, 0, 1.0f / miniBatchSize,
+        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, batchSize, outputBatchSizeBuffer);
+        VectorOperations.multiplyVectorToScalar(outputBatchSizeBuffer, 0, 1.0f / batchSize,
                 outputBatchSizeBuffer, 0, outputSize);
-        VectorOperations.multiplyVectorToScalar(weightsDelta, 0, 1.0f / miniBatchSize,
+        VectorOperations.multiplyVectorToScalar(weightsDelta, 0, 1.0f / batchSize,
                 weightsDelta, 0, inputSize * outputSize);
 
         optimizer.optimize(weights, weightsDelta, inputSize * outputSize, biases, outputBatchSizeBuffer,
@@ -244,23 +250,20 @@ public final class DenseLayer implements TrainableLayer {
         System.arraycopy(bestBiases, 0, biases, 0, biases.length);
     }
 
-    private static float[] getFirstOutputXBatchSizeBuffer(int size) {
-        var buffer = firstOutputXBatchSizeBuffer.get();
-
-        if (buffer == null || buffer.length < size) {
-            buffer = new float[size];
-            firstOutputXBatchSizeBuffer.set(buffer);
-        }
-
-        return buffer;
+    public float[] getWeights() {
+        return weights;
     }
 
-    private static float[] getSecondOutputXBatchSizeBuffer(int size) {
-        var buffer = secondOutputXBatchSizeBuffer.get();
+    public float[] getBiases() {
+        return biases;
+    }
+
+    private static float[] getOutputXBatchSizeBuffer(int size) {
+        var buffer = outputXBatchSizeBuffer.get();
 
         if (buffer == null || buffer.length < size) {
             buffer = new float[size];
-            secondOutputXBatchSizeBuffer.set(buffer);
+            outputXBatchSizeBuffer.set(buffer);
         }
 
         return buffer;
@@ -277,12 +280,23 @@ public final class DenseLayer implements TrainableLayer {
         return buffer;
     }
 
-    private static float[] getInputXBatchSizeBuffer(int size) {
-        var buffer = inputXBatchSizeBuffer.get();
+    private static float[] getFirstInputXBatchSizeBuffer(int size) {
+        var buffer = firstInputXBatchSizeBuffer.get();
 
         if (buffer == null || buffer.length < size) {
             buffer = new float[size];
-            inputXBatchSizeBuffer.set(buffer);
+            firstInputXBatchSizeBuffer.set(buffer);
+        }
+
+        return buffer;
+    }
+
+    private static float[] getSecondInputXBatchSizeBuffer(int size) {
+        var buffer = secondInputXBatchSizeBuffer.get();
+
+        if (buffer == null || buffer.length < size) {
+            buffer = new float[size];
+            secondInputXBatchSizeBuffer.set(buffer);
         }
 
         return buffer;

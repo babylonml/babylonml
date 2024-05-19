@@ -9,6 +9,9 @@ public final class VectorOperations {
 
     public static void multiplyVectorToScalar(float[] vector, int vectorOffset, float scalar, float[] result, int resultOffset,
                                               int length) {
+        assert vector.length >= length + resultOffset;
+        assert result.length >= length + vectorOffset;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -26,6 +29,9 @@ public final class VectorOperations {
     }
 
     public static void addVectorToVector(float[] first, float[] second, float[] result, int length) {
+        assert first.length >= length;
+        assert second.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -43,6 +49,9 @@ public final class VectorOperations {
     }
 
     public static void subtractVectorFromVector(float[] first, float[] second, float[] result, int length) {
+        assert first.length >= length;
+        assert second.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -61,6 +70,10 @@ public final class VectorOperations {
 
     public static void vectorToVectorScalarMultiplication(float[] first,
                                                           float[] second, float[] result, int length) {
+        assert first.length >= length;
+        assert second.length >= length;
+        assert result.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -95,6 +108,9 @@ public final class VectorOperations {
     }
 
     public static void vectorElementsExp(float[] vector, float[] result, int length) {
+        assert vector.length >= length;
+        assert result.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -111,6 +127,8 @@ public final class VectorOperations {
     }
 
     public static float sumVectorElements(float[] vector, int offset, int length) {
+        assert vector.length >= length + offset;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -132,6 +150,9 @@ public final class VectorOperations {
     }
 
     public static void addScalarToVector(float scalar, float[] vector, float[] result, int length) {
+        assert vector.length >= length;
+        assert result.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -150,6 +171,9 @@ public final class VectorOperations {
     }
 
     public static void divideScalarOnVectorElements(float scalar, float[] vector, float[] result, int length) {
+        assert vector.length >= length;
+        assert result.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
@@ -168,6 +192,10 @@ public final class VectorOperations {
     }
 
     public static void maxBetweenVectorElements(float[] firstVector, float[] secondVector, float[] result, int length) {
+        assert firstVector.length >= length;
+        assert secondVector.length >= length;
+        assert result.length >= length;
+
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 

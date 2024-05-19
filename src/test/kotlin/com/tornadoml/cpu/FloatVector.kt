@@ -7,6 +7,10 @@ import kotlin.math.sqrt
 class FloatVector(val size: Int) {
     internal val data = FloatArray(size)
 
+    constructor(data: FloatArray) : this(data.size) {
+        System.arraycopy(data, 0, this.data, 0, size)
+    }
+
     operator fun plus(other: FloatVector): FloatVector {
         assert(size == other.size)
         val result = FloatVector(size)

@@ -4,6 +4,15 @@ import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
 
 class FloatMatrix(val rows: Int, val cols: Int) {
+    constructor(rows: Int, cols: Int, data: FloatArray) : this(rows, cols) {
+        assert(data.size == rows * cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                this.data[i][j] = data[i * cols + j]
+            }
+        }
+    }
 
     internal val data = Array(rows) { FloatArray(cols) }
 

@@ -15,6 +15,11 @@ public final class MatrixOperations {
         assert secondMatrix != result;
         assert firstMatrix != secondMatrix;
 
+        assert firstMatrixRows * firstMatrixColumns + firstMatrixOffset <= firstMatrix.length;
+        assert secondMatrixRows * secondMatrixColumns + secondMatrixOffset <= secondMatrix.length;
+
+        assert firstMatrixRows * secondMatrixColumns <= result.length;
+
         for (int i = 0; i < firstMatrixRows; i++) {
             var resultIndexStart = i * secondMatrixColumns;
             var mulStartIndex = i * firstMatrixColumns;

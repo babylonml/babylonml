@@ -12,7 +12,7 @@ public interface TrainableLayer extends Layer {
 
     void backwardLastLayer(float[] input, float[] previousLayerActivationArgument,
                            float[] currentLayerActivationArgument,
-                           float[] costFunctionDerivative, float[] calculatedWeightsDelta,
+                           float[] currentLayerErrors, float[] previousLayerErrors, float[] calculatedWeightsDelta,
                            float[] calculatedBiasesDelta,
                            int miniBatchSize);
 
@@ -25,7 +25,7 @@ public interface TrainableLayer extends Layer {
     void backwardMiddleLayer(float[] input,
                              float[] errors,
                              float[] previousLayerActivationArgument,
-                             float[] weightsDelta, float[] biasesDelta,
+                             float[] previousLayerErrors, float[] weightsDelta, float[] biasesDelta,
                              int miniBatchSize);
 
     void backwardZeroLayer(float[] input, int inputOffset, float[] errors, float[] weightsDelta,

@@ -18,7 +18,7 @@ public final class NeuralNetwork {
 
 
     public NeuralNetwork(CostFunction costFunction,
-        Layer... layers) {
+                         Layer... layers) {
         this.layers = layers;
         this.costFunction = costFunction;
     }
@@ -355,21 +355,21 @@ public final class NeuralNetwork {
         var lastLayer = layers[lastLayerIndex];
         if (lastLayer instanceof TrainableLayer trainableLayer) {
             trainableLayer.backwardLastLayer(predictions[lastLayerIndex - 1], activationArguments[lastLayerIndex - 1],
-                    activationArguments[lastLayerIndex], costErrors, weightsDelta[lastLayerIndex],
-                    biasesDelta[lastLayerIndex],
-                    submitSize);
+                    activationArguments[lastLayerIndex], costErrors, costErrors,
+                    weightsDelta[lastLayerIndex],
+                    biasesDelta[lastLayerIndex], submitSize);
         } else {
-            ((NonTrainableLayer)lastLayer).backwardLastLayer(predictions[lastLayerIndex], target, costErrors, submitSize);
+            ((NonTrainableLayer) lastLayer).backwardLastLayer(predictions[lastLayerIndex], target, costErrors, submitSize);
         }
 
         for (int n = lastLayerIndex - 1; n > 0; n--) {
-            ((TrainableLayer)layers[n]).backwardMiddleLayer(predictions[n - 1], costErrors,
-                    activationArguments[n - 1], weightsDelta[n], biasesDelta[n],
-                    submitSize);
+            ((TrainableLayer) layers[n]).backwardMiddleLayer(predictions[n - 1], costErrors,
+                    activationArguments[n - 1], costErrors, weightsDelta[n],
+                    biasesDelta[n], submitSize);
         }
 
         assert layers[0] instanceof TrainableLayer;
-        ((TrainableLayer)layers[0]).backwardZeroLayer(input, 0, costErrors,
+        ((TrainableLayer) layers[0]).backwardZeroLayer(input, 0, costErrors,
                 weightsDelta[0], biasesDelta[0],
                 submitSize);
     }

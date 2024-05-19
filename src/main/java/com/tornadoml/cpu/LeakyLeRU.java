@@ -8,6 +8,7 @@ import org.apache.commons.rng.simple.RandomSource;
 public class LeakyLeRU implements ActivationFunction {
     private final long seed;
 
+    @SuppressWarnings("unused")
     public LeakyLeRU(long seed) {
         this.seed = seed;
     }
@@ -18,15 +19,21 @@ public class LeakyLeRU implements ActivationFunction {
     }
 
     @Override
-    public void value(float[] input, float[] result) {
-        for (int i = 0; i < input.length; i++) {
+    public void value(float[] input, float[] result, int length) {
+        assert input.length >= length;
+        assert result.length >= length;
+
+        for (int i = 0; i < length; i++) {
             result[i] = input[i] > 0 ? input[i] : 0.01f * input[i];
         }
     }
 
     @Override
-    public void derivative(float[] input, float[] result) {
-        for (int i = 0; i < input.length; i++) {
+    public void derivative(float[] input, float[] result, int length) {
+        assert input.length >= length;
+        assert result.length >= length;
+
+        for (int i = 0; i < length; i++) {
             result[i] = input[i] > 0 ? 1.0f : 0.01f;
         }
     }

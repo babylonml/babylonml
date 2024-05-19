@@ -20,8 +20,11 @@ public final class GeLU implements ActivationFunction {
     }
 
     @Override
-    public void value(float[] input, float[] result) {
-        for (int i = 0; i < input.length; i++) {
+    public void value(float[] input, float[] result, int length) {
+        assert input.length >= length;
+        assert result.length >= length;
+
+        for (int i = 0; i < length; i++) {
             // GeLU(x) = 0.5 * x * (1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x^3)))
             result[i] =
                     (float) (input[i] * SCALAR_1 * (SCALAR_2 +
@@ -31,8 +34,11 @@ public final class GeLU implements ActivationFunction {
     }
 
     @Override
-    public void derivative(float[] input, float[] result) {
-        for (int i = 0; i < input.length; i++) {
+    public void derivative(float[] input, float[] result, int length) {
+        assert input.length >= length;
+        assert result.length >= length;
+
+        for (int i = 0; i < length; i++) {
             var tanh = (float)
                     Math.tanh(SCALAR_3 * (input[i] + SCALAR_4 * input[i] * input[i] * input[i]));
             // d(GeLU(x))/dx = 0.5 * (1 + tanh + x * (1 - tanh^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))

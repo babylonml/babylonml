@@ -9,8 +9,8 @@ public final class VectorOperations {
 
     public static void multiplyVectorToScalar(float[] vector, int vectorOffset, float scalar, float[] result, int resultOffset,
                                               int length) {
-        assert vector.length >= length + resultOffset;
-        assert result.length >= length + vectorOffset;
+        assert vector.length >= length + vectorOffset;
+        assert result.length >= length + resultOffset;
 
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);

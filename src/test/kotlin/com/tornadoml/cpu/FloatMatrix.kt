@@ -87,6 +87,19 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun dotMul(other: FloatMatrix): FloatMatrix {
+        assert(rows == other.rows && cols == other.cols)
+        val result = FloatMatrix(1, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[0][j] += data[i][j] * other.data[i][j]
+            }
+        }
+
+        return result
+    }
+
     operator fun times(float: Float): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 
@@ -99,12 +112,36 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    operator fun times(int: Int): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[i][j] * int
+            }
+        }
+
+        return result
+    }
+
     operator fun div(float: Float): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[i][j] = data[i][j] / float
+            }
+        }
+
+        return result
+    }
+
+    operator fun div(int: Int): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[i][j] / int
             }
         }
 
@@ -194,8 +231,17 @@ class FloatMatrix(val rows: Int, val cols: Int) {
 
         return result
     }
+
+    fun toArray() = data.clone()
+
+    override fun toString(): String {
+        return "FloatMatrix(rows: $rows, cols: $cols)"
+    }
 }
 
+operator fun Int.times(other: FloatMatrix): FloatMatrix {
+    return other * this
+}
 
 operator fun Float.times(other: FloatMatrix): FloatMatrix {
     return other * this

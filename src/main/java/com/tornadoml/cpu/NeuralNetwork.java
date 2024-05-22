@@ -8,8 +8,6 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 public final class NeuralNetwork {
     private final Layer[] layers;
@@ -44,16 +42,11 @@ public final class NeuralNetwork {
         return output;
     }
 
-    public void train(Supplier<Stream<float[]>> inputDataSupplier,
-                      Supplier<Stream<float[]>> targetDataSupplier,
-                      int inputSize, int targetSize, int startBatchSize,
-                      int maxBatchCapacity, int miniBatchSize, int maxEpochs,
-                      float learningRate, int patience) throws Exception {
-        var batchCapacity = startBatchSize;
-        var batchSize = 0;
-
-        float[] batchInput = new float[batchCapacity * inputSize];
-        float[] batchTarget = new float[batchCapacity * targetSize];
+    public void train(float[][] inputData,
+                      float[][] targetData,
+                      int inputSize, int targetSize, int batchSize,
+                      int miniBatchSize, int maxEpochs,
+                      float learningRate, int patience, boolean shuffle) throws Exception {
         var cores = Runtime.getRuntime().availableProcessors();
 
         System.out.println("Cores: " + cores);
@@ -68,63 +61,32 @@ public final class NeuralNetwork {
         var bestCost = Float.MAX_VALUE;
         var patienceCounter = 0;
 
+        var batchInput = new float[batchSize * inputSize];
+        var batchTarget = new float[batchSize * targetSize];
+
+        var transposeBuffer = new float[batchSize * Math.max(inputSize, targetSize)];
+        for (int i = 0; i < batchSize; i++) {
+            System.arraycopy(inputData[i], 0, transposeBuffer, i * inputSize, inputSize);
+        }
+        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, inputSize, batchInput);
+
+        for (int i = 0; i < batchSize; i++) {
+            System.arraycopy(targetData[i], 0, transposeBuffer, i * targetSize, targetSize);
+        }
+        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, targetSize, batchTarget);
+
+
         try (var executor = Executors.newFixedThreadPool(cores)) {
-            epochLoop:
             for (int n = 0; n < maxEpochs; n++) {
-                var inputData = inputDataSupplier.get();
-                var targetData = targetDataSupplier.get();
+                var cost = trainingCost(layers, costFunction, maxOutputSize, inputData.length, batchInput,
+                        batchTarget, executor, cores);
 
-                var inputDataIterator = inputData.iterator();
-                var targetDataIterator = targetData.iterator();
-
-                while (inputDataIterator.hasNext()) {
-                    batchSize = 0;
-
-                    while (inputDataIterator.hasNext()) {
-                        var inputDatum = inputDataIterator.next();
-                        var targetDatum = targetDataIterator.next();
-
-                        if (inputDatum.length != inputSize) {
-                            throw new IllegalArgumentException("Invalid input data size");
-                        }
-                        if (targetDatum.length != targetSize) {
-                            throw new IllegalArgumentException("Invalid target data size");
-                        }
-
-                        if (batchSize == batchCapacity) {
-                            if (batchCapacity < maxBatchCapacity) {
-                                batchCapacity = Math.min(maxBatchCapacity, batchCapacity << 1);
-
-                                var newBatchInput = new float[batchCapacity * inputSize];
-                                var newBatchTarget = new float[batchCapacity * targetSize];
-
-                                System.arraycopy(batchInput, 0, newBatchInput, 0, batchInput.length);
-                                System.arraycopy(batchTarget, 0, newBatchTarget, 0, batchTarget.length);
-
-                                batchInput = newBatchInput;
-                                batchTarget = newBatchTarget;
-                            } else {
-                                break;
-                            }
-                        }
-
-                        System.arraycopy(inputDatum, 0, batchInput, batchSize * inputSize,
-                                inputSize);
-                        System.arraycopy(targetDatum, 0, batchTarget, batchSize * targetSize,
-                                targetSize);
-
-                        batchSize++;
-                    }
-
-                    var cost = trainingCost(layers, costFunction, maxOutputSize, batchSize, batchInput,
-                            batchTarget, executor, cores);
-
+                if (patience > -1) {
                     if (bestCost < cost) {
                         patienceCounter++;
 
                         if (patienceCounter >= patience) {
                             System.out.println("Reached patience limit. Stopping training.");
-                            break epochLoop;
                         }
                     } else {
                         bestCost = cost;
@@ -136,24 +98,29 @@ public final class NeuralNetwork {
                             }
                         }
                     }
+                }
 
-                    System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
-                            " patience counter: " + patienceCounter);
-                    trainBatch(batchInput, batchTarget, batchSize, miniBatchSize, learningRate, executor, cores);
+                System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
+                        " patience counter: " + patienceCounter);
+                trainBatch(batchInput, batchTarget, batchSize, miniBatchSize, learningRate, executor,
+                        cores, shuffle);
+            }
+
+            if (patience > -1) {
+                for (var layer : layers) {
+                    if (layer instanceof TrainableLayer trainableLayer) {
+                        trainableLayer.restoreBestWeightsAndBiases();
+                    }
                 }
             }
 
-            for (Layer layer : layers) {
-                if (layer instanceof TrainableLayer trainableLayer) {
-                    trainableLayer.restoreBestWeightsAndBiases();
-                }
-            }
 
             var cost = trainingCost(layers, costFunction, maxOutputSize, batchSize, batchInput, batchTarget,
                     executor, cores);
             System.out.println("Final cost: " + cost);
         }
     }
+
 
     public Object test(float[][] input, float[][] target) {
         assert input.length == target.length;
@@ -215,6 +182,9 @@ public final class NeuralNetwork {
             });
 
             submitted++;
+            if (end >= batchSize) {
+                break;
+            }
         }
 
         var cost = 0f;
@@ -231,7 +201,7 @@ public final class NeuralNetwork {
 
     private void trainBatch(float[] batchInput, float[] batchTarget,
                             int batchSize, int miniBatchSize, float learningRate, ExecutorService executor,
-                            int cores) throws Exception {
+                            int cores, boolean shuffle) throws Exception {
         int miniBatchCount = (batchSize + miniBatchSize - 1) / miniBatchSize;
 
         var maxOutputSize = 0;
@@ -265,7 +235,10 @@ public final class NeuralNetwork {
 
         var costErrors = new float[cores][maxOutputSize * miniBatchSize];
         var shuffledIndices = PermutationSampler.natural(batchSize);
-        PermutationSampler.shuffle(RandomSource.ISAAC.create(), shuffledIndices);
+
+        if (shuffle) {
+            PermutationSampler.shuffle(RandomSource.ISAAC.create(), shuffledIndices);
+        }
 
         var propagationFutures = new Future[cores];
         var submitedTasks = 0;
@@ -351,26 +324,33 @@ public final class NeuralNetwork {
 
         costFunction.derivative(predictions[lastLayerIndex], 0, target, 0,
                 costErrors, 0, outputSize * submitSize);
-        //backward step
-        var lastLayer = layers[lastLayerIndex];
-        if (lastLayer instanceof TrainableLayer trainableLayer) {
-            trainableLayer.backwardLastLayer(predictions[lastLayerIndex - 1], activationArguments[lastLayerIndex - 1],
-                    activationArguments[lastLayerIndex], costErrors, costErrors,
-                    weightsDelta[lastLayerIndex],
-                    biasesDelta[lastLayerIndex], submitSize);
+        if (lastLayerIndex > 0) {
+            //backward step
+            var lastLayer = layers[lastLayerIndex];
+            if (lastLayer instanceof TrainableLayer trainableLayer) {
+                trainableLayer.backwardLastLayer(predictions[lastLayerIndex - 1], activationArguments[lastLayerIndex - 1],
+                        activationArguments[lastLayerIndex], costErrors, costErrors,
+                        weightsDelta[lastLayerIndex],
+                        biasesDelta[lastLayerIndex], submitSize);
+            } else {
+                ((NonTrainableLayer) lastLayer).backwardLastLayer(predictions[lastLayerIndex], target, costErrors, submitSize);
+            }
+
+            for (int n = lastLayerIndex - 1; n > 0; n--) {
+                ((TrainableLayer) layers[n]).backwardMiddleLayer(predictions[n - 1], costErrors,
+                        activationArguments[n - 1], costErrors, weightsDelta[n],
+                        biasesDelta[n], submitSize);
+            }
+
+            assert layers[0] instanceof TrainableLayer;
+            ((TrainableLayer) layers[0]).backwardZeroLayer(input, 0, costErrors,
+                    weightsDelta[0], biasesDelta[0],
+                    submitSize);
         } else {
-            ((NonTrainableLayer) lastLayer).backwardLastLayer(predictions[lastLayerIndex], target, costErrors, submitSize);
+            assert layers[0] instanceof TrainableLayer;
+            ((TrainableLayer) layers[0]).backwardLastLayerNoError(input, activationArguments[0],
+                    costErrors, weightsDelta[0], biasesDelta[0],
+                    submitSize);
         }
-
-        for (int n = lastLayerIndex - 1; n > 0; n--) {
-            ((TrainableLayer) layers[n]).backwardMiddleLayer(predictions[n - 1], costErrors,
-                    activationArguments[n - 1], costErrors, weightsDelta[n],
-                    biasesDelta[n], submitSize);
-        }
-
-        assert layers[0] instanceof TrainableLayer;
-        ((TrainableLayer) layers[0]).backwardZeroLayer(input, 0, costErrors,
-                weightsDelta[0], biasesDelta[0],
-                submitSize);
     }
 }

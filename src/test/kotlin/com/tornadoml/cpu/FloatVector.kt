@@ -74,6 +74,16 @@ class FloatVector(val size: Int) {
         return result
     }
 
+    operator fun div(int: Int): FloatVector {
+        val result = FloatVector(size)
+
+        for (i in 0 until size) {
+            result.data[i] = data[i] / int
+        }
+
+        return result
+    }
+
     fun broadcast(cols: Int): FloatMatrix {
         val result = FloatMatrix(size, cols)
 
@@ -117,7 +127,7 @@ class FloatVector(val size: Int) {
         return result
     }
 
-    fun  sum(): Float {
+    fun sum(): Float {
         var sum = 0.0f
         for (i in 0 until size) {
             sum += data[i]
@@ -136,6 +146,10 @@ class FloatVector(val size: Int) {
     }
 
     fun toArray() = data.copyOf()
+
+    override fun toString(): String {
+        return "FloatVector(size=$size)"
+    }
 }
 
 operator fun Float.times(vector: FloatVector) = vector * this

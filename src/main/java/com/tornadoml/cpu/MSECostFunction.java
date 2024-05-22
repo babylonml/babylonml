@@ -12,10 +12,10 @@ public final class MSECostFunction implements CostFunction {
     }
 
     @Override
-    public void derivative(float[] output, int inputOffset, float[] target, int targetOffset, float[] result,
+    public void derivative(float[] output, int outputOffset, float[] target, int targetOffset, float[] result,
                            int resultOffset, int length) {
-        for (int i = inputOffset; i < length; i++) {
-            result[i + resultOffset] = 2.0f * (output[i] - target[i + targetOffset]);
+        for (int i = 0; i < length; i++) {
+            result[i + resultOffset] = output[i + outputOffset] - target[i + targetOffset];
         }
     }
 }

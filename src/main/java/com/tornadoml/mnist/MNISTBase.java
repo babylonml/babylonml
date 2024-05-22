@@ -2,8 +2,6 @@ package com.tornadoml.mnist;
 
 import com.tornadoml.cpu.*;
 
-import java.util.Arrays;
-
 import com.tornadoml.cpu.WeightsOptimizer.OptimizerType;
 
 public abstract class MNISTBase {
@@ -34,14 +32,14 @@ public abstract class MNISTBase {
             trainingLabelProbabilities[i][trainingLabels[i]] = 1.0f;
         }
 
-        network.train(() -> Arrays.stream(trainingImages), () -> Arrays.stream(trainingLabelProbabilities),
+        network.train(trainingImages, trainingLabelProbabilities,
                 //frozen
-                inputSize, outputSize, 100, Integer.MAX_VALUE,
+                inputSize, outputSize, trainingImages.length,
 
                 //variable
                 miniBatchSize,
                 maxEpochs,
-                learningRate, 50);
+                learningRate, 50, true);
 
         var testImages = MNISTLoader.loadMNISTTestImages();
         var testLabels = MNISTLoader.loadMNISTTestLabels();

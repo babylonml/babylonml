@@ -433,7 +433,7 @@ class DenseLayerTests {
 
             layer.backwardMiddleLayer(
                 x.toFlatArray(), dLdZ.toFlatArray(),
-                prevZ.toFlatArray(), prevDlDz.toFlatArray().copyInto(costErrors),
+                prevZ.toFlatArray(), costErrors,
                 weightsDelta, biasesDelta, 1
             )
 
@@ -487,7 +487,7 @@ class DenseLayerTests {
 
             layer.backwardMiddleLayer(
                 x.toFlatArray(), dLdZ.toFlatArray(),
-                prevZ.toFlatArray(), prevDlDz.toFlatArray().copyInto(costErrors),
+                prevZ.toFlatArray(), costErrors,
                 weightsDelta, biasesDelta, sampleSize
             )
 

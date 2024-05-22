@@ -154,7 +154,7 @@ public final class DenseLayer implements TrainableLayer {
         calculateWeightsDelta(input, 0, currentLayerErrors, weightsDelta, biasesDelta, batchSize);
 
         //dL/dz[n-1] = w[n]^T * dL/dz[n] * g'(z[n-1])
-        calculatePreviousLayerError(currentLayerErrors, previousLayerErrors, previousLayerActivationArgument,
+        calculatePreviousLayerError(currentLayerErrors, previousLayerActivationArgument, previousLayerErrors,
                 batchSize);
     }
 

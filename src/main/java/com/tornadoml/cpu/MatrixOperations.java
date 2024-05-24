@@ -82,8 +82,8 @@ public final class MatrixOperations {
         }
     }
 
-    public static void copyMatrixByColumns(float[] source, int startColumn, int rows, int columns,
-                                           float[] destination, int destinationColumnsCount) {
+    public static void subMatrix(float[] source, int startColumn, int rows, int columns,
+                                 float[] destination, int destinationColumnsCount) {
 
         for (int i = 0; i < rows; i++) {
             var sourceRowOffset = i * columns + startColumn;

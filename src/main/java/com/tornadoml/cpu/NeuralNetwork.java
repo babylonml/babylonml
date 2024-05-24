@@ -244,6 +244,7 @@ public final class NeuralNetwork {
 
         var propagationFutures = new Future[cores];
         var submittedSizes = new int[cores];
+        var submittedSum = 0;
         var submitedTasks = 0;
 
         for (int inputIndex = 0, miniBatchIndex = 0; miniBatchIndex < miniBatchCount; miniBatchIndex++) {
@@ -256,6 +257,7 @@ public final class NeuralNetwork {
                 inputIndex += submitSize;
                 submittedIndexes += submitSize;
                 submittedSizes[threadIndex] = submitSize;
+                submittedSum += submitSize;
 
                 propagationFutures[submitedTasks] = executor.submit(() ->
                         singleMiniBatchCycle(layers, costFunction, batchInput, batchTarget, activationArguments[threadIndex],
@@ -297,6 +299,7 @@ public final class NeuralNetwork {
                 }
             }
 
+            assert submittedSum > 0;
             for (int n = 0; n < layers.length; n++) {
                 if (layers[n] instanceof TrainableLayer trainableLayer) {
                     //calculate average of the weights and biases deltas
@@ -305,9 +308,9 @@ public final class NeuralNetwork {
 
                     var biasesDeltaLayer = biasesDeltaSum[n];
 
-                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / miniBatchSize,
+                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / submittedSum,
                             biasesDeltaLayer, 0, outputSize);
-                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / miniBatchSize,
+                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / submittedSum,
                             weightsDeltaSum[n], 0, inputSize * outputSize);
 
                     trainableLayer.updateWeightsAndBiases(weightsDeltaSum[n], biasesDeltaSum[n],
@@ -316,6 +319,7 @@ public final class NeuralNetwork {
             }
 
             submitedTasks = 0;
+            submittedSum = 0;
         }
     }
 
@@ -330,9 +334,9 @@ public final class NeuralNetwork {
         var outputSize = layers[layers.length - 1].getOutputSize();
         var lastLayerIndex = layers.length - 1;
 
-        MatrixOperations.copyMatrixByColumns(batchInput, localInputIndex, inputSize, batchSize,
+        MatrixOperations.subMatrix(batchInput, localInputIndex, inputSize, batchSize,
                 input, submitSize);
-        MatrixOperations.copyMatrixByColumns(batchTarget, localInputIndex, outputSize, batchSize,
+        MatrixOperations.subMatrix(batchTarget, localInputIndex, outputSize, batchSize,
                 expected, submitSize);
 
         ((TrainableLayer) layers[0]).forwardTraining(input, 0, activationArguments[0],

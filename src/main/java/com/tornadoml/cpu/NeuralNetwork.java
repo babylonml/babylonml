@@ -13,12 +13,23 @@ public final class NeuralNetwork {
     private final Layer[] layers;
 
     private final CostFunction costFunction;
+    private final int cores;
 
 
     public NeuralNetwork(CostFunction costFunction,
                          Layer... layers) {
+        this(costFunction, -1, layers);
+    }
+
+    public NeuralNetwork(CostFunction costFunction, int cores,
+                         Layer... layers) {
         this.layers = layers;
         this.costFunction = costFunction;
+        if (cores > 0) {
+            this.cores = cores;
+        } else {
+            this.cores = Runtime.getRuntime().availableProcessors();
+        }
     }
 
     public float[] predict(float[] input) {
@@ -47,8 +58,6 @@ public final class NeuralNetwork {
                       int inputSize, int targetSize, int batchSize,
                       int miniBatchSize, int maxEpochs,
                       float learningRate, int patience, boolean shuffle) throws Exception {
-        var cores = Runtime.getRuntime().availableProcessors();
-
         System.out.println("Cores: " + cores);
         var maxOutputSize = 0;
         var maxInputSize = 0;
@@ -88,15 +97,18 @@ public final class NeuralNetwork {
                 var cost = trainingCost(layers, costFunction, maxOutputSize, inputData.length, batchInput,
                         batchTarget, executor, cores);
 
-                if (patience > -1) {
-                    if (bestCost < cost) {
+
+                if (bestCost < cost) {
+                    if (patience > -1) {
                         patienceCounter++;
 
                         if (patienceCounter >= patience) {
                             System.out.println("Reached patience limit. Stopping training.");
                         }
-                    } else {
-                        bestCost = cost;
+                    }
+                } else {
+                    bestCost = cost;
+                    if (patience > -1) {
                         patienceCounter = 0;
 
                         for (Layer layer : layers) {
@@ -106,6 +118,7 @@ public final class NeuralNetwork {
                         }
                     }
                 }
+
 
                 System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
                         " patience counter: " + patienceCounter);
@@ -244,14 +257,15 @@ public final class NeuralNetwork {
 
         var propagationFutures = new Future[cores];
         var submittedSizes = new int[cores];
+        var submittedIndexes = 0;
         var submitedTasks = 0;
 
         for (int inputIndex = 0, miniBatchIndex = 0; miniBatchIndex < miniBatchCount; miniBatchIndex++) {
-            for (int submittedIndexes = 0; submitedTasks < cores && submittedIndexes < miniBatchSize; submitedTasks++) {
+            for (submittedIndexes = 0; submitedTasks < cores && submittedIndexes < miniBatchSize; submitedTasks++) {
                 var threadIndex = submitedTasks;
 
                 var localInputIndex = inputIndex;
-                var submitSize = Math.min(miniBatchSizePerCore, batchSize - inputIndex);
+                var submitSize = Math.min(Math.min(miniBatchSizePerCore, batchSize - inputIndex), miniBatchSize - submittedIndexes);
 
                 inputIndex += submitSize;
                 submittedIndexes += submitSize;
@@ -297,6 +311,7 @@ public final class NeuralNetwork {
                 }
             }
 
+            assert submittedIndexes > 0;
             for (int n = 0; n < layers.length; n++) {
                 if (layers[n] instanceof TrainableLayer trainableLayer) {
                     //calculate average of the weights and biases deltas
@@ -305,9 +320,9 @@ public final class NeuralNetwork {
 
                     var biasesDeltaLayer = biasesDeltaSum[n];
 
-                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / miniBatchSize,
+                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / submittedIndexes,
                             biasesDeltaLayer, 0, outputSize);
-                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / miniBatchSize,
+                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / submittedIndexes,
                             weightsDeltaSum[n], 0, inputSize * outputSize);
 
                     trainableLayer.updateWeightsAndBiases(weightsDeltaSum[n], biasesDeltaSum[n],
@@ -330,9 +345,9 @@ public final class NeuralNetwork {
         var outputSize = layers[layers.length - 1].getOutputSize();
         var lastLayerIndex = layers.length - 1;
 
-        MatrixOperations.copyMatrixByColumns(batchInput, localInputIndex, inputSize, batchSize,
+        MatrixOperations.subMatrix(batchInput, localInputIndex, inputSize, batchSize,
                 input, submitSize);
-        MatrixOperations.copyMatrixByColumns(batchTarget, localInputIndex, outputSize, batchSize,
+        MatrixOperations.subMatrix(batchTarget, localInputIndex, outputSize, batchSize,
                 expected, submitSize);
 
         ((TrainableLayer) layers[0]).forwardTraining(input, 0, activationArguments[0],

@@ -141,7 +141,7 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun copyMatrixByColumns(seed: Long) {
+    fun subMatrixTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
         val matrixRows = source.nextInt(1, 1000)
@@ -153,13 +153,13 @@ class MatrixOperationsTests {
         val startColumn = source.nextInt(matrixColumns - 1)
         val columns = source.nextInt(matrixColumns - startColumn)
 
-        val copy = matrix.copyColumns(startColumn, columns)
+        val copy = matrix.subMatrix(startColumn, columns)
 
         val result = FloatArray(matrixRows * columns) {
             source.nextFloat()
         }
 
-        MatrixOperations.copyMatrixByColumns(
+        MatrixOperations.subMatrix(
             matrix.toFlatArray(), startColumn, matrixRows, matrixColumns,
             result, columns
         )

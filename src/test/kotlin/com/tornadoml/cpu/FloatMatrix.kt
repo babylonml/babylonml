@@ -148,7 +148,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun copyColumns(start: Int, count: Int): FloatMatrix {
+    fun subMatrix(start: Int, count: Int): FloatMatrix {
         val result = FloatMatrix(rows, count)
 
         for (i in 0 until rows) {

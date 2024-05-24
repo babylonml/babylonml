@@ -947,7 +947,7 @@ class NeuralNetworkMSETests {
         secondLayerSeed: Long,
         thirdLayerSeed: Long
     ) {
-        val alpha = 0.001f
+        val alpha = 0.0005f
         val leRUGradient = 0.01f
 
         val source = RandomSource.ISAAC.create(seed)

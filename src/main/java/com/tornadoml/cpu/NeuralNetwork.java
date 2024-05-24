@@ -97,15 +97,18 @@ public final class NeuralNetwork {
                 var cost = trainingCost(layers, costFunction, maxOutputSize, inputData.length, batchInput,
                         batchTarget, executor, cores);
 
-                if (patience > -1) {
-                    if (bestCost < cost) {
+
+                if (bestCost < cost) {
+                    if (patience > -1) {
                         patienceCounter++;
 
                         if (patienceCounter >= patience) {
                             System.out.println("Reached patience limit. Stopping training.");
                         }
-                    } else {
-                        bestCost = cost;
+                    }
+                } else {
+                    bestCost = cost;
+                    if (patience > -1) {
                         patienceCounter = 0;
 
                         for (Layer layer : layers) {
@@ -115,6 +118,7 @@ public final class NeuralNetwork {
                         }
                     }
                 }
+
 
                 System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
                         " patience counter: " + patienceCounter);

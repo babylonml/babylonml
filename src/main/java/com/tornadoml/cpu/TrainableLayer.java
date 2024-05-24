@@ -1,7 +1,7 @@
 package com.tornadoml.cpu;
 
 public interface TrainableLayer extends Layer {
-    void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta, float learningRate, int miniBatchSize);
+    void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta, float learningRate);
 
     void saveBestWeightsAndBiases();
 

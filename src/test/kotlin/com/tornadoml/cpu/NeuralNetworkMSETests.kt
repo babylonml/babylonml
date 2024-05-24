@@ -93,7 +93,7 @@ class NeuralNetworkMSETests {
         val alpha = 0.01f
 
         weights -= weightsDelta * alpha / sampleSize
-        biases -= biasesDelta.reduce() / sampleSize * alpha
+        biases -= biasesDelta.reduce() * alpha / sampleSize
 
         neuralNetwork.train(
             input.transpose().toArray(),

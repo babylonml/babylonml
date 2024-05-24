@@ -148,6 +148,18 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun copyColumns(start: Int, count: Int): FloatMatrix {
+        val result = FloatMatrix(rows, count)
+
+        for (i in 0 until rows) {
+            for (j in 0 until count) {
+                result.data[i][j] = data[i][start + j]
+            }
+        }
+
+        return result
+    }
+
     fun sqrt(): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 

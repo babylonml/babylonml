@@ -7,6 +7,8 @@ import java.nio.ByteBuffer
 import java.security.SecureRandom
 import java.util.stream.Stream
 
+private const val DEFAULT_BATCH_SIZE = 10
+
 class SeedsArgumentsProvider : ArgumentsProvider {
     private val securesRandom = SecureRandom()
 
@@ -14,8 +16,9 @@ class SeedsArgumentsProvider : ArgumentsProvider {
         val methodParametersCount = extensionContext.testMethod.get().parameterCount
 
         val seeds = ArrayList<Arguments>()
-
-        for (k in 0 until 10) {
+        val batchSize =
+            extensionContext.testMethod.get().getAnnotation(SeedBatchSize::class.java)?.value ?: DEFAULT_BATCH_SIZE
+        for (k in 0 until batchSize) {
             val seedArgs = Array(methodParametersCount) {
                 ByteBuffer.wrap(securesRandom.generateSeed(8)).getLong()
             }
@@ -25,3 +28,7 @@ class SeedsArgumentsProvider : ArgumentsProvider {
         return seeds.stream()
     }
 }
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class SeedBatchSize(val value: Int = DEFAULT_BATCH_SIZE)

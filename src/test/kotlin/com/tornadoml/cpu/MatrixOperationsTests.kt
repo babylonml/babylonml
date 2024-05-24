@@ -2,15 +2,10 @@ package com.tornadoml.cpu
 
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
-import java.nio.ByteBuffer
-import java.security.SecureRandom
 
 class MatrixOperationsTests {
-    private val securesRandom = SecureRandom()
-
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixMulTest(seed: Long) {
@@ -142,5 +137,33 @@ class MatrixOperationsTests {
             matrix.copyOfRange(0, vectorLength * columns),
             0.001f
         )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun copyMatrixByColumns(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 1000)
+        val matrixColumns = source.nextInt(2, 1000)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source)
+
+        val startColumn = source.nextInt(matrixColumns - 1)
+        val columns = source.nextInt(matrixColumns - startColumn)
+
+        val copy = matrix.copyColumns(startColumn, columns)
+
+        val result = FloatArray(matrixRows * columns) {
+            source.nextFloat()
+        }
+
+        MatrixOperations.copyMatrixByColumns(
+            matrix.toFlatArray(), startColumn, matrixRows, matrixColumns,
+            result, columns
+        )
+
+        Assertions.assertArrayEquals(copy.toFlatArray(), result, 0.001f)
     }
 }

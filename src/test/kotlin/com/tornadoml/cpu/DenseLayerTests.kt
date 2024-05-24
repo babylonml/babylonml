@@ -1,710 +1,636 @@
 package com.tornadoml.cpu
 
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
 import com.tornadoml.mnist.MNISTLoader
+import org.apache.commons.rng.UniformRandomProvider
 import org.apache.commons.rng.simple.RandomSource
-import java.nio.ByteBuffer
-import java.security.SecureRandom
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ArgumentsSource
 import java.util.*
 import kotlin.math.max
 
 class DenseLayerTests {
-    private val securesRandom = SecureRandom()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun predictSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-    @Test
-    fun predictSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            println("predictTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val input = FloatMatrix(layer.inputSize, 1)
+        input.fillRandom(source)
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
 
-            val input = FloatMatrix(layer.inputSize, 1)
-            input.fillRandom(source)
+        val z = weights * input + biases
+        Assertions.assertEquals(z.rows, layer.outputSize)
+        Assertions.assertEquals(z.cols, 1)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
+        val a = leakyLeRU(z, 0.01f)
 
-            val z = weights * input + biases
-            Assertions.assertEquals(z.rows, layer.outputSize)
-            Assertions.assertEquals(z.cols, 1)
-
-            val a = leakyLeRU(z, 0.01f)
-
-            val result = FloatArray(layer.outputSize) {
-                source.nextFloat()
-            }
-
-            layer.predict(input.toFlatArray(), result, 1)
-
-            Assertions.assertArrayEquals(a.toFlatArray(), result, 0.001f)
+        val result = FloatArray(layer.outputSize) {
+            source.nextFloat()
         }
+
+        layer.predict(input.toFlatArray(), result, 1)
+
+        Assertions.assertArrayEquals(a.toFlatArray(), result, 0.001f)
     }
 
-    @Test
-    fun predictMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun predictMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("predictMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val sampleCount = source.nextInt(2, 10)
+        val input = FloatMatrix(layer.inputSize, sampleCount)
+        input.fillRandom(source)
 
-            val sampleCount = source.nextInt(2, 10)
-            val input = FloatMatrix(layer.inputSize, sampleCount)
-            input.fillRandom(source)
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val z = weights * input + biases.broadcast(sampleCount)
+        Assertions.assertEquals(z.rows, layer.outputSize)
+        Assertions.assertEquals(z.cols, sampleCount)
 
-            val z = weights * input + biases.broadcast(sampleCount)
-            Assertions.assertEquals(z.rows, layer.outputSize)
-            Assertions.assertEquals(z.cols, sampleCount)
+        val a = leakyLeRU(z, 0.01f)
 
-            val a = leakyLeRU(z, 0.01f)
-
-            val result = FloatArray(layer.outputSize * sampleCount) {
-                source.nextFloat()
-            }
-
-            layer.predict(input.toFlatArray(), result, sampleCount)
-
-            Assertions.assertArrayEquals(a.toFlatArray(), result, 0.001f)
+        val result = FloatArray(layer.outputSize * sampleCount) {
+            source.nextFloat()
         }
+
+        layer.predict(input.toFlatArray(), result, sampleCount)
+
+        Assertions.assertArrayEquals(a.toFlatArray(), result, 0.001f)
     }
 
-    @Test
-    fun backwardLastLayerSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardLastLayerSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardLastLayerSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val dEdY = FloatMatrix(layer.outputSize, 1)
+        dEdY.fillRandom(source)
 
-            val dEdY = FloatMatrix(layer.outputSize, 1)
-            dEdY.fillRandom(source)
+        val x = FloatMatrix(layer.inputSize, 1)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, 1)
-            x.fillRandom(source)
+        val z = weights * x + biases.broadcast(1)
+        val dZ = leakyLeRUDerivative(z, 0.01f)
+        val dEdZ = dEdY.hadamardMul(dZ)
 
-            val z = weights * x + biases.broadcast(1)
-            val dZ = leakyLeRUDerivative(z, 0.01f)
-            val dEdZ = dEdY.hadamardMul(dZ)
+        val dEdW = dEdZ * x.transpose()
+        val dEdB = dEdZ
 
-            val dEdW = dEdZ * x.transpose()
-            val dEdB = dEdZ
+        val prevZ = FloatMatrix(layer.inputSize, 1)
+        val prevDeDz = (weights.transpose() * dEdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
 
-            val prevZ = FloatMatrix(layer.inputSize, 1)
-            val prevDeDz = (weights.transpose() * dEdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
-
-            val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val calculatedBiasesDelta = FloatArray(layer.outputSize) {
-                source.nextFloat()
-            }
-
-            val costError = FloatArray(max(layer.outputSize, layer.inputSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardLastLayer(
-                x.toFlatArray(), prevZ.toFlatArray(), z.toFlatArray(),
-                dEdY.toFlatArray().copyInto(costError), costError, calculatedWeightDelta, calculatedBiasesDelta, 1
-            )
-
-            Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
-            Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
-            Assertions.assertArrayEquals(prevDeDz.toFlatArray(), costError.copyOf(layer.inputSize), 0.001f)
+        val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val calculatedBiasesDelta = FloatArray(layer.outputSize) {
+            source.nextFloat()
+        }
+
+        val costError = FloatArray(max(layer.outputSize, layer.inputSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardLastLayer(
+            x.toFlatArray(), prevZ.toFlatArray(), z.toFlatArray(),
+            dEdY.toFlatArray().copyInto(costError), costError, calculatedWeightDelta, calculatedBiasesDelta, 1
+        )
+
+        Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
+        Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
+        Assertions.assertArrayEquals(prevDeDz.toFlatArray(), costError.copyOf(layer.inputSize), 0.001f)
+
     }
 
-    @Test
-    fun backwardLastLayerMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardLastLayerMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardLastLayerMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val sampleSize = source.nextInt(2, 10)
 
-            val sampleSize = source.nextInt(2, 10)
+        val dEdY = FloatMatrix(layer.outputSize, sampleSize)
+        dEdY.fillRandom(source)
 
-            val dEdY = FloatMatrix(layer.outputSize, sampleSize)
-            dEdY.fillRandom(source)
+        val x = FloatMatrix(layer.inputSize, sampleSize)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, sampleSize)
-            x.fillRandom(source)
+        val z = weights * x + biases.broadcast(sampleSize)
+        val dZ = leakyLeRUDerivative(z, 0.01f)
+        val dEdZ = dEdY.hadamardMul(dZ)
 
-            val z = weights * x + biases.broadcast(sampleSize)
-            val dZ = leakyLeRUDerivative(z, 0.01f)
-            val dEdZ = dEdY.hadamardMul(dZ)
+        val dEdW = dEdZ * x.transpose()
+        val dEdB = dEdZ
 
-            val dEdW = dEdZ * x.transpose()
-            val dEdB = dEdZ
+        val prevZ = FloatMatrix(layer.inputSize, sampleSize)
+        val prevDeDz = (weights.transpose() * dEdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
 
-            val prevZ = FloatMatrix(layer.inputSize, sampleSize)
-            val prevDeDz = (weights.transpose() * dEdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
-
-            val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val calculatedBiasesDelta = FloatArray(layer.outputSize * sampleSize) {
-                source.nextFloat()
-            }
-
-            val costError = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardLastLayer(
-                x.toFlatArray(), prevZ.toFlatArray(), z.toFlatArray(),
-                dEdY.toFlatArray().copyInto(costError), costError, calculatedWeightDelta, calculatedBiasesDelta,
-                sampleSize
-            )
-
-            Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
-            Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
-            Assertions.assertArrayEquals(prevDeDz.toFlatArray(), costError.copyOf(layer.inputSize * sampleSize), 0.001f)
+        val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val calculatedBiasesDelta = FloatArray(layer.outputSize * sampleSize) {
+            source.nextFloat()
+        }
+
+        val costError = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardLastLayer(
+            x.toFlatArray(), prevZ.toFlatArray(), z.toFlatArray(),
+            dEdY.toFlatArray().copyInto(costError), costError, calculatedWeightDelta, calculatedBiasesDelta,
+            sampleSize
+        )
+
+        Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
+        Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
+        Assertions.assertArrayEquals(prevDeDz.toFlatArray(), costError.copyOf(layer.inputSize * sampleSize), 0.001f)
     }
 
-    @Test
-    fun forwardTrainingSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun forwardTrainingSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("forwardTrainingSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val input = FloatMatrix(layer.inputSize, 1)
+        input.fillRandom(source)
 
-            val input = FloatMatrix(layer.inputSize, 1)
-            input.fillRandom(source)
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
+        val z = weights * input + biases
+        Assertions.assertEquals(z.rows, layer.outputSize)
+        Assertions.assertEquals(z.cols, 1)
 
-            val z = weights * input + biases
-            Assertions.assertEquals(z.rows, layer.outputSize)
-            Assertions.assertEquals(z.cols, 1)
+        val a = leakyLeRU(z, 0.01f)
 
-            val a = leakyLeRU(z, 0.01f)
+        val activationArgument = FloatArray(layer.outputSize)
+        val prediction = FloatArray(layer.outputSize)
 
-            val activationArgument = FloatArray(layer.outputSize)
-            val prediction = FloatArray(layer.outputSize)
-
-            val inputArray = FloatArray(layer.inputSize + 1) {
-                source.nextFloat()
-            }
-
-            layer.forwardTraining(
-                input.toFlatArray().copyInto(inputArray, 1),
-                1, activationArgument, prediction, 1
-            )
-
-            Assertions.assertArrayEquals(z.toFlatArray(), activationArgument, 0.001f)
-            Assertions.assertArrayEquals(a.toFlatArray(), prediction, 0.001f)
+        val inputArray = FloatArray(layer.inputSize + 1) {
+            source.nextFloat()
         }
+
+        layer.forwardTraining(
+            input.toFlatArray().copyInto(inputArray, 1),
+            1, activationArgument, prediction, 1
+        )
+
+        Assertions.assertArrayEquals(z.toFlatArray(), activationArgument, 0.001f)
+        Assertions.assertArrayEquals(a.toFlatArray(), prediction, 0.001f)
     }
 
-    @Test
-    fun forwardTrainingMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun forwardTrainingMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("forwardTrainingMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val sampleCount = source.nextInt(2, 10)
+        val input = FloatMatrix(layer.inputSize, sampleCount)
+        input.fillRandom(source)
 
-            val sampleCount = source.nextInt(2, 10)
-            val input = FloatMatrix(layer.inputSize, sampleCount)
-            input.fillRandom(source)
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val z = weights * input + biases.broadcast(sampleCount)
+        Assertions.assertEquals(z.rows, layer.outputSize)
+        Assertions.assertEquals(z.cols, sampleCount)
 
-            val z = weights * input + biases.broadcast(sampleCount)
-            Assertions.assertEquals(z.rows, layer.outputSize)
-            Assertions.assertEquals(z.cols, sampleCount)
+        val a = leakyLeRU(z, 0.01f)
 
-            val a = leakyLeRU(z, 0.01f)
+        val activationArgument = FloatArray(layer.outputSize * sampleCount)
+        val prediction = FloatArray(layer.outputSize * sampleCount)
 
-            val activationArgument = FloatArray(layer.outputSize * sampleCount)
-            val prediction = FloatArray(layer.outputSize * sampleCount)
-
-            val inputArray = FloatArray(layer.inputSize * sampleCount + 1) {
-                source.nextFloat()
-            }
-
-            layer.forwardTraining(
-                input.toFlatArray().copyInto(inputArray, 1),
-                1, activationArgument, prediction, sampleCount
-            )
-
-            Assertions.assertArrayEquals(z.toFlatArray(), activationArgument, 0.001f)
-            Assertions.assertArrayEquals(a.toFlatArray(), prediction, 0.001f)
+        val inputArray = FloatArray(layer.inputSize * sampleCount + 1) {
+            source.nextFloat()
         }
+
+        layer.forwardTraining(
+            input.toFlatArray().copyInto(inputArray, 1),
+            1, activationArgument, prediction, sampleCount
+        )
+
+        Assertions.assertArrayEquals(z.toFlatArray(), activationArgument, 0.001f)
+        Assertions.assertArrayEquals(a.toFlatArray(), prediction, 0.001f)
     }
 
-    @Test
-    fun backwardLastLayerNoErrorSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardLastLayerNoErrorSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardLastLayerNoErrorSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val dEdY = FloatMatrix(layer.outputSize, 1)
+        dEdY.fillRandom(source)
 
-            val dEdY = FloatMatrix(layer.outputSize, 1)
-            dEdY.fillRandom(source)
+        val x = FloatMatrix(layer.inputSize, 1)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, 1)
-            x.fillRandom(source)
+        val z = weights * x + biases.broadcast(1)
+        val dZ = leakyLeRUDerivative(z, 0.01f)
+        val dEdZ = dEdY.hadamardMul(dZ)
 
-            val z = weights * x + biases.broadcast(1)
-            val dZ = leakyLeRUDerivative(z, 0.01f)
-            val dEdZ = dEdY.hadamardMul(dZ)
-
-            val dEdW = dEdZ * x.transpose()
-            val dEdB = dEdZ
+        val dEdW = dEdZ * x.transpose()
+        val dEdB = dEdZ
 
 
-            val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val calculatedBiasesDelta = FloatArray(layer.outputSize) {
-                source.nextFloat()
-            }
-
-            val costError = FloatArray(max(layer.outputSize, layer.inputSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardLastLayerNoError(
-                x.toFlatArray(), z.toFlatArray(),
-                dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, 1
-            )
-
-            Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
-            Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
+        val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val calculatedBiasesDelta = FloatArray(layer.outputSize) {
+            source.nextFloat()
+        }
+
+        val costError = FloatArray(max(layer.outputSize, layer.inputSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardLastLayerNoError(
+            x.toFlatArray(), z.toFlatArray(),
+            dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, 1
+        )
+
+        Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
+        Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
     }
 
-    @Test
-    fun backwardLastLayerNoErrorMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardLastLayerNoErrorMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardLastLayerNoErrorMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val sampleSize = source.nextInt(2, 10)
+        val dEdY = FloatMatrix(layer.outputSize, sampleSize)
+        dEdY.fillRandom(source)
 
-            val sampleSize = source.nextInt(2, 10)
-            val dEdY = FloatMatrix(layer.outputSize, sampleSize)
-            dEdY.fillRandom(source)
+        val x = FloatMatrix(layer.inputSize, sampleSize)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, sampleSize)
-            x.fillRandom(source)
+        val z = weights * x + biases.broadcast(sampleSize)
+        val dZ = leakyLeRUDerivative(z, 0.01f)
+        val dEdZ = dEdY.hadamardMul(dZ)
 
-            val z = weights * x + biases.broadcast(sampleSize)
-            val dZ = leakyLeRUDerivative(z, 0.01f)
-            val dEdZ = dEdY.hadamardMul(dZ)
-
-            val dEdW = dEdZ * x.transpose()
-            val dEdB = dEdZ
+        val dEdW = dEdZ * x.transpose()
+        val dEdB = dEdZ
 
 
-            val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val calculatedBiasesDelta = FloatArray(layer.outputSize * sampleSize) {
-                source.nextFloat()
-            }
-
-            val costError = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardLastLayerNoError(
-                x.toFlatArray(), z.toFlatArray(),
-                dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, sampleSize
-            )
-
-            Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
-            Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
+        val calculatedWeightDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val calculatedBiasesDelta = FloatArray(layer.outputSize * sampleSize) {
+            source.nextFloat()
+        }
+
+        val costError = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardLastLayerNoError(
+            x.toFlatArray(), z.toFlatArray(),
+            dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, sampleSize
+        )
+
+        Assertions.assertArrayEquals(dEdW.toFlatArray(), calculatedWeightDelta, 0.001f)
+        Assertions.assertArrayEquals(dEdB.toFlatArray(), calculatedBiasesDelta, 0.001f)
     }
 
-    @Test
-    fun backwardMiddleLayerSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardMiddleLayerSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardMiddleLayerSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val x = FloatMatrix(layer.inputSize, 1)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, 1)
-            x.fillRandom(source)
+        val prevZ = FloatMatrix(layer.inputSize, 1)
+        prevZ.fillRandom(source)
 
-            val prevZ = FloatMatrix(layer.inputSize, 1)
-            prevZ.fillRandom(source)
+        val dLdZ = FloatMatrix(layer.outputSize, 1)
+        dLdZ.fillRandom(source)
 
-            val dLdZ = FloatMatrix(layer.outputSize, 1)
-            dLdZ.fillRandom(source)
+        val dLdW = dLdZ * x.transpose()
+        val dLdB = dLdZ
 
-            val dLdW = dLdZ * x.transpose()
-            val dLdB = dLdZ
+        val prevDlDz = (weights.transpose() * dLdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
 
-            val prevDlDz = (weights.transpose() * dLdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
-
-            val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val biasesDelta = FloatArray(layer.outputSize) {
-                source.nextFloat()
-            }
-
-            val costErrors = FloatArray(max(layer.outputSize, layer.inputSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardMiddleLayer(
-                x.toFlatArray(), dLdZ.toFlatArray(),
-                prevZ.toFlatArray(), costErrors,
-                weightsDelta, biasesDelta, 1
-            )
-
-            Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
-            Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
-            Assertions.assertArrayEquals(prevDlDz.toFlatArray(), costErrors.copyOf(layer.inputSize), 0.001f)
+        val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val biasesDelta = FloatArray(layer.outputSize) {
+            source.nextFloat()
+        }
+
+        val costErrors = FloatArray(max(layer.outputSize, layer.inputSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardMiddleLayer(
+            x.toFlatArray(), dLdZ.toFlatArray(),
+            prevZ.toFlatArray(), costErrors,
+            weightsDelta, biasesDelta, 1
+        )
+
+        Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
+        Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
+        Assertions.assertArrayEquals(prevDlDz.toFlatArray(), costErrors.copyOf(layer.inputSize), 0.001f)
     }
 
-    @Test
-    fun backwardMiddleLayerMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardMiddleLayerMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardMiddleLayerMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val sampleSize = source.nextInt(2, 10)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val sampleSize = source.nextInt(2, 10)
+        val x = FloatMatrix(layer.inputSize, sampleSize)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, sampleSize)
-            x.fillRandom(source)
+        val prevZ = FloatMatrix(layer.inputSize, sampleSize)
+        prevZ.fillRandom(source)
 
-            val prevZ = FloatMatrix(layer.inputSize, sampleSize)
-            prevZ.fillRandom(source)
+        val dLdZ = FloatMatrix(layer.outputSize, sampleSize)
+        dLdZ.fillRandom(source)
 
-            val dLdZ = FloatMatrix(layer.outputSize, sampleSize)
-            dLdZ.fillRandom(source)
+        val dLdW = dLdZ * x.transpose()
+        val dLdB = dLdZ
 
-            val dLdW = dLdZ * x.transpose()
-            val dLdB = dLdZ
+        val prevDlDz = (weights.transpose() * dLdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
 
-            val prevDlDz = (weights.transpose() * dLdZ).hadamardMul(leakyLeRUDerivative(prevZ, 0.01f))
-
-            val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val biasesDelta = FloatArray(layer.outputSize * sampleSize) {
-                source.nextFloat()
-            }
-
-            val costErrors = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
-                source.nextFloat()
-            }
-
-            layer.backwardMiddleLayer(
-                x.toFlatArray(), dLdZ.toFlatArray(),
-                prevZ.toFlatArray(), costErrors,
-                weightsDelta, biasesDelta, sampleSize
-            )
-
-            Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
-            Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
-            Assertions.assertArrayEquals(
-                prevDlDz.toFlatArray(),
-                costErrors.copyOf(layer.inputSize * sampleSize),
-                0.001f
-            )
+        val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val biasesDelta = FloatArray(layer.outputSize * sampleSize) {
+            source.nextFloat()
+        }
+
+        val costErrors = FloatArray(max(layer.outputSize * sampleSize, layer.inputSize * sampleSize)) {
+            source.nextFloat()
+        }
+
+        layer.backwardMiddleLayer(
+            x.toFlatArray(), dLdZ.toFlatArray(),
+            prevZ.toFlatArray(), costErrors,
+            weightsDelta, biasesDelta, sampleSize
+        )
+
+        Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
+        Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
+        Assertions.assertArrayEquals(
+            prevDlDz.toFlatArray(),
+            costErrors.copyOf(layer.inputSize * sampleSize),
+            0.001f
+        )
     }
 
-    @Test
-    fun backwardZeroLayerSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardZeroLayerSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardZeroLayerSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val x = FloatMatrix(layer.inputSize, 1)
+        x.fillRandom(source)
 
-            val x = FloatMatrix(layer.inputSize, 1)
-            x.fillRandom(source)
+        val dLdZ = FloatMatrix(layer.outputSize, 1)
+        dLdZ.fillRandom(source)
 
-            val dLdZ = FloatMatrix(layer.outputSize, 1)
-            dLdZ.fillRandom(source)
+        val dLdW = dLdZ * x.transpose()
+        val dLdB = dLdZ
 
-            val dLdW = dLdZ * x.transpose()
-            val dLdB = dLdZ
-
-            val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val biasesDelta = FloatArray(layer.outputSize) {
-                source.nextFloat()
-            }
-
-            val inputArray = FloatArray(layer.inputSize + 2) {
-                source.nextFloat()
-            }
-
-            layer.backwardZeroLayer(
-                x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
-                weightsDelta, biasesDelta, 1
-            )
-
-            Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
-            Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
+        val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val biasesDelta = FloatArray(layer.outputSize) {
+            source.nextFloat()
+        }
+
+        val inputArray = FloatArray(layer.inputSize + 2) {
+            source.nextFloat()
+        }
+
+        layer.backwardZeroLayer(
+            x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
+            weightsDelta, biasesDelta, 1
+        )
+
+        Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
+        Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
     }
 
-    @Test
-    fun backwardZeroLayerMultiSampleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun backwardZeroLayerMultiSampleSampleTest(seed: Long) {
 
-            println("backwardZeroLayerMultiSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val source = RandomSource.ISAAC.create(seed)
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
-            val sampleSize = source.nextInt(2, 10)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
+        val sampleSize = source.nextInt(2, 10)
 
-            val x = FloatMatrix(layer.inputSize, sampleSize)
-            x.fillRandom(source)
+        val x = FloatMatrix(layer.inputSize, sampleSize)
+        x.fillRandom(source)
 
-            val dLdZ = FloatMatrix(layer.outputSize, sampleSize)
-            dLdZ.fillRandom(source)
+        val dLdZ = FloatMatrix(layer.outputSize, sampleSize)
+        dLdZ.fillRandom(source)
 
-            val dLdW = dLdZ * x.transpose()
-            val dLdB = dLdZ
+        val dLdW = dLdZ * x.transpose()
+        val dLdB = dLdZ
 
-            val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
-                source.nextFloat()
-            }
-            val biasesDelta = FloatArray(layer.outputSize * sampleSize) {
-                source.nextFloat()
-            }
-
-            val inputArray = FloatArray(layer.inputSize * sampleSize + 2) {
-                source.nextFloat()
-            }
-
-            layer.backwardZeroLayer(
-                x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
-                weightsDelta, biasesDelta, sampleSize
-            )
-
-            Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
-            Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
+        val weightsDelta = FloatArray(layer.inputSize * layer.outputSize) {
+            source.nextFloat()
         }
+        val biasesDelta = FloatArray(layer.outputSize * sampleSize) {
+            source.nextFloat()
+        }
+
+        val inputArray = FloatArray(layer.inputSize * sampleSize + 2) {
+            source.nextFloat()
+        }
+
+        layer.backwardZeroLayer(
+            x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
+            weightsDelta, biasesDelta, sampleSize
+        )
+
+        Assertions.assertArrayEquals(dLdW.toFlatArray(), weightsDelta, 0.001f)
+        Assertions.assertArrayEquals(dLdB.toFlatArray(), biasesDelta, 0.001f)
     }
 
-    @Test
-    fun updateWeightsAndBiasesSingleSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun updateWeightsAndBiasesSingleSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardZeroLayerSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val biasesDelta = FloatMatrix(layer.outputSize, 1)
+        biasesDelta.fillRandom(source)
 
-            val biasesDelta = FloatMatrix(layer.outputSize, 1)
-            biasesDelta.fillRandom(source)
+        val weightsDelta = FloatMatrix(layer.outputSize, layer.inputSize)
+        weightsDelta.fillRandom(source)
 
-            val weightsDelta = FloatMatrix(layer.outputSize, layer.inputSize)
-            weightsDelta.fillRandom(source)
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatMatrix(layer.outputSize, 1, layer.biases)
+        val learningRate = source.nextFloat()
 
-            val learningRate = source.nextFloat()
+        val updatedWeights = weights - weightsDelta * learningRate
+        val updatedBiases = biases - biasesDelta * learningRate
 
-            val updatedWeights = weights - weightsDelta * learningRate
-            val updatedBiases = biases - biasesDelta * learningRate
+        layer.updateWeightsAndBiases(
+            weightsDelta.toFlatArray(), biasesDelta.toFlatArray(),
+            learningRate
+        )
 
-            layer.updateWeightsAndBiases(
-                weightsDelta.toFlatArray(), biasesDelta.toFlatArray(),
-                learningRate, 1
-            )
-
-            Assertions.assertArrayEquals(updatedWeights.toFlatArray(), layer.weights, 0.001f)
-            Assertions.assertArrayEquals(updatedBiases.toFlatArray(), layer.biases, 0.001f)
-        }
+        Assertions.assertArrayEquals(updatedWeights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(updatedBiases.toFlatArray(), layer.biases, 0.001f)
     }
 
-    @Test
-    fun updateWeightsAndBiasesMultiSampleTest() {
-        for (n in 0..9) {
-            val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
-            val seed = bBuffer.getLong()
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun updateWeightsAndBiasesMultiSampleTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
 
-            println("backwardZeroLayerSingleSampleTest seed: $seed")
-            val source = RandomSource.ISAAC.create(seed)
+        val layer = DenseLayer(
+            source.nextInt(1, 100), source.nextInt(1, 100),
+            LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
+        )
 
-            val layer = DenseLayer(
-                source.nextInt(1, 100), source.nextInt(1, 100),
-                LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE
-            )
+        val biasesDelta = FloatVector(layer.outputSize)
+        biasesDelta.fillRandom(source)
 
-            val sampleSize = source.nextInt(2, 10)
-            val biasesDelta = FloatMatrix(layer.outputSize, sampleSize)
-            biasesDelta.fillRandom(source)
+        val weightsDelta = FloatMatrix(layer.outputSize, layer.inputSize)
+        weightsDelta.fillRandom(source)
 
-            val weightsDelta = FloatMatrix(layer.outputSize, layer.inputSize)
-            weightsDelta.fillRandom(source)
+        val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
 
-            val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
-            val biases = FloatVector(layer.biases)
+        val learningRate = source.nextFloat()
 
-            val learningRate = source.nextFloat()
+        val updatedWeights = weights - weightsDelta * learningRate
+        val updatedBiases = biases - biasesDelta * learningRate
 
-            val updatedWeights = weights - weightsDelta * (learningRate / sampleSize)
-            val updatedBiases = biases - (biasesDelta * (learningRate / sampleSize)).reduce()
+        layer.updateWeightsAndBiases(
+            weightsDelta.toFlatArray(), biasesDelta.toArray(),
+            learningRate
+        )
 
-            layer.updateWeightsAndBiases(
-                weightsDelta.toFlatArray(), biasesDelta.toFlatArray(),
-                learningRate, sampleSize
-            )
-
-            Assertions.assertArrayEquals(updatedWeights.toFlatArray(), layer.weights, 0.001f)
-            Assertions.assertArrayEquals(updatedBiases.toArray(), layer.biases, 0.001f)
-        }
+        Assertions.assertArrayEquals(updatedWeights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(updatedBiases.toArray(), layer.biases, 0.001f)
     }
 
 
-    @Test
-    fun test10NeuronsSingleLayerRandomData() {
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun test10NeuronsSingleLayerRandomData(seed: Long) {
         val inputSize = 500
         val outputSize = 10
         val sampleSize = 100
 
-        val seed = System.nanoTime()
-        println("test10NeuronsSingleLayerRandomData seed: $seed")
-
-        val random = Random(seed)
+        val source = RandomSource.ISAAC.create(seed)
 
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
 
         for (i in 0 until sampleSize) {
             for (j in 0 until inputSize) {
-                input[i * inputSize + j] = random.nextFloat()
+                input[i * inputSize + j] = source.nextFloat()
             }
 
-            target[i * outputSize + random.nextInt(outputSize)] = 1.0f
+            target[i * outputSize + source.nextInt(outputSize)] = 1.0f
         }
 
-        singleLayerTest(inputSize, outputSize, sampleSize, input, target, random)
+        singleLayerTest(inputSize, outputSize, sampleSize, input, target, source)
     }
 
-    @Test
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
     @Throws(Exception::class)
-    fun test10NeuronsSingleLayerMNISTData() {
+    fun test10NeuronsSingleLayerMNISTData(seed: Long) {
         val inputSize = 784
         val outputSize = 10
         val sampleSize = 100
 
-        val seed = System.nanoTime()
-        println("test10NeuronsSingleLayerMNISTData seed: $seed")
-
-        val random = Random(seed)
-
+        val source = RandomSource.ISAAC.create(seed)
 
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
@@ -717,49 +643,46 @@ class DenseLayerTests {
             target[i * outputSize + mnistLabels[i]] = 1.0f
         }
 
-        singleLayerTest(inputSize, outputSize, sampleSize, input, target, random)
+        singleLayerTest(inputSize, outputSize, sampleSize, input, target, source)
     }
 
-    @Test
-    fun test60on10NeuronsTwoLayerRandomData() {
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun test60on10NeuronsTwoLayerRandomData(seed: Long) {
         val inputSize = 500
         val outputSize = 10
         val sampleSize = 100
         val hiddenLayerSize = 60
 
-        val seed = System.nanoTime()
-        println("test60on10NeuronsTwoLayerRandomData seed: $seed")
-
-        val random = Random(seed)
+        val source = RandomSource.ISAAC.create(seed)
 
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
 
         for (i in 0 until sampleSize) {
             for (j in 0 until inputSize) {
-                input[i * inputSize + j] = random.nextFloat()
+                input[i * inputSize + j] = source.nextFloat()
             }
 
-            target[i * outputSize + random.nextInt(outputSize)] = 1.0f
+            target[i * outputSize + source.nextInt(outputSize)] = 1.0f
         }
 
-        twoLayersTest(inputSize, hiddenLayerSize, outputSize, sampleSize, input, target, random)
+        twoLayersTest(inputSize, hiddenLayerSize, outputSize, sampleSize, input, target, source)
     }
 
-    @Test
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
     @Throws(Exception::class)
-    fun test60on10NeuronsTwoLayerMNISTData() {
+    fun test60on10NeuronsTwoLayerMNISTData(seed: Long) {
         val inputSize = 784
         val outputSize = 10
         val sampleSize = 100
 
         val hiddenLayerSize = 60
 
-        val seed = System.nanoTime()
-        println("test60on10NeuronsTwoLayerMNISTData seed: $seed")
-
-        val random = Random(seed)
-
+        val random = RandomSource.ISAAC.create(seed)
 
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
@@ -775,8 +698,10 @@ class DenseLayerTests {
         twoLayersTest(inputSize, hiddenLayerSize, outputSize, sampleSize, input, target, random)
     }
 
-    @Test
-    fun test60on30on10NeuronsThreeLayerRandomData() {
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun test60on30on10NeuronsThreeLayerRandomData(seed: Long) {
         val inputSize = 500
         val outputSize = 10
         val sampleSize = 100
@@ -784,11 +709,7 @@ class DenseLayerTests {
         val firstHiddenLayerSize = 60
         val secondHiddenLayerSize = 30
 
-        val seed = System.nanoTime()
-        println("test60on30on10NeuronsThreeLayerRandomData seed: $seed")
-
-        val random = Random(seed)
-
+        val random = RandomSource.ISAAC.create(seed)
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
 
@@ -806,9 +727,11 @@ class DenseLayerTests {
         )
     }
 
-    @Test
+    @SeedBatchSize(1)
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
     @Throws(Exception::class)
-    fun test60on30on10NeuronsThreeLayerMNISTData() {
+    fun test60on30on10NeuronsThreeLayerMNISTData(seed: Long) {
         val inputSize = 784
         val outputSize = 10
         val sampleSize = 100
@@ -816,11 +739,7 @@ class DenseLayerTests {
         val firstHiddenLayerSize = 60
         val secondHiddenLayerSize = 30
 
-        val seed = System.nanoTime()
-        println("test60on30on10NeuronsThreeLayerMNISTData seed: $seed")
-
-        val random = Random(seed)
-
+        val random = RandomSource.ISAAC.create(seed)
 
         val input = FloatArray(sampleSize * inputSize)
         val target = FloatArray(sampleSize * outputSize)
@@ -842,7 +761,7 @@ class DenseLayerTests {
     @Suppress("SameParameterValue")
     private fun singleLayerTest(
         inputSize: Int, outputSize: Int, sampleSize: Int, input: FloatArray,
-        target: FloatArray, random: Random
+        target: FloatArray, random: UniformRandomProvider
     ) {
         val alpha = 0.01f
         val layer = DenseLayer(
@@ -876,7 +795,9 @@ class DenseLayerTests {
                 sampleSize
             )
 
-            layer.updateWeightsAndBiases(weightsDelta, biasesDelta, alpha, sampleSize)
+            normalizeDelta(weightsDelta, sampleSize, biasesDelta, outputSize)
+
+            layer.updateWeightsAndBiases(weightsDelta, biasesDelta, alpha)
 
             layer.forwardTraining(input, 0, activations, predictions, sampleSize)
             val newCost = costFunction.value(
@@ -892,10 +813,27 @@ class DenseLayerTests {
         println("Cost: $cost")
     }
 
+    private fun normalizeDelta(
+        weightsDelta: FloatArray,
+        sampleSize: Int,
+        biasesDelta: FloatArray,
+        outputSize: Int
+    ) {
+        VectorOperations.multiplyVectorToScalar(
+            weightsDelta, 0, 1.0f / sampleSize.toFloat(),
+            weightsDelta, 0, weightsDelta.size
+        )
+        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, sampleSize, biasesDelta)
+        VectorOperations.multiplyVectorToScalar(
+            biasesDelta, 0, 1.0f / sampleSize.toFloat(),
+            biasesDelta, 0, biasesDelta.size
+        )
+    }
+
     @Suppress("SameParameterValue")
     private fun twoLayersTest(
         inputSize: Int, layerSize: Int, outputSize: Int, sampleSize: Int,
-        input: FloatArray, target: FloatArray, random: Random
+        input: FloatArray, target: FloatArray, random: UniformRandomProvider
     ) {
         val alpha = 0.01f
         val firstLayer = DenseLayer(
@@ -953,13 +891,16 @@ class DenseLayerTests {
                 costs, weightsDelta[0], biasesDelta[0], sampleSize
             )
 
+            normalizeDelta(weightsDelta[0], sampleSize, biasesDelta[0], layerSize)
+            normalizeDelta(weightsDelta[1], sampleSize, biasesDelta[1], outputSize)
+
             firstLayer.updateWeightsAndBiases(
                 weightsDelta[0], biasesDelta[0],
-                alpha, sampleSize
+                alpha
             )
             secondLayer.updateWeightsAndBiases(
                 weightsDelta[1], biasesDelta[1],
-                alpha, sampleSize
+                alpha
             )
 
             firstLayer.forwardTraining(input, 0, activations[0], predictions[0], sampleSize)
@@ -983,7 +924,7 @@ class DenseLayerTests {
     @Suppress("SameParameterValue")
     private fun nLayersTest(
         inputSize: Int, layersSize: IntArray, outputSize: Int, sampleSize: Int,
-        input: FloatArray, target: FloatArray, random: Random
+        input: FloatArray, target: FloatArray, random: UniformRandomProvider
     ) {
         val alpha = 0.0001f
         val layers = arrayOfNulls<DenseLayer>(layersSize.size + 1)
@@ -1074,9 +1015,10 @@ class DenseLayerTests {
             )
 
             for (n in layers.indices) {
+                normalizeDelta(weightsDelta[n], sampleSize, biasesDelta[n], layers[n]!!.outputSize)
                 layers[n]!!.updateWeightsAndBiases(
                     weightsDelta[n], biasesDelta[n],
-                    alpha, sampleSize
+                    alpha
                 )
             }
 

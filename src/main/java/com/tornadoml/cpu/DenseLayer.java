@@ -224,17 +224,8 @@ public final class DenseLayer implements TrainableLayer {
     }
 
     @Override
-    public void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta,
-                                       float learningRate, int batchSize) {
-        var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
-        //calculate average of the weights and biases deltas
-        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, batchSize, outputBatchSizeBuffer);
-        VectorOperations.multiplyVectorToScalar(outputBatchSizeBuffer, 0, 1.0f / batchSize,
-                outputBatchSizeBuffer, 0, outputSize);
-        VectorOperations.multiplyVectorToScalar(weightsDelta, 0, 1.0f / batchSize,
-                weightsDelta, 0, inputSize * outputSize);
-
-        optimizer.optimize(weights, weightsDelta, inputSize * outputSize, biases, outputBatchSizeBuffer,
+    public void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta, float learningRate) {
+        optimizer.optimize(weights, weightsDelta, inputSize * outputSize, biases, biasesDelta,
                 outputSize, learningRate);
     }
 

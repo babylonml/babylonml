@@ -1,9 +1,13 @@
+@file:Suppress("UnnecessaryVariable")
+
 package com.tornadoml.cpu
 
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
+import java.util.concurrent.Executors
+import kotlin.math.max
 import kotlin.math.min
 
 class NeuralNetworkMSETests {
@@ -243,6 +247,44 @@ class NeuralNetworkMSETests {
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
         Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.0001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun singleLayerTrainingCost(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+        val sampleSize = source.nextInt(1, 50)
+
+        val input = FloatMatrix(inputSize, sampleSize)
+        input.fillRandom(source)
+
+        val expected = FloatMatrix(outputSize, sampleSize)
+        expected.fillRandom(source)
+
+        val layer =
+            DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
+
+
+        val weights = FloatMatrix(outputSize, inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
+
+        val z = weights * input + biases.broadcast(sampleSize)
+        val prediction = leakyLeRU(z, 0.01f)
+
+        val expectedCost = mseCostFunction(prediction, expected)
+
+        val cores = source.nextInt(1, 10)
+        val cost = Executors.newFixedThreadPool(cores).use { executor ->
+            NeuralNetwork.trainingCost(
+                arrayOf(layer), MSECostFunction(), outputSize, sampleSize, input.toFlatArray(), expected.toFlatArray(),
+                executor, cores
+            )
+        }
+
+        Assertions.assertEquals(expectedCost, cost, 0.0001f)
     }
 
     @ParameterizedTest
@@ -577,6 +619,60 @@ class NeuralNetworkMSETests {
 
         Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
         Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun twoLayersTrainingCostTest(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val leakyLeRUGradient = 0.01f
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+        val samplesCount = source.nextInt(1, 50)
+
+        val secondLayerSize = source.nextInt(10, 100)
+
+        val input = FloatMatrix(inputSize, samplesCount)
+        input.fillRandom(source)
+
+        val expected = FloatMatrix(outputSize, samplesCount)
+        expected.fillRandom(source)
+
+        val firstLayer =
+            DenseLayer(inputSize, secondLayerSize, LeakyLeRU(firstLayerSeed), WeightsOptimizer.OptimizerType.SIMPLE)
+        val secondLayer =
+            DenseLayer(
+                secondLayerSize,
+                outputSize,
+                LeakyLeRU(secondLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+
+        val firstLayerWeights = FloatMatrix(secondLayerSize, inputSize, firstLayer.weights)
+        val firstLayerBiases = FloatVector(firstLayer.biases)
+
+        val secondLayerWeights = FloatMatrix(outputSize, secondLayerSize, secondLayer.weights)
+        val secondLayerBiases = FloatVector(secondLayer.biases)
+
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(samplesCount)
+        val firstPrediction = leakyLeRU(firstZ, leakyLeRUGradient)
+
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(samplesCount)
+        val secondPrediction = leakyLeRU(secondZ, leakyLeRUGradient)
+
+        val expectedCost = mseCostFunction(secondPrediction, expected)
+
+        val cores = source.nextInt(1, 10)
+        val cost = Executors.newFixedThreadPool(cores).use { executor ->
+            NeuralNetwork.trainingCost(
+                arrayOf(firstLayer, secondLayer), MSECostFunction(),
+                max(outputSize, secondLayerSize), samplesCount, input.toFlatArray(),
+                expected.toFlatArray(), executor, cores
+            )
+        }
+
+        Assertions.assertEquals(expectedCost, cost, 0.0001f)
     }
 
     @ParameterizedTest
@@ -1067,4 +1163,77 @@ class NeuralNetworkMSETests {
         Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
         Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.0001f)
     }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun threeLayersConstFunctionTest(
+        seed: Long,
+        firstLayerSeed: Long,
+        secondLayerSeed: Long,
+        thirdLayerSeed: Long
+    ) {
+        val leRUGradient = 0.01f
+        val source = RandomSource.ISAAC.create(seed)
+
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+
+        val secondLayerSize = source.nextInt(10, 100)
+        val thirdLayerSize = source.nextInt(10, 100)
+
+        val sampleCount = source.nextInt(2, 50)
+
+        val input = FloatMatrix(inputSize, sampleCount)
+        input.fillRandom(source)
+
+        val expected = FloatMatrix(outputSize, sampleCount)
+        expected.fillRandom(source)
+
+        val firstLayer =
+            DenseLayer(inputSize, secondLayerSize, LeakyLeRU(firstLayerSeed), WeightsOptimizer.OptimizerType.SIMPLE)
+        val secondLayer =
+            DenseLayer(
+                secondLayerSize,
+                thirdLayerSize,
+                LeakyLeRU(secondLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+        val thirdLayer =
+            DenseLayer(
+                thirdLayerSize,
+                outputSize,
+                LeakyLeRU(thirdLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+        val firstLayerWeights = FloatMatrix(secondLayerSize, inputSize, firstLayer.weights)
+        val firstLayerBiases = FloatVector(firstLayer.biases)
+
+        val secondLayerWeights = FloatMatrix(thirdLayerSize, secondLayerSize, secondLayer.weights)
+        val secondLayerBiases = FloatVector(secondLayer.biases)
+
+        val thirdLayerWeights = FloatMatrix(outputSize, thirdLayerSize, thirdLayer.weights)
+        val thirdLayerBiases = FloatVector(thirdLayer.biases)
+
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(sampleCount)
+        val firstPrediction = leakyLeRU(firstZ, leRUGradient)
+
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(sampleCount)
+        val secondPrediction = leakyLeRU(secondZ, leRUGradient)
+
+        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(sampleCount)
+        val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
+
+        val expectedCost = mseCostFunction(thirdPrediction, expected)
+        val cores = source.nextInt(1, 10)
+        val cost = Executors.newFixedThreadPool(cores).use { executor ->
+            NeuralNetwork.trainingCost(
+                arrayOf(firstLayer, secondLayer, thirdLayer), MSECostFunction(),
+                max(max(outputSize, secondLayerSize), thirdLayerSize), sampleCount, input.toFlatArray(),
+                expected.toFlatArray(), executor, cores
+            )
+        }
+
+        Assertions.assertEquals(expectedCost, cost, 0.0001f)
+    }
+
 }

@@ -21,10 +21,11 @@ class NeuralNetworkMSETests {
         val expected = FloatMatrix(outputSize, 1)
         expected.fillRandom(source)
 
+        val cores = source.nextInt(1, 10)
         val layer =
             DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             layer
         )
 
@@ -63,6 +64,7 @@ class NeuralNetworkMSETests {
 
         val inputSize = source.nextInt(sampleSize, 100)
         val outputSize = source.nextInt(sampleSize, 100)
+        val cores = source.nextInt(1, 10)
 
         val input = FloatMatrix(inputSize, sampleSize)
         input.fillRandom(source)
@@ -74,6 +76,7 @@ class NeuralNetworkMSETests {
             DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
         val neuralNetwork = NeuralNetwork(
             MSECostFunction(),
+            cores,
             layer
         )
 
@@ -130,10 +133,11 @@ class NeuralNetworkMSETests {
         val expected = FloatMatrix(outputSize, sampleSize)
         expected.fillRandom(source)
 
+        val cores = source.nextInt(1, 10)
         val layer =
             DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             layer
         )
 
@@ -192,17 +196,18 @@ class NeuralNetworkMSETests {
         val expected = FloatMatrix(outputSize, sampleSize)
         expected.fillRandom(source)
 
+        val cores = source.nextInt(1, 10)
         val layer =
             DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             layer
         )
 
         var weights = FloatMatrix(outputSize, inputSize, layer.weights)
         var biases = FloatVector(layer.biases)
 
-        val alpha = 0.01f
+        val alpha = 0.001f
         val leakyLeRUGradient = 0.01f
 
         for (epoch in 0 until epochs) {
@@ -267,8 +272,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer
         )
 
@@ -347,8 +353,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer
         )
 
@@ -426,8 +433,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer
         )
 
@@ -509,8 +517,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer
         )
 
@@ -612,8 +621,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer, thirdLayer
         )
 
@@ -731,8 +741,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer, thirdLayer
         )
 
@@ -850,8 +861,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer, thirdLayer
         )
 
@@ -973,8 +985,9 @@ class NeuralNetworkMSETests {
                 WeightsOptimizer.OptimizerType.SIMPLE
             )
 
+        val cores = source.nextInt(1, 10)
         val neuralNetwork = NeuralNetwork(
-            MSECostFunction(),
+            MSECostFunction(), cores,
             firstLayer, secondLayer, thirdLayer
         )
 
@@ -1001,7 +1014,8 @@ class NeuralNetworkMSETests {
                 val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(miniSampleSize)
                 val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
-                val thirdLayerCostError = mseCostFunctionDerivative(thirdPrediction, expected.subMatrix(i, miniSampleSize))
+                val thirdLayerCostError =
+                    mseCostFunctionDerivative(thirdPrediction, expected.subMatrix(i, miniSampleSize))
                 val thirdLayerError = thirdLayerCostError.hadamardMul(leakyLeRUDerivative(thirdZ, leRUGradient))
 
                 val secondLayerError = (thirdLayerWeights.transpose() * thirdLayerError).hadamardMul(

@@ -13,12 +13,23 @@ public final class NeuralNetwork {
     private final Layer[] layers;
 
     private final CostFunction costFunction;
+    private final int cores;
 
 
     public NeuralNetwork(CostFunction costFunction,
                          Layer... layers) {
+        this(costFunction, -1, layers);
+    }
+
+    public NeuralNetwork(CostFunction costFunction, int cores,
+                         Layer... layers) {
         this.layers = layers;
         this.costFunction = costFunction;
+        if (cores > 0) {
+            this.cores = cores;
+        } else {
+            this.cores = Runtime.getRuntime().availableProcessors();
+        }
     }
 
     public float[] predict(float[] input) {
@@ -47,8 +58,6 @@ public final class NeuralNetwork {
                       int inputSize, int targetSize, int batchSize,
                       int miniBatchSize, int maxEpochs,
                       float learningRate, int patience, boolean shuffle) throws Exception {
-        var cores = Runtime.getRuntime().availableProcessors();
-
         System.out.println("Cores: " + cores);
         var maxOutputSize = 0;
         var maxInputSize = 0;
@@ -244,20 +253,19 @@ public final class NeuralNetwork {
 
         var propagationFutures = new Future[cores];
         var submittedSizes = new int[cores];
-        var submittedSum = 0;
+        var submittedIndexes = 0;
         var submitedTasks = 0;
 
         for (int inputIndex = 0, miniBatchIndex = 0; miniBatchIndex < miniBatchCount; miniBatchIndex++) {
-            for (int submittedIndexes = 0; submitedTasks < cores && submittedIndexes < miniBatchSize; submitedTasks++) {
+            for (submittedIndexes = 0; submitedTasks < cores && submittedIndexes < miniBatchSize; submitedTasks++) {
                 var threadIndex = submitedTasks;
 
                 var localInputIndex = inputIndex;
-                var submitSize = Math.min(miniBatchSizePerCore, batchSize - inputIndex);
+                var submitSize = Math.min(Math.min(miniBatchSizePerCore, batchSize - inputIndex), miniBatchSize - submittedIndexes);
 
                 inputIndex += submitSize;
                 submittedIndexes += submitSize;
                 submittedSizes[threadIndex] = submitSize;
-                submittedSum += submitSize;
 
                 propagationFutures[submitedTasks] = executor.submit(() ->
                         singleMiniBatchCycle(layers, costFunction, batchInput, batchTarget, activationArguments[threadIndex],
@@ -299,7 +307,7 @@ public final class NeuralNetwork {
                 }
             }
 
-            assert submittedSum > 0;
+            assert submittedIndexes > 0;
             for (int n = 0; n < layers.length; n++) {
                 if (layers[n] instanceof TrainableLayer trainableLayer) {
                     //calculate average of the weights and biases deltas
@@ -308,9 +316,9 @@ public final class NeuralNetwork {
 
                     var biasesDeltaLayer = biasesDeltaSum[n];
 
-                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / submittedSum,
+                    VectorOperations.multiplyVectorToScalar(biasesDeltaLayer, 0, 1.0f / submittedIndexes,
                             biasesDeltaLayer, 0, outputSize);
-                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / submittedSum,
+                    VectorOperations.multiplyVectorToScalar(weightsDeltaSum[n], 0, 1.0f / submittedIndexes,
                             weightsDeltaSum[n], 0, inputSize * outputSize);
 
                     trainableLayer.updateWeightsAndBiases(weightsDeltaSum[n], biasesDeltaSum[n],
@@ -319,7 +327,6 @@ public final class NeuralNetwork {
             }
 
             submitedTasks = 0;
-            submittedSum = 0;
         }
     }
 

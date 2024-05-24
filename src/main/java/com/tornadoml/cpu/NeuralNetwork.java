@@ -154,9 +154,9 @@ public final class NeuralNetwork {
         return accuracy / input.length;
     }
 
-    private static float trainingCost(Layer[] layers, CostFunction costFunction,
-                                      int maxOutputSize, int batchSize, float[] batchInput, float[] batchTarget,
-                                      ExecutorService executor, int cores) {
+    static float trainingCost(Layer[] layers, CostFunction costFunction,
+                              int maxOutputSize, int batchSize, float[] batchInput, float[] batchTarget,
+                              ExecutorService executor, int cores) {
         var futures = new Future[cores];
         var submitted = 0;
 
@@ -169,8 +169,15 @@ public final class NeuralNetwork {
             futures[t] = executor.submit(() -> {
                 var activationArguments = new float[maxOutputSize * submitSize];
                 var predictions = new float[maxOutputSize * submitSize];
+                var input = new float[layers[0].getInputSize() * submitSize];
+                var target = new float[maxOutputSize * submitSize];
 
-                ((TrainableLayer) layers[0]).forwardTraining(batchInput, start, activationArguments,
+                MatrixOperations.subMatrix(batchInput, start, layers[0].getInputSize(), batchSize,
+                        input, submitSize);
+                MatrixOperations.subMatrix(batchTarget, start, layers[layers.length - 1].getOutputSize(), batchSize,
+                        target, submitSize);
+
+                ((TrainableLayer) layers[0]).forwardTraining(input, 0, activationArguments,
                         predictions, submitSize);
                 for (int i = 1; i < layers.length; i++) {
                     var layer = layers[i];
@@ -183,7 +190,7 @@ public final class NeuralNetwork {
                 }
 
                 var outputSize = layers[layers.length - 1].getOutputSize();
-                return costFunction.value(predictions, 0, batchTarget, start,
+                return costFunction.value(predictions, 0, target, 0,
                         outputSize * submitSize, batchSize);
             });
 

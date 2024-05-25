@@ -136,6 +136,18 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    operator fun div(matrix: FloatMatrix): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[i][j] / matrix.data[i][j]
+            }
+        }
+
+        return result
+    }
+
     operator fun div(int: Int): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 
@@ -184,6 +196,24 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         }
 
         return result
+    }
+
+    fun exp(): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = kotlin.math.exp(data[i][j])
+            }
+        }
+
+        return result
+    }
+
+    fun softMax() : FloatMatrix {
+        val exp = exp()
+        val sum = exp.transpose().reduce().broadcastRows(rows)
+        return exp / sum
     }
 
 

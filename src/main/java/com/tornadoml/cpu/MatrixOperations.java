@@ -99,4 +99,45 @@ public final class MatrixOperations {
             vector[i] = VectorOperations.sumVectorElements(matrix, rowOffset, columns);
         }
     }
+
+    public static void softMaxByColumns(float[] matrix, int rows, int columns, float[] result) {
+        assert matrix != result;
+        assert matrix.length >= result.length;
+        assert matrix.length >= rows * columns;
+        assert result.length >= rows * columns;
+
+        var speciesLength = SPECIES.length();
+
+        VectorOperations.vectorElementsExp(matrix, result, rows * columns);
+
+        var loopBound = SPECIES.loopBound(columns);
+        for (int j = 0; j < loopBound; j += speciesLength) {
+            var sum = FloatVector.zero(SPECIES);
+
+            for (int i = 0; i < rows; i++) {
+                var columnValues = FloatVector.fromArray(SPECIES, result, i * columns + j);
+                sum = sum.add(columnValues);
+            }
+            for (int i = 0; i < rows; i++) {
+                var columnValues = FloatVector.fromArray(SPECIES, result, i * columns + j);
+                columnValues = columnValues.div(sum);
+                columnValues.intoArray(result, i * columns + j);
+            }
+        }
+
+        var sums = new float[columns - loopBound];
+        for (int i = 0; i < rows; i++) {
+            var rowOffset = i * columns;
+            for (int j = loopBound; j < columns; j++) {
+                sums[j - loopBound] += result[rowOffset + j];
+            }
+        }
+
+        for (int i = 0; i < rows; i++) {
+            var rowOffset = i * columns;
+            for (int j = loopBound; j < columns; j++) {
+                result[rowOffset + j] /= sums[j - loopBound];
+            }
+        }
+    }
 }

@@ -45,14 +45,14 @@ class NeuralNetworkMSETests {
         val weightsDelta = layerError * input.transpose()
         val biasesDelta = layerError
 
-        val alpha = 0.01f
+        val alpha = 0.001f
 
         weights -= weightsDelta * alpha
         biases -= biasesDelta * alpha
 
         neuralNetwork.train(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, 1, 1,
-            1, 0.01f, -1, false
+            1, alpha, -1, false
         )
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
@@ -98,7 +98,7 @@ class NeuralNetworkMSETests {
 
         val biasesDelta = layerError
 
-        val alpha = 0.01f
+        val alpha = 0.001f
 
         weights -= weightsDelta * alpha / sampleSize
         biases -= biasesDelta.reduce() * alpha / sampleSize
@@ -147,7 +147,7 @@ class NeuralNetworkMSETests {
 
         var weights = FloatMatrix(outputSize, inputSize, layer.weights)
         var biases = FloatVector(layer.biases)
-        val alpha = 0.01f
+        val alpha = 0.001f
 
         for (epoch in 0 until epochs) {
             val z = weights * input + biases.broadcast(sampleSize)
@@ -290,7 +290,7 @@ class NeuralNetworkMSETests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersSingleSampleTestOneEpoch(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
-        val alpha = 0.01f
+        val alpha = 0.001f
         val source = RandomSource.ISAAC.create(seed)
 
         val inputSize = source.nextInt(1, 100)
@@ -370,7 +370,7 @@ class NeuralNetworkMSETests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersSeveralSamplesTestOneEpoch(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
-        val alpha = 0.01f
+        val alpha = 0.001f
         val source = RandomSource.ISAAC.create(seed)
 
         val inputSize = source.nextInt(1, 100)
@@ -451,7 +451,7 @@ class NeuralNetworkMSETests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersSeveralSamplesTestSeveralEpochs(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
-        val alpha = 0.01f
+        val alpha = 0.001f
         val source = RandomSource.ISAAC.create(seed)
 
         val inputSize = source.nextInt(1, 100)
@@ -533,7 +533,7 @@ class NeuralNetworkMSETests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayerMultiSampleTestSeveralEpochsMiniBatch(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
-        val alpha = 0.01f
+        val alpha = 0.001f
         val leakyLeRUGradient = 0.01f
         val source = RandomSource.ISAAC.create(seed)
 

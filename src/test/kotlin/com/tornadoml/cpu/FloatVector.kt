@@ -96,6 +96,18 @@ class FloatVector(val size: Int) {
         return result
     }
 
+    fun broadcastRows(rows: Int): FloatMatrix {
+        val result = FloatMatrix(rows, size)
+
+        for (i in 0 until rows) {
+            for (j in 0 until size) {
+                result.data[i][j] = data[j]
+            }
+        }
+
+        return result
+    }
+
     fun sqrt(): FloatVector {
         val result = FloatVector(size)
 

@@ -61,6 +61,36 @@ class NeuralNetworkMSETests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun singleLayerPredictTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+
+        val input = FloatVector(inputSize)
+        input.fillRandom(source)
+
+        val cores = source.nextInt(1, 10)
+        val layer =
+            DenseLayer(inputSize, outputSize, LeakyLeRU(source.nextLong()), WeightsOptimizer.OptimizerType.SIMPLE)
+        val neuralNetwork = NeuralNetwork(
+            MSECostFunction(), cores,
+            layer
+        )
+
+        val weights = FloatMatrix(outputSize, inputSize, layer.weights)
+        val biases = FloatVector(layer.biases)
+
+        val z = weights * input.broadcast(1) + biases.broadcast(1)
+        val prediction = leakyLeRU(z, 0.01f)
+
+        val result = neuralNetwork.predict(input.toArray())
+
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleLayerMultiSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -365,6 +395,53 @@ class NeuralNetworkMSETests {
 
         Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
         Assertions.assertArrayEquals(secondLayerBiases.toFlatArray(), secondLayer.biases, 0.0001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun twoLayerPredictTest(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+
+        val secondLayerSize = source.nextInt(10, 100)
+
+        val input = FloatMatrix(inputSize, 1)
+        input.fillRandom(source)
+
+        val expected = FloatMatrix(outputSize, 1)
+        expected.fillRandom(source)
+
+        val firstLayer =
+            DenseLayer(inputSize, secondLayerSize, LeakyLeRU(firstLayerSeed), WeightsOptimizer.OptimizerType.SIMPLE)
+        val secondLayer =
+            DenseLayer(
+                secondLayerSize,
+                outputSize,
+                LeakyLeRU(secondLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+
+        val firstLayerWeights = FloatMatrix(secondLayerSize, inputSize, firstLayer.weights)
+        val firstLayerBiases = FloatMatrix(secondLayerSize, 1, firstLayer.biases)
+
+        val secondLayerWeights = FloatMatrix(outputSize, secondLayerSize, secondLayer.weights)
+        val secondLayerBiases = FloatMatrix(outputSize, 1, secondLayer.biases)
+
+        val firstZ = firstLayerWeights * input + firstLayerBiases
+        val firstPrediction = leakyLeRU(firstZ, 0.01f)
+
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases
+        val prediction = leakyLeRU(secondZ, 0.01f)
+
+        val neuralNetwork = NeuralNetwork(
+            MSECostFunction(),
+            firstLayer, secondLayer
+        )
+
+        val result = neuralNetwork.predict(input.toFlatArray())
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
     }
 
     @ParameterizedTest
@@ -791,6 +868,71 @@ class NeuralNetworkMSETests {
         Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
         Assertions.assertArrayEquals(thirdLayerBiases.toFlatArray(), thirdLayer.biases, 0.0001f)
 
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun threeLayerPredictTest(seed: Long, firstLayerSeed: Long, secondLayerSeed: Long,
+                              thirdLayerSeed: Long) {
+        val leRUGradient = 0.01f
+
+        val source = RandomSource.ISAAC.create(seed)
+
+        val inputSize = source.nextInt(1, 100)
+        val outputSize = source.nextInt(1, 100)
+
+        val secondLayerSize = source.nextInt(10, 100)
+        val thirdLayerSize = source.nextInt(10, 100)
+
+        val input = FloatMatrix(inputSize, 1)
+        input.fillRandom(source)
+
+        val expected = FloatMatrix(outputSize, 1)
+        expected.fillRandom(source)
+
+        val firstLayer =
+            DenseLayer(inputSize, secondLayerSize, LeakyLeRU(firstLayerSeed), WeightsOptimizer.OptimizerType.SIMPLE)
+        val secondLayer =
+            DenseLayer(
+                secondLayerSize,
+                thirdLayerSize,
+                LeakyLeRU(secondLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+        val thirdLayer =
+            DenseLayer(
+                thirdLayerSize,
+                outputSize,
+                LeakyLeRU(thirdLayerSeed),
+                WeightsOptimizer.OptimizerType.SIMPLE
+            )
+
+        val cores = source.nextInt(1, 10)
+        val neuralNetwork = NeuralNetwork(
+            MSECostFunction(), cores,
+            firstLayer, secondLayer, thirdLayer
+        )
+
+        val firstLayerWeights = FloatMatrix(secondLayerSize, inputSize, firstLayer.weights)
+        val firstLayerBiases = FloatMatrix(secondLayerSize, 1, firstLayer.biases)
+
+        val secondLayerWeights = FloatMatrix(thirdLayerSize, secondLayerSize, secondLayer.weights)
+        val secondLayerBiases = FloatMatrix(thirdLayerSize, 1, secondLayer.biases)
+
+        val thirdLayerWeights = FloatMatrix(outputSize, thirdLayerSize, thirdLayer.weights)
+        val thirdLayerBiases = FloatMatrix(outputSize, 1, thirdLayer.biases)
+
+        val firstZ = firstLayerWeights * input + firstLayerBiases
+        val firstPrediction = leakyLeRU(firstZ, leRUGradient)
+
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases
+        val secondPrediction = leakyLeRU(secondZ, leRUGradient)
+
+        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases
+        val prediction = leakyLeRU(thirdZ, leRUGradient)
+
+        val result = neuralNetwork.predict(input.toFlatArray())
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
     }
 
     @ParameterizedTest

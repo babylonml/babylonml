@@ -42,15 +42,17 @@ public final class NeuralNetwork {
                 var tmp = input;
 
                 input = output;
-                if (output.length < layers[i].getOutputSize()) {
-                    output = new float[layers[i].getOutputSize()];
+                var nextLayerOutputSize = layers[i + 1].getOutputSize();
+                if (tmp.length < nextLayerOutputSize) {
+                    output = new float[nextLayerOutputSize];
                 } else {
                     output = tmp;
                 }
             }
         }
 
-        return output;
+        var lastLayer = layers[layers.length - 1];
+        return Arrays.copyOf(output, lastLayer.getOutputSize());
     }
 
     public void train(float[][] inputData,

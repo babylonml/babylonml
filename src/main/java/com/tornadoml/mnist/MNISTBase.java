@@ -39,7 +39,7 @@ public abstract class MNISTBase {
                 //variable
                 miniBatchSize,
                 maxEpochs,
-                learningRate, 50, true);
+                learningRate, 20, true);
 
         var testImages = MNISTLoader.loadMNISTTestImages();
         var testLabels = MNISTLoader.loadMNISTTestLabels();

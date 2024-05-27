@@ -225,6 +225,14 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         }
     }
 
+    fun fillRandom(source: UniformRandomProvider, origin: Float, boundary: Float) {
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                data[i][j] = source.nextFloat(origin, boundary)
+            }
+        }
+    }
+
     fun transpose(): FloatMatrix {
         val result = FloatMatrix(cols, rows)
 

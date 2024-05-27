@@ -284,7 +284,10 @@ public final class NeuralNetwork {
                 var layer = layers[i];
                 activationArguments[n][i] = new float[miniBatchSizePerCore * layer.getOutputSize()];
                 predictions[n][i] = new float[miniBatchSizePerCore * layer.getOutputSize()];
-                weightsDelta[n][i] = new float[layer.getInputSize() * layer.getOutputSize()];
+                final var weightsSize =
+                    layer instanceof TrainableLayer trainableLayer ? trainableLayer.getWeightsSize()
+                                                                   : layer.getInputSize() * layer.getOutputSize();
+                weightsDelta[n][i] = new float[weightsSize];
                 biasesDelta[n][i] = new float[miniBatchSizePerCore * layer.getOutputSize()];
             }
         }
@@ -420,7 +423,7 @@ public final class NeuralNetwork {
             }
 
             assert layers[0] instanceof TrainableLayer;
-            ((TrainableLayer) layers[0]).backwardLastLayer(input, 0, costErrors,
+            ((TrainableLayer) layers[0]).backwardFirstLayer(input, 0, costErrors,
                     weightsDelta[0], biasesDelta[0],
                     submitSize);
         } else {

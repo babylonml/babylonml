@@ -197,9 +197,9 @@ public final class DenseLayer implements TrainableLayer {
     }
 
     @Override
-    public void backwardLastLayer(float[] input, int inputOffset, float[] currentLayerErrorsInput, float[] weightsGradientOutput,
-                                  float[] biasesGradientOutput,
-                                  int batchSize) {
+    public void backwardFirstLayer(float[] input, int inputOffset, float[] currentLayerErrorsInput, float[] weightsGradientOutput,
+                                   float[] biasesGradientOutput,
+                                   int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -291,5 +291,10 @@ public final class DenseLayer implements TrainableLayer {
         }
 
         return buffer;
+    }
+
+    @Override
+    public int getWeightsSize() {
+        return inputSize * outputSize;
     }
 }

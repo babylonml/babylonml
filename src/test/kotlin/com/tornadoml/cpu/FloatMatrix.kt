@@ -14,6 +14,14 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         }
     }
 
+    constructor(data: Array<FloatArray>): this(data.size, data[0].size) {
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                this.data[i][j] = data[i][j]
+            }
+        }
+    }
+
     internal val data = Array(rows) { FloatArray(cols) }
 
     val size = rows * cols
@@ -283,6 +291,10 @@ class FloatMatrix(val rows: Int, val cols: Int) {
     }
 
     fun toArray() = data.clone()
+
+    operator fun set(i: Int, j: Int, value: Float) {
+        data[i][j] = value
+    }
 
     override fun toString(): String {
         return "FloatMatrix(rows: $rows, cols: $cols)"

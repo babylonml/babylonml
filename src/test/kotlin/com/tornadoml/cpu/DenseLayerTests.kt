@@ -480,7 +480,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardLastLayer(
+        layer.backwardFirstLayer(
             x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
             weightsDelta, biasesDelta, 1
         )
@@ -521,7 +521,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardLastLayer(
+        layer.backwardFirstLayer(
             x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
             weightsDelta, biasesDelta, sampleSize
         )
@@ -886,7 +886,7 @@ class DenseLayerTests {
                 biasesDelta[1],
                 sampleSize
             )
-            firstLayer.backwardLastLayer(
+            firstLayer.backwardFirstLayer(
                 input, 0,
                 costs, weightsDelta[0], biasesDelta[0], sampleSize
             )
@@ -1009,7 +1009,7 @@ class DenseLayerTests {
                 )
             }
 
-            layers[0]!!.backwardLastLayer(
+            layers[0]!!.backwardFirstLayer(
                 input, 0,
                 costs, weightsDelta[0], biasesDelta[0], sampleSize
             )

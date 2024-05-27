@@ -10,6 +10,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public final class NeuralNetwork {
+    private static final float DEFAULT_COST_THRESHOLD = 0.001f; //0.1%
+    private static final int DEFAULT_EPOCHS = 100;
+
     private final Layer[] layers;
 
     private final CostFunction costFunction;
@@ -55,11 +58,20 @@ public final class NeuralNetwork {
         return Arrays.copyOf(output, lastLayer.getOutputSize());
     }
 
-    public void train(float[][] inputData,
-                      float[][] targetData,
-                      int inputSize, int targetSize, int batchSize,
-                      int miniBatchSize, int maxEpochs,
-                      float learningRate, int patience, boolean shuffle) throws Exception {
+    public void fit(float[][] inputData,
+                    float[][] targetData,
+                    int inputSize, int targetSize, int batchSize,
+                    int miniBatchSize,
+                    float learningRate, int patience, boolean shuffle) throws Exception {
+        fit(inputData, targetData, inputSize, targetSize, batchSize, miniBatchSize, DEFAULT_EPOCHS, learningRate, patience,
+                shuffle, DEFAULT_COST_THRESHOLD);
+    }
+
+    public void fit(float[][] inputData,
+                    float[][] targetData,
+                    int inputSize, int targetSize, int batchSize,
+                    int miniBatchSize, int maxEpochs,
+                    float learningRate, int patience, boolean shuffle, float thresholdLimit) throws Exception {
         System.out.println("Cores: " + cores);
         var maxOutputSize = 0;
         var maxInputSize = 0;
@@ -98,32 +110,47 @@ public final class NeuralNetwork {
             for (int n = 0; n < maxEpochs; n++) {
                 var cost = trainingCost(layers, costFunction, maxOutputSize, inputData.length, batchInput,
                         batchTarget, executor, cores);
+                float threshold = Float.NaN;
 
+
+                if (!Float.isFinite(cost)) {
+                    System.out.println("Cost is not finite, stopping fitting.");
+                    break;
+                }
 
                 if (bestCost < cost) {
                     if (patience > -1) {
                         patienceCounter++;
 
                         if (patienceCounter >= patience) {
-                            System.out.println("Reached patience limit. Stopping training.");
+                            System.out.println("Reached patience limit. Stopping fitting.");
                         }
                     }
                 } else {
+                    threshold = Math.abs(cost - bestCost) / bestCost;
                     bestCost = cost;
                     if (patience > -1) {
-                        patienceCounter = 0;
-
                         for (Layer layer : layers) {
                             if (layer instanceof TrainableLayer trainableLayer) {
                                 trainableLayer.saveBestWeightsAndBiases();
                             }
                         }
+
+                        if (threshold >= thresholdLimit) {
+                            patienceCounter = 0;
+                        }
                     }
                 }
 
+                if (Float.isFinite(threshold)) {
+                    System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
+                            " patience counter: " + patienceCounter + " threshold: "
+                            + threshold + " threshold limit " + thresholdLimit);
+                } else {
+                    System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
+                            " patience counter: " + patienceCounter);
+                }
 
-                System.out.println("Epoch: " + n + " Cost: " + cost + " best cost: " + bestCost +
-                        " patience counter: " + patienceCounter);
                 trainBatch(batchInput, batchTarget, batchSize, miniBatchSize, learningRate, executor, cores);
             }
 

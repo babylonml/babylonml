@@ -50,9 +50,9 @@ class NeuralNetworkMSETests {
         weights -= weightsDelta * alpha
         biases -= biasesDelta * alpha
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, 1, 1,
-            1, alpha, -1, false
+            1, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
@@ -133,7 +133,7 @@ class NeuralNetworkMSETests {
         weights -= weightsDelta * alpha / sampleSize
         biases -= biasesDelta.reduce() * alpha / sampleSize
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(),
             expected.transpose().toArray(),
             inputSize,
@@ -143,7 +143,7 @@ class NeuralNetworkMSETests {
             1,
             alpha,
             -1,
-            false
+            false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
@@ -194,7 +194,7 @@ class NeuralNetworkMSETests {
             biases -= biasesDelta.reduce() / sampleSize * alpha
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(),
             expected.transpose().toArray(),
             inputSize,
@@ -204,7 +204,7 @@ class NeuralNetworkMSETests {
             epochs,
             alpha,
             -1,
-            false
+            false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
@@ -262,7 +262,7 @@ class NeuralNetworkMSETests {
             }
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(),
             expected.transpose().toArray(),
             inputSize,
@@ -272,7 +272,7 @@ class NeuralNetworkMSETests {
             epochs,
             alpha,
             -1,
-            false
+            false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
@@ -385,9 +385,9 @@ class NeuralNetworkMSETests {
         secondLayerBiases -= secondLayerBiasesDelta * alpha
 
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, 1, 1,
-            1, alpha, -1, false
+            1, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -513,9 +513,9 @@ class NeuralNetworkMSETests {
         secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / samplesCount
 
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, samplesCount,
-            samplesCount, 1, alpha, -1, false
+            samplesCount, 1, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -595,9 +595,9 @@ class NeuralNetworkMSETests {
             secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / samplesCount
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, samplesCount,
-            samplesCount, epochs, alpha, -1, false
+            samplesCount, epochs, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -686,9 +686,9 @@ class NeuralNetworkMSETests {
             }
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize, samplesCount,
-            miniBatchSize, epochs, alpha, -1, false
+            miniBatchSize, epochs, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -853,10 +853,10 @@ class NeuralNetworkMSETests {
         thirdLayerWeights -= thirdLayerWeightsDelta * alpha
         thirdLayerBiases -= thirdLayerBiasesDelta * alpha
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize,
             1, 1,
-            1, alpha, -1, false
+            1, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -1038,10 +1038,10 @@ class NeuralNetworkMSETests {
         thirdLayerWeights -= thirdLayerWeightsDelta * alpha / sampleCount
         thirdLayerBiases -= thirdLayerBiasesDelta.reduce() * alpha / sampleCount
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize,
             sampleCount, sampleCount,
-            1, alpha, -1, false
+            1, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -1161,10 +1161,10 @@ class NeuralNetworkMSETests {
             thirdLayerBiases -= thirdLayerBiasesDelta.reduce() * alpha / sampleCount
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize,
             sampleCount, sampleCount,
-            epochsCount, alpha, -1, false
+            epochsCount, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
@@ -1290,10 +1290,10 @@ class NeuralNetworkMSETests {
             }
         }
 
-        neuralNetwork.train(
+        neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize,
             samplesCount, miniBatchSize,
-            epochsCount, alpha, -1, false
+            epochsCount, alpha, -1, false, Float.MIN_VALUE
         )
 
         Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)

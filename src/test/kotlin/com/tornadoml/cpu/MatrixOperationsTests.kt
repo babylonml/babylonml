@@ -169,14 +169,14 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun softMaxTest(seed: Long) {
+    fun softMaxValueCalculationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
         val matrixRows = source.nextInt(1, 1000)
         val matrixColumns = source.nextInt(1, 1000)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
-        matrix.fillRandom(source)
+        matrix.fillRandom(source, -10.0f, 10.0f)
 
         val expected = matrix.softMax()
         val actual = FloatArray(matrixRows * matrixColumns) {
@@ -188,5 +188,29 @@ class MatrixOperationsTests {
         )
 
         Assertions.assertArrayEquals(expected.toFlatArray(), actual, 0.001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun softMaxIsFiniteTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 1000)
+        val matrixColumns = source.nextInt(1, 1000)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source, -500f, 500f)
+
+        val actual = FloatArray(matrixRows * matrixColumns) {
+          source.nextFloat()
+        }
+
+        MatrixOperations.softMaxByColumns(
+            matrix.toFlatArray(), matrixRows, matrixColumns, actual
+        )
+
+        for (i in 0 until matrixRows * matrixColumns) {
+            Assertions.assertTrue(actual[i].isFinite())
+        }
     }
 }

@@ -6,7 +6,7 @@ import com.tornadoml.cpu.WeightsOptimizer.OptimizerType;
 
 public abstract class MNISTBase {
     @SuppressWarnings("SameParameterValue")
-    protected static void trainMnist(int maxEpochs, int... neuronsCount) throws Exception {
+    protected static void trainMnist( int... neuronsCount) throws Exception {
         var inputSize = 784;
         var outputSize = 10;
 
@@ -32,13 +32,12 @@ public abstract class MNISTBase {
             trainingLabelProbabilities[i][trainingLabels[i]] = 1.0f;
         }
 
-        network.train(trainingImages, trainingLabelProbabilities,
+        network.fit(trainingImages, trainingLabelProbabilities,
                 //frozen
                 inputSize, outputSize, trainingImages.length,
 
                 //variable
                 miniBatchSize,
-                maxEpochs,
                 learningRate, 20, true);
 
         var testImages = MNISTLoader.loadMNISTTestImages();

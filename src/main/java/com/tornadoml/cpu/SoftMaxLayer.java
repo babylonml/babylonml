@@ -24,10 +24,10 @@ public final class SoftMaxLayer implements NonTrainableLayer {
     }
 
     @Override
-    public void backwardLastLayer(float[] input, float[] target, float[] costFunctionDerivative,
-                                  int miniBatchSize) {
-        VectorOperations.subtractVectorFromVector(input, target, costFunctionDerivative,
-                inputSize * miniBatchSize);
+    public void backwardLastLayer(float[] input, float[] costFunctionInput, float[] previousLayerErrorOutput,
+                                  int batchSize) {
+        VectorOperations.subtractVectorFromVector(input, costFunctionInput, previousLayerErrorOutput,
+                inputSize * batchSize);
 
     }
 }

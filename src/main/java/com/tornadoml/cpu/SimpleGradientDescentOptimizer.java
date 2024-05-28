@@ -1,6 +1,6 @@
 package com.tornadoml.cpu;
 
-public class SimpleOptimizer implements WeightsOptimizer {
+public class SimpleGradientDescentOptimizer implements WeightsOptimizer {
     private static final ThreadLocal<float[]> calculationBuffer = new ThreadLocal<>();
 
     @Override
@@ -18,11 +18,11 @@ public class SimpleOptimizer implements WeightsOptimizer {
     }
 
     private static float[] getCalculationBuffer(int weightsLength) {
-        var calculationBuffer = SimpleOptimizer.calculationBuffer.get();
+        var calculationBuffer = SimpleGradientDescentOptimizer.calculationBuffer.get();
 
         if (calculationBuffer == null || calculationBuffer.length < weightsLength) {
             calculationBuffer = new float[weightsLength];
-            SimpleOptimizer.calculationBuffer.set(calculationBuffer);
+            SimpleGradientDescentOptimizer.calculationBuffer.set(calculationBuffer);
         }
 
         return calculationBuffer;

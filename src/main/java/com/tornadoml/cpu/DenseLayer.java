@@ -55,31 +55,31 @@ public final class DenseLayer implements TrainableLayer {
     }
 
     @Override
-    public void forwardTraining(float[] input, int inputOffset, float[] activationArgument, float[] prediction,
+    public void forwardTraining(float[] input, int inputOffset, float[] activationArgumentOutput, float[] predictionOutput,
                                 int batchSize) {
         //w * x
         MatrixOperations.matrixToMatrixMultiplication(weights, 0,
                 outputSize, inputSize, input, inputOffset, inputSize,
-                batchSize, activationArgument);
+                batchSize, activationArgumentOutput);
 
         var buffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
         MatrixOperations.broadcastVectorToMatrix(biases, buffer, outputSize, batchSize);
 
         //w * x + b
-        VectorOperations.addVectorToVector(activationArgument, buffer, activationArgument,
+        VectorOperations.addVectorToVector(activationArgumentOutput, buffer, activationArgumentOutput,
                 batchSize * outputSize);
 
         //g(w * x + b)
-        activationFunction.value(activationArgument, prediction, batchSize * outputSize);
+        activationFunction.value(activationArgumentOutput, predictionOutput, batchSize * outputSize);
     }
 
     @Override
-    public void backwardLastLayer(float[] input, float[] previousLayerActivationArgument,
-                                  float[] currentLayerActivationArgument,
-                                  float[] currentLayerErrors, float[] previousLayerErrors,
-                                  float[] calculatedWeightsDelta,
-                                  float[] calculatedBiasesDelta,
+    public void backwardLastLayer(float[] input, float[] previousLayerActivationArgumentInput,
+                                  float[] currentLayerActivationArgumentInput,
+                                  float[] currentLayerErrorsInput, float[] previousLayerErrorsOutput,
+                                  float[] calculatedWeightsGradientOutput,
+                                  float[] calculatedBiasesGradientOutput,
                                   int batchSize) {
         //y - output
         //dl/dz  - errors
@@ -92,26 +92,26 @@ public final class DenseLayer implements TrainableLayer {
 
         var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //g'(z[n])
-        activationFunction.derivative(currentLayerActivationArgument, outputBatchSizeBuffer, batchSize * outputSize);
+        activationFunction.derivative(currentLayerActivationArgumentInput, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
-        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrors, outputBatchSizeBuffer,
-                currentLayerErrors, outputSize * batchSize);
+        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrorsInput, outputBatchSizeBuffer,
+                currentLayerErrorsInput, outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, 0, currentLayerErrors, calculatedWeightsDelta, calculatedBiasesDelta,
+        calculateWeightsDelta(input, 0, currentLayerErrorsInput, calculatedWeightsGradientOutput, calculatedBiasesGradientOutput,
                 batchSize);
 
         //dL/dz[n-1] = w[n]^T * dL/dz[n] * g'(z[n-1])
-        calculatePreviousLayerError(currentLayerErrors, previousLayerActivationArgument, previousLayerErrors,
+        calculatePreviousLayerError(currentLayerErrorsInput, previousLayerActivationArgumentInput, previousLayerErrorsOutput,
                 batchSize);
     }
 
     @Override
-    public void backwardLastLayerNoError(float[] input,
-                                         float[] currentLayerActivationArgument,
-                                         float[] costFunctionDerivative, float[] calculatedWeightsDelta,
-                                         float[] calculatedBiasesDelta,
-                                         int batchSize) {
+    public void backwardSingleLayerNoError(float[] input,
+                                           float[] currentLayerActivationArgumentInput,
+                                           float[] currentLayerErrorInput, float[] calculatedWeightsGradientOutput,
+                                           float[] calculatedBiasesGradientOutput,
+                                           int batchSize) {
         //y - output
         //dl/dz  - errors
         //[n] - current layer, [n-1] - previous layer
@@ -124,22 +124,22 @@ public final class DenseLayer implements TrainableLayer {
 
         var outputBatchSizeBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //g'(z[n])
-        activationFunction.derivative(currentLayerActivationArgument, outputBatchSizeBuffer, batchSize * outputSize);
+        activationFunction.derivative(currentLayerActivationArgumentInput, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
-        VectorOperations.vectorToVectorScalarMultiplication(costFunctionDerivative, outputBatchSizeBuffer,
-                costFunctionDerivative, outputSize * batchSize);
+        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrorInput, outputBatchSizeBuffer,
+                currentLayerErrorInput, outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, 0, costFunctionDerivative, calculatedWeightsDelta, calculatedBiasesDelta,
+        calculateWeightsDelta(input, 0, currentLayerErrorInput, calculatedWeightsGradientOutput, calculatedBiasesGradientOutput,
                 batchSize);
     }
 
 
     @Override
     public void backwardMiddleLayer(float[] input,
-                                    float[] currentLayerErrors,
-                                    float[] previousLayerActivationArgument,
-                                    float[] previousLayerErrors, float[] weightsDelta, float[] biasesDelta,
+                                    float[] currentLayerErrorsInput,
+                                    float[] previousLayerActivationArgumentInput,
+                                    float[] previousLayerErrorsOutput, float[] weightsGradientOutput, float[] biasesGradientOutput,
                                     int batchSize) {
         //y - output
         //dl/dz  - errors
@@ -151,10 +151,10 @@ public final class DenseLayer implements TrainableLayer {
         //a[n] - output
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, 0, currentLayerErrors, weightsDelta, biasesDelta, batchSize);
+        calculateWeightsDelta(input, 0, currentLayerErrorsInput, weightsGradientOutput, biasesGradientOutput, batchSize);
 
         //dL/dz[n-1] = w[n]^T * dL/dz[n] * g'(z[n-1])
-        calculatePreviousLayerError(currentLayerErrors, previousLayerActivationArgument, previousLayerErrors,
+        calculatePreviousLayerError(currentLayerErrorsInput, previousLayerActivationArgumentInput, previousLayerErrorsOutput,
                 batchSize);
     }
 
@@ -197,8 +197,8 @@ public final class DenseLayer implements TrainableLayer {
     }
 
     @Override
-    public void backwardZeroLayer(float[] input, int inputOffset, float[] errors, float[] weightsDelta,
-                                  float[] biasesDelta,
+    public void backwardLastLayer(float[] input, int inputOffset, float[] currentLayerErrorsInput, float[] weightsGradientOutput,
+                                  float[] biasesGradientOutput,
                                   int batchSize) {
         //y - output
         //dl/dz  - errors
@@ -210,7 +210,7 @@ public final class DenseLayer implements TrainableLayer {
         //a[n] - output
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
-        calculateWeightsDelta(input, inputOffset, errors, weightsDelta, biasesDelta, batchSize);
+        calculateWeightsDelta(input, inputOffset, currentLayerErrorsInput, weightsGradientOutput, biasesGradientOutput, batchSize);
     }
 
     @Override
@@ -224,13 +224,13 @@ public final class DenseLayer implements TrainableLayer {
     }
 
     @Override
-    public void updateWeightsAndBiases(float[] weightsDelta, float[] biasesDelta, float learningRate) {
-        optimizer.optimize(weights, weightsDelta, inputSize * outputSize, biases, biasesDelta,
+    public void updateWeightsAndBiases(float[] weightsGradient, float[] biasesGradient, float learningRate) {
+        optimizer.optimize(weights, weightsGradient, inputSize * outputSize, biases, biasesGradient,
                 outputSize, learningRate);
     }
 
     @Override
-    public void saveBestWeightsAndBiases() {
+    public void saveWeightsAndBiases() {
         bestWeights = weights.clone();
         bestBiases = biases.clone();
     }

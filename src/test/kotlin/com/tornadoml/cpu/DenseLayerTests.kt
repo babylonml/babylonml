@@ -256,7 +256,7 @@ class DenseLayerTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun backwardLastLayerNoErrorSingleSampleTest(seed: Long) {
+    fun backwardSingleLayerNoErrorSingleSampleTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
         val layer = DenseLayer(
@@ -292,7 +292,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardLastLayerNoError(
+        layer.backwardSingleLayerNoError(
             x.toFlatArray(), z.toFlatArray(),
             dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, 1
         )
@@ -303,7 +303,7 @@ class DenseLayerTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun backwardLastLayerNoErrorMultiSampleTest(seed: Long) {
+    fun backwardSingleLayerNoErrorNoErrorMultiSampleTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
         val layer = DenseLayer(
@@ -340,7 +340,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardLastLayerNoError(
+        layer.backwardSingleLayerNoError(
             x.toFlatArray(), z.toFlatArray(),
             dEdY.toFlatArray().copyInto(costError), calculatedWeightDelta, calculatedBiasesDelta, sampleSize
         )
@@ -480,7 +480,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardZeroLayer(
+        layer.backwardLastLayer(
             x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
             weightsDelta, biasesDelta, 1
         )
@@ -491,7 +491,7 @@ class DenseLayerTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun backwardZeroLayerMultiSampleSampleTest(seed: Long) {
+    fun backwardLastLayerMultiSampleSampleTest(seed: Long) {
 
         val source = RandomSource.ISAAC.create(seed)
 
@@ -521,7 +521,7 @@ class DenseLayerTests {
             source.nextFloat()
         }
 
-        layer.backwardZeroLayer(
+        layer.backwardLastLayer(
             x.toFlatArray().copyInto(inputArray, 1), 1, dLdZ.toFlatArray(),
             weightsDelta, biasesDelta, sampleSize
         )
@@ -790,7 +790,7 @@ class DenseLayerTests {
                 predictions, 0, target, 0, costs, 0,
                 sampleSize * outputSize
             )
-            layer.backwardLastLayerNoError(
+            layer.backwardSingleLayerNoError(
                 input, activations, costs, weightsDelta, biasesDelta,
                 sampleSize
             )
@@ -886,7 +886,7 @@ class DenseLayerTests {
                 biasesDelta[1],
                 sampleSize
             )
-            firstLayer.backwardZeroLayer(
+            firstLayer.backwardLastLayer(
                 input, 0,
                 costs, weightsDelta[0], biasesDelta[0], sampleSize
             )
@@ -1009,7 +1009,7 @@ class DenseLayerTests {
                 )
             }
 
-            layers[0]!!.backwardZeroLayer(
+            layers[0]!!.backwardLastLayer(
                 input, 0,
                 costs, weightsDelta[0], biasesDelta[0], sampleSize
             )

@@ -6,7 +6,7 @@ public interface WeightsOptimizer {
 
     static WeightsOptimizer instance(OptimizerType optimizerType, int weightsSize, int biasesSize) {
         return switch (optimizerType) {
-            case SIMPLE -> new SimpleOptimizer();
+            case SIMPLE -> new SimpleGradientDescentOptimizer();
             case ADAM -> new AdamOptimizer(weightsSize, biasesSize);
             case AMS_GRAD -> new AMSGradOptimizer(weightsSize, biasesSize);
         };

@@ -132,7 +132,7 @@ public final class NeuralNetwork {
                     if (patience > -1) {
                         for (Layer layer : layers) {
                             if (layer instanceof TrainableLayer trainableLayer) {
-                                trainableLayer.saveBestWeightsAndBiases();
+                                trainableLayer.saveWeightsAndBiases();
                             }
                         }
 
@@ -420,12 +420,12 @@ public final class NeuralNetwork {
             }
 
             assert layers[0] instanceof TrainableLayer;
-            ((TrainableLayer) layers[0]).backwardZeroLayer(input, 0, costErrors,
+            ((TrainableLayer) layers[0]).backwardLastLayer(input, 0, costErrors,
                     weightsDelta[0], biasesDelta[0],
                     submitSize);
         } else {
             assert layers[0] instanceof TrainableLayer;
-            ((TrainableLayer) layers[0]).backwardLastLayerNoError(input, activationArguments[0],
+            ((TrainableLayer) layers[0]).backwardSingleLayerNoError(input, activationArguments[0],
                     costErrors, weightsDelta[0], biasesDelta[0],
                     submitSize);
         }

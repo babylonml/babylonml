@@ -35,13 +35,15 @@ public class AMSGradOptimizer implements WeightsOptimizer {
                 calculationBuffer);
         correctAvgMovementSqr(avgWeightsMovementSqr, correctedAvgWeightsMovementSqr);
         calculateCorrections(avgWeightsMovement, correctedAvgWeightsMovementSqr, calculationBuffer, learningRate);
-        VectorOperations.addVectorToVector(weights, calculationBuffer, weights, weightsLength);
+        VectorOperations.addVectorToVector(weights, 0, calculationBuffer, 0, weights, 0,
+                weightsLength);
 
         AdamOptimizer.updateAvgMovement(biasesGradient, avgBiasesMovement, avgBiasesMovementSqr, biasesLength,
                 calculationBuffer);
         correctAvgMovementSqr(avgBiasesMovementSqr, correctedAvgBiasesMovementSqr);
         calculateCorrections(avgBiasesMovement, correctedAvgBiasesMovementSqr, calculationBuffer, learningRate);
-        VectorOperations.addVectorToVector(biases, calculationBuffer, biases, biasesLength);
+        VectorOperations.addVectorToVector(biases, 0, calculationBuffer, 0, biases,
+                0, biasesLength);
     }
 
     private static void correctAvgMovementSqr(float[] avgWeightsMovementSqr, float[] correctedAvgWeightsMovementSqr) {
@@ -55,7 +57,8 @@ public class AMSGradOptimizer implements WeightsOptimizer {
         VectorOperations.addScalarToVector(1e-8f, calculationBuffer, calculationBuffer, correctedMovingAverageSqr.length);
         VectorOperations.divideScalarOnVectorElements(-learningRate, calculationBuffer,
                 calculationBuffer, correctedMovingAverageSqr.length);
-        VectorOperations.vectorToVectorScalarMultiplication(movingAverage, calculationBuffer,
-                calculationBuffer, movingAverage.length);
+        VectorOperations.vectorToVectorElementWiseMultiplication(movingAverage, 0,
+                calculationBuffer, 0,
+                calculationBuffer, 0, movingAverage.length);
     }
 }

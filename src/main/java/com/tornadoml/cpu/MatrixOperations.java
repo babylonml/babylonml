@@ -13,7 +13,7 @@ public final class MatrixOperations {
     public static void matrixToMatrixMultiplication(float[] firstMatrix, int firstMatrixOffset,
                                                     int firstMatrixRows, int firstMatrixColumns, float[] secondMatrix,
                                                     int secondMatrixOffset, int secondMatrixRows,
-                                                    int secondMatrixColumns, float[] result) {
+                                                    int secondMatrixColumns, float[] result, int resultOffset) {
         assert firstMatrixColumns == secondMatrixRows;
         assert firstMatrix != result;
         assert secondMatrix != result;
@@ -41,13 +41,13 @@ public final class MatrixOperations {
                 }
 
                 var resultValueIndex = resultIndexStart + j;
-                resultValue.intoArray(result, resultValueIndex, secondMatrixMask);
+                resultValue.intoArray(result, resultValueIndex + resultOffset, secondMatrixMask);
             }
         }
     }
 
     public static void transposeMatrix(float[] matrix, int matrixOffset,
-                                       int rows, int columns, float[] result) {
+                                       int rows, int columns, float[] result, int resultOffset) {
         assert matrix != result;
         final int blockSize = 16;
 
@@ -59,21 +59,21 @@ public final class MatrixOperations {
 
                 for (int n = i; n < subRows; n++) {
                     for (int k = j; k < subColumns; k++) {
-                        result[k * rows + n] = matrix[n * columns + k + matrixOffset];
+                        result[k * rows + n + resultOffset] = matrix[n * columns + k + matrixOffset];
                     }
                 }
             }
         }
     }
 
-    public static void broadcastVectorToMatrix(float[] vector, float[] matrix, int rows,
-                                               int columns) {
+    public static void broadcastVectorToMatrix(float[] vector, int vectorOffset, float[] matrix,
+                                               int matrixOffset, int rows, int columns) {
         var speciesLength = SPECIES.length();
 
         for (int i = 0; i < rows; i++) {
-            var rowOffset = i * columns;
+            var rowOffset = i * columns + matrixOffset;
 
-            var currentVectorValue = vector[i];
+            var currentVectorValue = vector[i + vectorOffset];
             var broadCastedValue = FloatVector.broadcast(SPECIES, currentVectorValue);
 
             var loopBound = SPECIES.loopBound(columns);
@@ -97,18 +97,18 @@ public final class MatrixOperations {
         }
     }
 
-    public static void reduceMatrixToVector(float[] matrix, int rows, int columns, float[] vector) {
+    public static void reduceMatrixToVector(float[] matrix, int matrixOffset, int rows, int columns, float[] vector, int vectorOffset) {
         for (int i = 0; i < rows; i++) {
-            var rowOffset = i * columns;
-            vector[i] = VectorOperations.sumVectorElements(matrix, rowOffset, columns);
+            var rowOffset = i * columns + matrixOffset;
+            vector[i + vectorOffset] = VectorOperations.sumVectorElements(matrix, rowOffset, columns);
         }
     }
 
-    public static void softMaxByColumns(float[] matrix, int rows, int columns, float[] result) {
+    public static void softMaxByColumns(float[] matrix, int matrixOffset, int rows, int columns, float[] result, int resultOffset) {
         assert matrix != result;
-        assert matrix.length >= result.length;
-        assert matrix.length >= rows * columns;
-        assert result.length >= rows * columns;
+        assert matrix.length - matrixOffset >= result.length - resultOffset;
+        assert matrix.length + matrixOffset >= rows * columns;
+        assert result.length + resultOffset >= rows * columns;
 
         //n = round(x * log e)
         //t = x - ln (2) * n (in such case  t lies in the range [-log 2 / 2, log 2 / 2])
@@ -129,7 +129,7 @@ public final class MatrixOperations {
 
             for (int i = 0; i < rows; i++) {
                 var resultIndex = i * columns + j;
-                var columnValues = FloatVector.fromArray(SPECIES, matrix, resultIndex);
+                var columnValues = FloatVector.fromArray(SPECIES, matrix, resultIndex + matrixOffset);
 
                 //n = x * log e
                 Vector<Float> nValues = columnValues.mul(log2E);
@@ -158,7 +158,7 @@ public final class MatrixOperations {
             var sumDivider = FloatVector.broadcast(SPECIES, 1.0f).div(mSum);
 
             for (int i = 0; i < rows; i++) {
-                var columnValues = FloatVector.fromArray(SPECIES, matrix, i * columns + j);
+                var columnValues = FloatVector.fromArray(SPECIES, matrix, i * columns + j + matrixOffset);
 
                 //n = x * log e
                 Vector<Float> nValues = columnValues.mul(log2E);
@@ -180,7 +180,7 @@ public final class MatrixOperations {
                 columnValues = mValues.mul(two.pow(nValues.sub(nSum))).mul(sumDivider);
 
                 var resultIndex = i * columns + j;
-                columnValues.intoArray(result, resultIndex);
+                columnValues.intoArray(result, resultIndex + resultOffset);
             }
         }
 
@@ -194,7 +194,7 @@ public final class MatrixOperations {
             for (int j = loopBound; j < columns; j++) {
                 var sumIndex = j - loopBound;
                 var resultIndex = i * columns + j;
-                var columnValue = matrix[resultIndex];
+                var columnValue = matrix[resultIndex + matrixOffset];
 
                 //n = round(x * log e)
                 var nValue = Math.round(columnValue * LOG_2_E);
@@ -219,7 +219,7 @@ public final class MatrixOperations {
             for (int j = loopBound; j < columns; j++) {
                 var sumIndex = j - loopBound;
                 var resultIndex = i * columns + j;
-                var columnValue = matrix[resultIndex];
+                var columnValue = matrix[resultIndex + matrixOffset];
                 var sumDivider = 1.0f / mSum[sumIndex];
 
                 //n = x * log e
@@ -235,7 +235,8 @@ public final class MatrixOperations {
                 var mValue = (float) Math.exp(tValue);
 
                 //result = m * 2^(n - nSum) * sumDivider
-                result[resultIndex] = (float) (mValue * Math.pow(2, nValue - nSum[sumIndex]) * sumDivider);
+                result[resultIndex + resultOffset] =
+                        (float) (mValue * Math.pow(2, nValue - nSum[sumIndex]) * sumDivider);
             }
         }
     }

@@ -10,11 +10,13 @@ public class SimpleGradientDescentOptimizer implements WeightsOptimizer {
 
         VectorOperations.multiplyVectorToScalar(weightsGradient, 0, -learningRate,
                 calculationBuffer, 0, weightsLength);
-        VectorOperations.addVectorToVector(weights, calculationBuffer, weights, weightsLength);
+        VectorOperations.addVectorToVector(weights, 0, calculationBuffer, 0, weights,
+                0, weightsLength);
 
         VectorOperations.multiplyVectorToScalar(biasesGradient, 0, -learningRate,
                 calculationBuffer, 0, biasesLength);
-        VectorOperations.addVectorToVector(biases, calculationBuffer, biases, biasesLength);
+        VectorOperations.addVectorToVector(biases, 0, calculationBuffer, 0, biases,
+                0, biasesLength);
     }
 
     private static float[] getCalculationBuffer(int weightsLength) {

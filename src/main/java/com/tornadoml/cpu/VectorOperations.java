@@ -28,7 +28,8 @@ public final class VectorOperations {
         }
     }
 
-    public static void addVectorToVector(float[] first, float[] second, float[] result, int length) {
+    public static void addVectorToVector(float[] first, int firstOffset, float[] second, int secondOffset,
+                                         float[] result, int resultOffset, int length) {
         assert first.length >= length;
         assert second.length >= length;
 
@@ -36,19 +37,20 @@ public final class VectorOperations {
         var loopBound = SPECIES.loopBound(length);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, first, i);
-            var vb = FloatVector.fromArray(SPECIES, second, i);
+            var va = FloatVector.fromArray(SPECIES, first, i + firstOffset);
+            var vb = FloatVector.fromArray(SPECIES, second, i + secondOffset);
             var vc = va.add(vb);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = first[i] + second[i];
+            result[i + firstOffset] = first[i + secondOffset] + second[i + resultOffset];
         }
     }
 
-    public static void subtractVectorFromVector(float[] first, float[] second, float[] result, int length) {
+    public static void subtractVectorFromVector(float[] first, int firstOffset, float[] second, int secondOffset,
+                                                float[] result, int resultOffset, int length) {
         assert first.length >= length;
         assert second.length >= length;
 
@@ -56,20 +58,21 @@ public final class VectorOperations {
         var loopBound = SPECIES.loopBound(length);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, first, i);
-            var vb = FloatVector.fromArray(SPECIES, second, i);
+            var va = FloatVector.fromArray(SPECIES, first, i + firstOffset);
+            var vb = FloatVector.fromArray(SPECIES, second, i + secondOffset);
             var vc = va.sub(vb);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = first[i] - second[i];
+            result[i + resultOffset] = first[i + firstOffset] - second[i + secondOffset];
         }
     }
 
-    public static void vectorToVectorScalarMultiplication(float[] first,
-                                                          float[] second, float[] result, int length) {
+    public static void vectorToVectorElementWiseMultiplication(float[] first, int firstOffset,
+                                                               float[] second, int secondOffset,
+                                                               float[] result, int resultOffset, int length) {
         assert first.length >= length;
         assert second.length >= length;
         assert result.length >= length;
@@ -78,15 +81,15 @@ public final class VectorOperations {
         var loopBound = SPECIES.loopBound(length);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, first, i);
-            var vb = FloatVector.fromArray(SPECIES, second, i);
+            var va = FloatVector.fromArray(SPECIES, first, i + firstOffset);
+            var vb = FloatVector.fromArray(SPECIES, second, i + secondOffset);
             var vc = va.mul(vb);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = first[i] * second[i];
+            result[i + resultOffset] = first[i + firstOffset] * second[i + secondOffset];
         }
     }
 

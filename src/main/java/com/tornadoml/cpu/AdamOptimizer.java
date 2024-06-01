@@ -50,14 +50,16 @@ public final class AdamOptimizer implements WeightsOptimizer {
         movingAverageBiasCorrection(avgWeightsMovement, 0.9f, iteration, avgWeightsMovementBuffer);
         movingAverageBiasCorrection(avgWeightsMovementSqr, 0.999f, iteration, avgWeightsMovementSqrBuffer);
         calculateCorrections(avgWeightsMovementBuffer, avgWeightsMovementSqrBuffer, learningRate);
-        VectorOperations.addVectorToVector(weights, avgWeightsMovementBuffer, weights, weightsLength);
+        VectorOperations.addVectorToVector(weights, 0, avgWeightsMovementBuffer, 0, weights,
+                0, weightsLength);
 
         updateAvgMovement(biasesGradient, avgBiasesMovement, avgBiasesMovementSqr, biasesLength, avgBiasesMovementBuffer);
         movingAverageBiasCorrection(avgBiasesMovement, 0.9f, iteration, avgBiasesMovementBuffer);
         movingAverageBiasCorrection(avgBiasesMovementSqr, 0.999f, iteration, avgBiasesMovementSqrBuffer);
         calculateCorrections(avgBiasesMovementBuffer, avgBiasesMovementSqrBuffer, learningRate);
 
-        VectorOperations.addVectorToVector(biases, avgBiasesMovementBuffer, biases, biasesLength);
+        VectorOperations.addVectorToVector(biases, 0, avgBiasesMovementBuffer, 0,
+                biases, 0, biasesLength);
     }
 
     private static float[] getAvgWeightsMovementBuffer(int weightsLength) {
@@ -77,14 +79,17 @@ public final class AdamOptimizer implements WeightsOptimizer {
                 weightsSize);
         VectorOperations.multiplyVectorToScalar(weightsDelta, 0, 0.1f, buffer, 0,
                 weightsSize);
-        VectorOperations.addVectorToVector(avgWeightsMovements, buffer, avgWeightsMovements, weightsSize);
+        VectorOperations.addVectorToVector(avgWeightsMovements, 0, buffer, 0,
+                avgWeightsMovements, 0, weightsSize);
 
         //v[n] = 0.999 * v[n-1] + 0.001 * g^2
         VectorOperations.multiplyVectorToScalar(avgWeightsMovementSqr, 0, 0.999f, avgWeightsMovementSqr, 0,
                 weightsSize);
-        VectorOperations.vectorToVectorScalarMultiplication(weightsDelta, weightsDelta, buffer, weightsSize);
+        VectorOperations.vectorToVectorElementWiseMultiplication(weightsDelta, 0, weightsDelta,
+                0, buffer, 0, weightsSize);
         VectorOperations.multiplyVectorToScalar(buffer, 0, 0.001f, buffer, 0, weightsSize);
-        VectorOperations.addVectorToVector(avgWeightsMovementSqr, buffer, avgWeightsMovementSqr, weightsSize);
+        VectorOperations.addVectorToVector(avgWeightsMovementSqr, 0, buffer, 0,
+                avgWeightsMovementSqr, 0, weightsSize);
     }
 
     private static void movingAverageBiasCorrection(float[] movingAverage, float betta, int iteration, float[] result) {
@@ -98,7 +103,8 @@ public final class AdamOptimizer implements WeightsOptimizer {
         VectorOperations.addScalarToVector(1e-8f, correctedMovingAverageSqr, correctedMovingAverageSqr, correctedMovingAverageSqr.length);
         VectorOperations.divideScalarOnVectorElements(-learningRate, correctedMovingAverageSqr,
                 correctedMovingAverageSqr, correctedMovingAverageSqr.length);
-        VectorOperations.vectorToVectorScalarMultiplication(correctedMovingAverage, correctedMovingAverageSqr,
-                correctedMovingAverage, correctedMovingAverage.length);
+        VectorOperations.vectorToVectorElementWiseMultiplication(correctedMovingAverage, 0,
+                correctedMovingAverageSqr, 0, correctedMovingAverage, 0,
+                correctedMovingAverage.length);
     }
 }

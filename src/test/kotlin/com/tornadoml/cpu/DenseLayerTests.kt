@@ -823,7 +823,10 @@ class DenseLayerTests {
             weightsDelta, 0, 1.0f / sampleSize.toFloat(),
             weightsDelta, 0, weightsDelta.size
         )
-        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, sampleSize, biasesDelta)
+        MatrixOperations.reduceMatrixToVector(
+            biasesDelta, 0, outputSize, sampleSize,
+            biasesDelta, 0
+        )
         VectorOperations.multiplyVectorToScalar(
             biasesDelta, 0, 1.0f / sampleSize.toFloat(),
             biasesDelta, 0, biasesDelta.size

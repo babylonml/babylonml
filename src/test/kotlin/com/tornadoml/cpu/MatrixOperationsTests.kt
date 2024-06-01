@@ -41,7 +41,7 @@ class MatrixOperationsTests {
             firstMatrix.toFlatArray().copyInto(firstMatrixArray, firstMatrixOffset),
             firstMatrixOffset, firsMatrixRows, firstMatrixColumns,
             secondMatrix.toFlatArray().copyInto(secondMatrixArray, secondMatrixOffset),
-            secondMatrixOffset, secondMatrixRows, secondMatrixColumns, result
+            secondMatrixOffset, secondMatrixRows, secondMatrixColumns, result, 0
         )
 
         Assertions.assertArrayEquals(
@@ -72,7 +72,7 @@ class MatrixOperationsTests {
 
         MatrixOperations.transposeMatrix(
             matrix.toFlatArray().copyInto(matrixArray, matrixOffset),
-            matrixOffset, matrixRows, matrixColumns, result
+            matrixOffset, matrixRows, matrixColumns, result, 0
         )
 
         Assertions.assertArrayEquals(
@@ -102,8 +102,8 @@ class MatrixOperationsTests {
             source.nextFloat()
         }
         MatrixOperations.reduceMatrixToVector(
-            matrix.toFlatArray().copyInto(matrixArray), matrixRows, matrixColumns,
-            result
+            matrix.toFlatArray().copyInto(matrixArray), 0, matrixRows, matrixColumns,
+            result, 0
         )
 
         Assertions.assertArrayEquals(matrix.reduce().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
@@ -129,7 +129,7 @@ class MatrixOperationsTests {
         }
 
         MatrixOperations.broadcastVectorToMatrix(
-            vector.toArray().copyInto(vectorArray), matrix,
+            vector.toArray().copyInto(vectorArray), 0, matrix, 0,
             vectorLength, columns
         )
         Assertions.assertArrayEquals(
@@ -184,7 +184,7 @@ class MatrixOperationsTests {
         }
 
         MatrixOperations.softMaxByColumns(
-            matrix.toFlatArray(), matrixRows, matrixColumns, actual
+            matrix.toFlatArray(), 0, matrixRows, matrixColumns, actual, 0
         )
 
         Assertions.assertArrayEquals(expected.toFlatArray(), actual, 0.001f)
@@ -202,11 +202,11 @@ class MatrixOperationsTests {
         matrix.fillRandom(source, -500f, 500f)
 
         val actual = FloatArray(matrixRows * matrixColumns) {
-          source.nextFloat()
+            source.nextFloat()
         }
 
         MatrixOperations.softMaxByColumns(
-            matrix.toFlatArray(), matrixRows, matrixColumns, actual
+            matrix.toFlatArray(), 0, matrixRows, matrixColumns, actual, 0
         )
 
         for (i in 0 until matrixRows * matrixColumns) {

@@ -82,9 +82,9 @@ class VectorOperationsTests {
             }
 
             VectorOperations.addVectorToVector(
-                first.toArray().copyInto(firstArray),
-                second.toArray().copyInto(secondArray),
-                result,
+                first.toArray().copyInto(firstArray), 0,
+                second.toArray().copyInto(secondArray), 0,
+                result, 0,
                 vectorLength
             )
 
@@ -93,12 +93,12 @@ class VectorOperationsTests {
     }
 
     @Test
-    fun vectorToVectorScalarMultiplicationTest() {
+    fun vectorToVectorElementWiseMultiplicationTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
             val seed = bBuffer.getLong()
 
-            println("vectorToVectorScalarMultiplicationTest seed: $seed")
+            println("vectorToVectorElementWiseMultiplicationTest seed: $seed")
             val source = RandomSource.ISAAC.create(seed)
 
             val vectorLength = source.nextInt(1000)
@@ -120,10 +120,10 @@ class VectorOperationsTests {
                 source.nextFloat()
             }
 
-            VectorOperations.vectorToVectorScalarMultiplication(
-                first.toArray().copyInto(firstArray),
-                second.toArray().copyInto(secondArray),
-                result,
+            VectorOperations.vectorToVectorElementWiseMultiplication(
+                first.toArray().copyInto(firstArray), 0,
+                second.toArray().copyInto(secondArray), 0,
+                result, 0,
                 vectorLength
             )
 
@@ -355,9 +355,9 @@ class VectorOperationsTests {
             }
 
             VectorOperations.subtractVectorFromVector(
-                first.toArray().copyInto(firstArray),
-                second.toArray().copyInto(secondArray),
-                result,
+                first.toArray().copyInto(firstArray), 0,
+                second.toArray().copyInto(secondArray), 0,
+                result, 0,
                 vectorLength
             )
 

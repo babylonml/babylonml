@@ -97,13 +97,13 @@ public final class NeuralNetwork {
             var index = shuffledIndices[i];
             System.arraycopy(inputData[index], 0, transposeBuffer, i * inputSize, inputSize);
         }
-        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, inputSize, batchInput);
+        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, inputSize, batchInput, 0);
 
         for (int i = 0; i < batchSize; i++) {
             var index = shuffledIndices[i];
             System.arraycopy(targetData[index], 0, transposeBuffer, i * targetSize, targetSize);
         }
-        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, targetSize, batchTarget);
+        MatrixOperations.transposeMatrix(transposeBuffer, 0, batchSize, targetSize, batchTarget, 0);
 
 
         try (var executor = Executors.newFixedThreadPool(cores)) {
@@ -327,22 +327,22 @@ public final class NeuralNetwork {
                         var outputSize = layers[n].getOutputSize();
                         var biasesDeltaLayer = biasesDelta[t][n];
 
-                        MatrixOperations.reduceMatrixToVector(biasesDeltaLayer, outputSize, submittedSizes[t],
-                                biasesDeltaLayer);
-                        VectorOperations.addVectorToVector(biasesDeltaSum[n], biasesDeltaLayer, biasesDeltaSum[n],
-                                layers[n].getOutputSize());
+                        MatrixOperations.reduceMatrixToVector(biasesDeltaLayer, 0, outputSize, submittedSizes[t],
+                                biasesDeltaLayer, 0);
+                        VectorOperations.addVectorToVector(biasesDeltaSum[n], 0, biasesDeltaLayer, 0,
+                                biasesDeltaSum[n], 0, layers[n].getOutputSize());
                     }
 
                     for (int n = 0; n < layers.length; n++) {
-                        VectorOperations.addVectorToVector(weightsDeltaSum[n], weightsDelta[t][n], weightsDeltaSum[n],
-                                layers[n].getOutputSize() * layers[n].getInputSize());
+                        VectorOperations.addVectorToVector(weightsDeltaSum[n], 0, weightsDelta[t][n], 0,
+                                weightsDeltaSum[n], 0, layers[n].getOutputSize() * layers[n].getInputSize());
                     }
                 } else {
                     for (int n = 0; n < layers.length; n++) {
                         var outputSize = layers[n].getOutputSize();
 
-                        MatrixOperations.reduceMatrixToVector(biasesDeltaSum[n], outputSize,
-                                submittedSizes[0], biasesDeltaSum[n]);
+                        MatrixOperations.reduceMatrixToVector(biasesDeltaSum[n], 0, outputSize,
+                                submittedSizes[0], biasesDeltaSum[n], 0);
                     }
                 }
             }

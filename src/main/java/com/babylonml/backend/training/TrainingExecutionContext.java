@@ -34,7 +34,6 @@ public final class TrainingExecutionContext {
 
     private Operation terminalOperation;
 
-    @SuppressWarnings("unused")
     public void initializeExecution(Operation terminalOperation) {
         this.terminalOperation = terminalOperation;
 

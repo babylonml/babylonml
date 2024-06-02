@@ -4,7 +4,6 @@ import com.babylonml.backend.training.TrainingExecutionContext;
 import com.tornadoml.cpu.VectorOperations;
 
 
-@SuppressWarnings("unused")
 public final class Add extends AbstractOperation {
     private final int rows;
     private final int columns;

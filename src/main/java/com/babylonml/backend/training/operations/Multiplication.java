@@ -3,7 +3,6 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 import com.tornadoml.cpu.MatrixOperations;
 
-@SuppressWarnings("unused")
 public final class Multiplication extends AbstractOperation {
     private final int firstMatrixRows;
     private final int firstMatrixColumns;

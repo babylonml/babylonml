@@ -2,7 +2,6 @@ package com.babylonml.backend.training;
 
 import com.tornadoml.cpu.VectorOperations;
 
-@SuppressWarnings("unused")
 public class SimpleGradientDescentOptimizer implements GradientOptimizer {
     private final int scale;
 

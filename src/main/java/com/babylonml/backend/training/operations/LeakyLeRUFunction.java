@@ -5,7 +5,6 @@ import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 
-@SuppressWarnings("unused")
 public final class LeakyLeRUFunction extends AbstractOperation {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 

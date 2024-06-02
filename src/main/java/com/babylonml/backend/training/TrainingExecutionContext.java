@@ -91,11 +91,15 @@ public final class TrainingExecutionContext {
 
     @SuppressWarnings("unused")
     public void executePropagation() {
-        forwardMemoryIndex = 0;
-        backwardMemoryIndex = 0;
+        prepareNextPropagationStep();
 
         executeForwardPropagation();
         executeBackwardPropagation();
+    }
+
+    private void prepareNextPropagationStep() {
+        forwardMemoryIndex = 0;
+        backwardMemoryIndex = 0;
     }
 
     public long allocateForwardMemory(int length) {
@@ -116,13 +120,17 @@ public final class TrainingExecutionContext {
         return address;
     }
 
-    private void executeForwardPropagation() {
-        for (var operation : terminalOperations) {
-            operation.forwardPassCalculation();
+    public long[] executeForwardPropagation() {
+        var result = new long[terminalOperations.size()];
+        for (var i = 0; i < terminalOperations.size(); i++) {
+            var operation = terminalOperations.get(i);
+            result[i] = operation.forwardPassCalculation();
         }
+
+        return result;
     }
 
-    private void executeBackwardPropagation() {
+    public void executeBackwardPropagation() {
         for (var i = lastOperationsInLayers.size() - 1; i >= 0; i--) {
             backStep(lastOperationsInLayers.get(i));
             swapBackwardMemoryBuffers();

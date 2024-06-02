@@ -15,9 +15,6 @@ public final class MatrixOperations {
                                                     int secondMatrixOffset, int secondMatrixRows,
                                                     int secondMatrixColumns, float[] result, int resultOffset) {
         assert firstMatrixColumns == secondMatrixRows;
-        assert firstMatrix != result;
-        assert secondMatrix != result;
-        assert firstMatrix != secondMatrix;
 
         assert firstMatrixRows * firstMatrixColumns + firstMatrixOffset <= firstMatrix.length;
         assert secondMatrixRows * secondMatrixColumns + secondMatrixOffset <= secondMatrix.length;

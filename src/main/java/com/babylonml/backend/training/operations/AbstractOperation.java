@@ -11,7 +11,7 @@ public abstract class AbstractOperation implements Operation {
     protected long derivativeChainValue;
 
     protected Operation nextOperation;
-    private int layerIndex;
+    private int layerIndex = -1;
 
     public AbstractOperation(TrainingExecutionContext executionContext,
                              Operation leftOperation, Operation rightOperation) {

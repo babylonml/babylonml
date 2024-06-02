@@ -44,8 +44,20 @@ public final class GeLUFunction extends AbstractOperation {
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
             var va = FloatVector.fromArray(SPECIES, leftBuffer, leftOffset + i);
             // GeLU(x) = 0.5 * x * (1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x^3)))
-            var vc = va.mul(SCALAR_1).mul(va.add(SCALAR_4).mul(va.mul(va).
-                    mul(va)).mul(SCALAR_3).lanewise(VectorOperators.TANH).add(SCALAR_2).mul(va).mul(SCALAR_1));
+            var vc = FloatVector.broadcast(SPECIES, SCALAR_1).mul(va).mul(
+                    // 1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
+                    FloatVector.broadcast(SPECIES, SCALAR_2).add(
+                            // tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
+                            FloatVector.broadcast(SPECIES, SCALAR_3).mul(
+                                    //x + 0.044715 * x^3
+                                    va.add(
+                                            // 0.044715 * x^3
+                                            va.mul(va).mul(va).mul(SCALAR_4)
+                                    )
+
+                            ).lanewise(VectorOperators.TANH)
+                    )
+            );
             vc.intoArray(resultBuffer, resultOffset + i);
         }
 

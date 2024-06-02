@@ -1,9 +1,21 @@
 package com.tornadoml.cpu
 
+import com.babylonml.backend.training.GradientOptimizer
+import com.babylonml.backend.training.SimpleGradientDescentOptimizer
+import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.operations.Variable
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
 
 class FloatMatrix(val rows: Int, val cols: Int) {
+    companion object {
+        fun random(rows: Int, cols: Int, source: UniformRandomProvider): FloatMatrix {
+            val result = FloatMatrix(rows, cols)
+            result.fillRandom(source)
+            return result
+        }
+    }
+
     constructor(rows: Int, cols: Int, data: FloatArray) : this(rows, cols) {
         assert(data.size == rows * cols)
 
@@ -100,6 +112,10 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun toVariable(exec: TrainingExecutionContext, optimizer: GradientOptimizer, learningRate: Float): Variable {
+        return Variable(exec, optimizer, toFlatArray(), rows, cols, learningRate)
+    }
+
     operator fun times(float: Float): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 
@@ -160,6 +176,22 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun broadcast(cols: Int): FloatMatrix {
+        if (this.cols != 1) {
+            throw IllegalArgumentException("Matrix must have only one column")
+        }
+
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[i][0]
+            }
+        }
+
+        return result
+    }
+
     fun subMatrix(start: Int, count: Int): FloatMatrix {
         val result = FloatMatrix(rows, count)
 
@@ -210,7 +242,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun softMax() : FloatMatrix {
+    fun softMax(): FloatMatrix {
         val exp = exp()
         val sum = exp.transpose().reduce().broadcastRows(rows)
         return exp / sum

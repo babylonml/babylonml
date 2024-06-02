@@ -45,7 +45,7 @@ public final class VectorOperations {
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i + firstOffset] = first[i + secondOffset] + second[i + resultOffset];
+            result[i + resultOffset] = first[i + firstOffset] + second[i + secondOffset];
         }
     }
 

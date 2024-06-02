@@ -25,15 +25,14 @@ class BroadcastTests {
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        Broadcast(rows, columns, executionContext, variable)
+        val broadcast = Broadcast(rows, columns, executionContext, variable)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(broadcast)
 
         val result = executionContext.executeForwardPropagation()
-        Assertions.assertEquals(1, result.size)
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResult = matrix.broadcast(columns)
 

@@ -31,18 +31,16 @@ class MultiplicationTests {
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        Multiplication(
+        val multiplication = Multiplication(
             executionContext, firstMatrixRows, firstMatrixColumns, secondMatrixColumns,
             firstVariable, secondVariable
         )
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(multiplication)
         val result = executionContext.executeForwardPropagation()
 
-        Assertions.assertEquals(1, result.size)
-
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResult = firstMatrix * secondMatrix
 

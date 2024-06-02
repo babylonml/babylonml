@@ -42,20 +42,19 @@ class TrainingExecutionContextTests {
             executionContext, firstMatrixRows, firstMatrixColumns, secondMatrixColumns,
             firstVariable, secondVariable
         )
-        Add(executionContext, firstMatrixRows, secondMatrixColumns, firstMultiplication, thirdVariable)
+        val add = Add(executionContext, firstMatrixRows, secondMatrixColumns, firstMultiplication, thirdVariable)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(add)
 
         val result = executionContext.executeForwardPropagation()
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResultSize = firstMatrixRows * secondMatrixColumns
         val expectedResult = firstMatrix * secondMatrix + thirdMatrix
 
-        Assertions.assertEquals(1, result.size)
-        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result[0]))
+        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result))
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
             buffer.copyOfRange(resultOffset, resultOffset + expectedResultSize), 0.001f
@@ -87,20 +86,19 @@ class TrainingExecutionContextTests {
             inputVariable, weightsVariable
         )
         val add = Add(executionContext, 1, outputSize, multiplication, biasVariable)
-        GeLUFunction(1, outputSize, executionContext, add)
+        val geLU = GeLUFunction(1, outputSize, executionContext, add)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(geLU)
 
         val result = executionContext.executeForwardPropagation()
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResultSize = outputSize
         val expectedResult = geLU((inputMatrix * weightsMatrix) + biasMatrix)
 
-        Assertions.assertEquals(1, result.size)
-        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result[0]))
+        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result))
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
             buffer.copyOfRange(resultOffset, resultOffset + expectedResultSize), 0.001f
@@ -146,22 +144,23 @@ class TrainingExecutionContextTests {
             geLU1, weightsVariable2
         )
         val add2 = Add(executionContext, 1, outputSize, multiplication2, biasVariable2)
-        GeLUFunction(1, outputSize, executionContext, add2)
+        val geLU2 = GeLUFunction(1, outputSize, executionContext, add2)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(geLU2)
 
         val result = executionContext.executeForwardPropagation()
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResultSize = outputSize
 
-        val expectedResult = geLU(geLU((inputMatrix * weightsMatrix1) + biasMatrix1) * weightsMatrix2 +
-                biasMatrix2)
+        val expectedResult = geLU(
+            geLU((inputMatrix * weightsMatrix1) + biasMatrix1) * weightsMatrix2 +
+                    biasMatrix2
+        )
 
-        Assertions.assertEquals(1, result.size)
-        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result[0]))
+        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result))
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
             buffer.copyOfRange(resultOffset, resultOffset + expectedResultSize), 0.001f
@@ -223,26 +222,29 @@ class TrainingExecutionContextTests {
         )
 
         val add3 = Add(executionContext, 1, outputSize, multiplication3, biasVariable3)
-        GeLUFunction(1, outputSize, executionContext, add3)
+        val geLU3 = GeLUFunction(1, outputSize, executionContext, add3)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(geLU3)
 
         val result = executionContext.executeForwardPropagation()
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResultSize = outputSize
 
-        val expectedResult = geLU(geLU(geLU((inputMatrix * weightsMatrix1) + biasMatrix1) * weightsMatrix2 +
-                biasMatrix2) * weightsMatrix3 + biasMatrix3)
+        val expectedResult = geLU(
+            geLU(
+                geLU((inputMatrix * weightsMatrix1) + biasMatrix1) * weightsMatrix2 +
+                        biasMatrix2
+            ) * weightsMatrix3 + biasMatrix3
+        )
 
-        Assertions.assertEquals(1, result.size)
-        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result[0]))
+        Assertions.assertEquals(expectedResultSize, TrainingExecutionContext.addressLength(result))
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + expectedResultSize), 0.005f
+            buffer.copyOfRange(resultOffset, resultOffset + expectedResultSize), 0.001f
         )
     }
 }

@@ -3,7 +3,7 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 
 @SuppressWarnings("unused")
-public final class Constant extends AbstractOperation {
+public final class Constant extends AbstractOperation implements StartOperation {
     private final float[] constant;
 
     private final int rows;

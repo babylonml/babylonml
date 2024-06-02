@@ -28,15 +28,13 @@ class AddTests {
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        Add(executionContext, rows, columns, firstVariable, secondVariable)
+        val add = Add(executionContext, rows, columns, firstVariable, secondVariable)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(add)
         val result = executionContext.executeForwardPropagation()
 
-        Assertions.assertEquals(1, result.size)
-
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResult = firstMatrix + secondMatrix
 

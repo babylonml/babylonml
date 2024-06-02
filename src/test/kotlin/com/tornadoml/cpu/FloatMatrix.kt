@@ -252,7 +252,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
     fun fillRandom(source: UniformRandomProvider) {
         for (i in 0 until rows) {
             for (j in 0 until cols) {
-                data[i][j] = source.nextFloat()
+                data[i][j] = source.nextFloat(-1.0f, 1.0f)
             }
         }
     }

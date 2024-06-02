@@ -28,15 +28,13 @@ class HadamardProductTests {
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        HadamardProduct(rows, columns, executionContext, firstVariable, secondVariable)
+        val hadamard = HadamardProduct(rows, columns, executionContext, firstVariable, secondVariable)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(hadamard)
         val result = executionContext.executeForwardPropagation()
 
-        Assertions.assertEquals(1, result.size)
-
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResult = firstMatrix.hadamardMul(secondMatrix)
 

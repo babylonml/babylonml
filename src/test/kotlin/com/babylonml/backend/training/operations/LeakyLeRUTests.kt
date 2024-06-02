@@ -28,15 +28,14 @@ class LeakyLeRUTests {
         val leakyLeRUSlope = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        LeakyLeRUFunction(rows, columns, leakyLeRUSlope, executionContext, variable)
+        val leakyLeRU = LeakyLeRUFunction(rows, columns, leakyLeRUSlope, executionContext, variable)
 
-        executionContext.initializeExecution()
+        executionContext.initializeExecution(leakyLeRU)
 
         val result = executionContext.executeForwardPropagation()
-        Assertions.assertEquals(1, result.size)
 
-        val buffer = executionContext.getMemoryBuffer(result[0])
-        val resultOffset = TrainingExecutionContext.addressOffset(result[0])
+        val buffer = executionContext.getMemoryBuffer(result)
+        val resultOffset = TrainingExecutionContext.addressOffset(result)
 
         val expectedResult = leakyLeRU(matrix, leakyLeRUSlope)
 

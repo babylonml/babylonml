@@ -1,7 +1,7 @@
 package com.babylonml.backend.training;
 
 import com.babylonml.backend.training.operations.Operation;
-import com.babylonml.backend.training.operations.Variable;
+import com.babylonml.backend.training.operations.StartOperation;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,33 +25,19 @@ public final class TrainingExecutionContext {
 
     private int backwardMemoryIndex;
 
-    private final ArrayList<Variable> layers = new ArrayList<>();
+    private final ArrayList<StartOperation> layers = new ArrayList<>();
 
     /**
      * Last operations for each layer in execution graph.
      */
     private final ArrayList<Operation> lastOperationsInLayers = new ArrayList<>();
 
-    /**
-     * Terminal operations in the execution graph.
-     */
-    private final ArrayList<Operation> terminalOperations = new ArrayList<>();
-
-
-    public void registerOperation(Variable operation) {
-        if (operation.getLayerIndex() > -1) {
-            throw new IllegalArgumentException("Operation already registered");
-        }
-
-        var layerIndex = layers.size();
-        operation.setLayerIndex(layerIndex);
-
-        layers.add(operation);
-    }
-
+    private Operation terminalOperation;
 
     @SuppressWarnings("unused")
-    public void initializeExecution() {
+    public void initializeExecution(Operation terminalOperation) {
+        this.terminalOperation = terminalOperation;
+
         //Find last operations for all layers.
         splitExecutionGraphByLayers();
 
@@ -61,13 +47,13 @@ public final class TrainingExecutionContext {
         initializeBuffers();
     }
 
-
-    /**
-     * Split the execution graph into layers.
-     */
     private void splitExecutionGraphByLayers() {
+        var visitedOperations = new HashSet<Operation>();
+        splitExecutionGraphByLayers(terminalOperation, visitedOperations);
+
         for (int i = layers.size() - 1; i >= 0; i--) {
             Operation currentOperation = layers.get(i);
+            currentOperation.setLayerIndex(i);
 
             while (currentOperation.getNextOperation() != null) {
                 var tmpOperation = currentOperation.getNextOperation();
@@ -82,10 +68,36 @@ public final class TrainingExecutionContext {
             }
 
             lastOperationsInLayers.add(currentOperation);
+        }
+    }
 
-            if (currentOperation.getNextOperation() == null) {
-                terminalOperations.add(currentOperation);
+
+    /**
+     * Split the execution graph into layers starting from the passed operation.
+     */
+    private void splitExecutionGraphByLayers(Operation operation, HashSet<Operation> visitedOperations) {
+        if (visitedOperations.contains(operation)) {
+            return;
+        }
+        visitedOperations.add(operation);
+
+        var previousLeftOperation = operation.getLeftPreviousOperation();
+        if (previousLeftOperation != null) {
+            if (previousLeftOperation instanceof StartOperation startOperation) {
+                layers.add(startOperation);
             }
+
+            splitExecutionGraphByLayers(previousLeftOperation, visitedOperations);
+        }
+
+
+        var previousRightOperation = operation.getRightPreviousOperation();
+        if (previousRightOperation != null) {
+            if (previousRightOperation instanceof StartOperation startOperation) {
+                layers.add(startOperation);
+            }
+
+            splitExecutionGraphByLayers(previousRightOperation, visitedOperations);
         }
     }
 
@@ -120,14 +132,8 @@ public final class TrainingExecutionContext {
         return address;
     }
 
-    public long[] executeForwardPropagation() {
-        var result = new long[terminalOperations.size()];
-        for (var i = 0; i < terminalOperations.size(); i++) {
-            var operation = terminalOperations.get(i);
-            result[i] = operation.forwardPassCalculation();
-        }
-
-        return result;
+    public long executeForwardPropagation() {
+        return terminalOperation.forwardPassCalculation();
     }
 
     public void executeBackwardPropagation() {
@@ -211,6 +217,8 @@ public final class TrainingExecutionContext {
 
         visitedOperations.add(operation);
         var layerIndex = operation.getLayerIndex();
+        assert layerIndex >= 0;
+
         var nextOperation = operation.getNextOperation();
 
         var resultSize = memoryCalculator.applyAsInt(operation);

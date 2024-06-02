@@ -3,7 +3,7 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 import com.babylonml.backend.training.GradientOptimizer;
 
-public final class Variable extends AbstractOperation {
+public final class Variable extends AbstractOperation implements StartOperation {
     private final GradientOptimizer optimizer;
     private final float learningRate;
 
@@ -21,8 +21,6 @@ public final class Variable extends AbstractOperation {
         this.rows = rows;
         this.columns = columns;
         this.learningRate = learningRate;
-
-        executionContext.registerOperation(this);
     }
 
     @Override

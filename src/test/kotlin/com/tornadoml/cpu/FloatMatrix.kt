@@ -1,7 +1,6 @@
 package com.tornadoml.cpu
 
 import com.babylonml.backend.training.GradientOptimizer
-import com.babylonml.backend.training.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Variable
 import org.apache.commons.rng.UniformRandomProvider

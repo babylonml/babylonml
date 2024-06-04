@@ -6,6 +6,9 @@ import com.babylonml.backend.training.operations.Operation
 import com.babylonml.backend.training.operations.Variable
 
 object MatrixEngine {
+    /**
+     * Convert matrix expression into a backend operation graph and run the forward propagation.
+     */
     fun compute(matrix: Matrix): FloatArray {
         val context = TrainingExecutionContext()
         val terminal = toOperationGraph(matrix, context)

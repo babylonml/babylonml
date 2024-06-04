@@ -9,47 +9,68 @@ import com.babylonml.backend.training.operations.Multiplication
 import com.babylonml.backend.training.operations.Operation
 import kotlin.math.max
 
+/**
+ * Matrix of float values.
+ * This interface defines a computation graph that can be materialized into a concrete matrix.
+ */
 sealed interface Matrix {
+    /**
+     * Dimensions of the matrix.
+     */
     val dims: MatrixDims
 
+    /**
+     * Materializes the computation into a concrete matrix.
+     */
     fun materialize(): EagerMatrix
 
     companion object {
+        /**
+         * Creates a matrix of zeros with the specified dimensions.
+         */
         fun zeros(rows: Int, cols: Int): EagerMatrix {
             return fill(rows, cols, 0.0f)
         }
 
+        /**
+         * Creates a matrix of ones with the specified dimensions.
+         */
         fun ones(rows: Int, cols: Int): EagerMatrix {
             return fill(rows, cols, 1.0f)
         }
 
+        /**
+         * Creates a matrix filled with the specified value with the specified dimensions.
+         */
         fun fill(rows: Int, cols: Int, value: Float): EagerMatrix {
             return EagerMatrix(FloatArray(rows * cols) { value }, MatrixDims(rows, cols))
         }
 
+        /**
+         * Creates a matrix from the specified data array.
+         */
         fun of(data: Array<FloatArray>): EagerMatrix {
             return EagerMatrix(flattenArray(data), MatrixDims(data.size, data[0].size))
         }
 
+        /**
+         * Creates a N x 1 matrix representing a column vector from the specified data.
+         */
         fun columnVector(vararg data: Float): EagerMatrix {
             return EagerMatrix(data, MatrixDims(data.size, 1))
         }
 
+        /**
+         * Creates a 1 x N matrix representing a row vector from the specified data.
+         */
         fun rowVector(vararg data: Float): EagerMatrix {
             return EagerMatrix(data, MatrixDims(1, data.size))
         }
     }
 
-    fun applyBinary(left: Matrix, right: Matrix, operation: MatrixOperation): Matrix {
-        require(operation.type == MatrixOperationType.Binary)
-        return MatrixExpression(left, right, operation.validateAndComputeDims(left.dims, right.dims), operation)
-    }
-
-    fun applyUnary(matrix: Matrix, operation: MatrixOperation): Matrix {
-        require(operation.type == MatrixOperationType.Unary)
-        return MatrixExpression(matrix, matrix, operation.validateAndComputeDims(matrix.dims, matrix.dims), operation)
-    }
-
+    /**
+     * Element-wise addition of two matrices. Broadcasts the matrices if necessary.
+     */
     operator fun plus(other: Matrix): Matrix {
         val resultingDims = MatrixDims.validateBroadcastDims(this.dims, other.dims)
 
@@ -60,29 +81,57 @@ sealed interface Matrix {
         )
     }
 
+    /**
+     * Matrix multiplication of two matrices.
+     */
     operator fun times(other: Matrix): Matrix {
         return applyBinary(this, other, MatrixOperation.mul)
     }
 
+    /**
+     * Applies the Gaussian Error Linear Unit (GeLU) function element-wise to the matrix.
+     */
     fun gelu(): Matrix {
         return applyUnary(this, MatrixOperation.gelu)
     }
 
+    /**
+     * Broadcasts a one row matrix to the specified number of rows.
+     */
     fun broadcastRows(rows: Int): Matrix {
         return applyUnary(this, MatrixOperation.broadcastRows(rows))
     }
 
+    /**
+     * Broadcasts a one column matrix to the specified number of columns.
+     */
     fun broadcastColumns(cols: Int): Matrix {
         return applyUnary(this, MatrixOperation.broadcastColumns(cols))
     }
+
+    private fun applyBinary(left: Matrix, right: Matrix, operation: MatrixOperation): Matrix {
+        require(operation.type == MatrixOperationType.Binary)
+        return MatrixExpression(left, right, operation.validateAndComputeDims(left.dims, right.dims), operation)
+    }
+
+    private fun applyUnary(matrix: Matrix, operation: MatrixOperation): Matrix {
+        require(operation.type == MatrixOperationType.Unary)
+        return MatrixExpression(matrix, matrix, operation.validateAndComputeDims(matrix.dims, matrix.dims), operation)
+    }
 }
 
+/**
+ * A matrix whose elements are already computed.
+ */
 class EagerMatrix(
     val data: FloatArray,
     override val dims: MatrixDims
 ) : Matrix {
     override fun materialize(): EagerMatrix = this
 
+    /**
+     * Converts the matrix to a pretty string representation.
+     */
     fun contentToString(): String {
         val result = StringBuilder("[\n")
         for (i in 0 until dims.rows) {
@@ -98,6 +147,10 @@ class EagerMatrix(
     }
 }
 
+/**
+ * An expression that can be materialized into a concrete matrix and consists of a binary or unary operation
+ * applied to one or two matrices.
+ */
 class MatrixExpression(
     val left: Matrix,
     val right: Matrix, // for unary operations this will be equal to left
@@ -110,6 +163,9 @@ class MatrixExpression(
     )
 }
 
+/**
+ * Dimensions of a matrix.
+ */
 data class MatrixDims(val rows: Int, val cols: Int) {
     companion object {
         fun validateBroadcastDims(left: MatrixDims, right: MatrixDims): MatrixDims {
@@ -119,6 +175,8 @@ data class MatrixDims(val rows: Int, val cols: Int) {
         }
     }
 }
+
+// INTERNAL API BELOW
 
 abstract class MatrixOperation(val type: MatrixOperationType) {
     abstract fun validateAndComputeDims(left: MatrixDims, right: MatrixDims): MatrixDims

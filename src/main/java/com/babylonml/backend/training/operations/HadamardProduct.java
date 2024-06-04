@@ -57,9 +57,10 @@ public final class HadamardProduct extends AbstractOperation {
 
         var result = executionContext.allocateBackwardMemory(rows * columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
+        var resultOffset = TrainingExecutionContext.addressOffset(result);
 
         VectorOperations.vectorToVectorElementWiseMultiplication(derivativeChainBuffer, derivativeChainOffset,
-                rightOperationValueBuffer, rightOperationValueOffset, resultBuffer, 0, rows * columns);
+                rightOperationValueBuffer, rightOperationValueOffset, resultBuffer, resultOffset, rows * columns);
 
         return result;
     }
@@ -74,9 +75,10 @@ public final class HadamardProduct extends AbstractOperation {
 
         var result = executionContext.allocateBackwardMemory(rows * columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
+        var resultOffset = TrainingExecutionContext.addressOffset(result);
 
         VectorOperations.vectorToVectorElementWiseMultiplication(derivativeChainBuffer, derivativeChainOffset,
-                leftOperationValueBuffer, leftOperationValueOffset, resultBuffer, 0, rows * columns);
+                leftOperationValueBuffer, leftOperationValueOffset, resultBuffer, resultOffset, rows * columns);
 
         return result;
     }

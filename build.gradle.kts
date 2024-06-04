@@ -72,6 +72,18 @@ tasks {
             "-Djava.awt.headless=true"
         )
     }
+
+    register<JavaExec>("matrixDemo") {
+        group = "application"
+        mainClass = "com.babylonml.dsl.v1.MatrixDemo"
+        classpath = sourceSets["main"].runtimeClasspath
+        jvmArgs = listOf(
+            "-server",
+            "-Xmx16g",
+            "--add-modules",
+            "jdk.incubator.vector"
+        )
+    }
 }
 
 

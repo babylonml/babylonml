@@ -9,23 +9,23 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
-class BroadcastColumnsTests {
+class BroadcastRowsTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
-        val matrix = FloatMatrix.random(rows, 1, source)
+        val matrix = FloatMatrix.random(1, columns, source)
 
         val executionContext = TrainingExecutionContext()
         val optimizer = SimpleGradientDescentOptimizer(1)
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val broadcast = BroadcastColumns(
+        val broadcast = BroadcastRows(
             rows,
             columns,
             executionContext,
@@ -39,9 +39,11 @@ class BroadcastColumnsTests {
         val buffer = executionContext.getMemoryBuffer(result)
         val resultOffset = TrainingExecutionContext.addressOffset(result)
 
-        val expectedResult = matrix.broadcastByColumns(columns)
+        val expectedResult = matrix.broadcastByRows(rows)
 
-        Assertions.assertArrayEquals(expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+        )
     }
 }

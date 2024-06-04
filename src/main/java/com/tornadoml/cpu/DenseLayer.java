@@ -47,7 +47,7 @@ public final class DenseLayer implements TrainableLayer {
 
         var biasesBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
-        MatrixOperations.broadcastVectorToMatrix(biases, 0, biasesBuffer, 0,
+        MatrixOperations.broadcastVectorToMatrixByColumns(biases, 0, biasesBuffer, 0,
                 outputSize, batchSize);
 
         //w * x + b
@@ -67,7 +67,7 @@ public final class DenseLayer implements TrainableLayer {
 
         var buffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
-        MatrixOperations.broadcastVectorToMatrix(biases, 0, buffer, 0, outputSize, batchSize);
+        MatrixOperations.broadcastVectorToMatrixByColumns(biases, 0, buffer, 0, outputSize, batchSize);
 
         //w * x + b
         VectorOperations.addVectorToVector(activationArgumentOutput, 0,

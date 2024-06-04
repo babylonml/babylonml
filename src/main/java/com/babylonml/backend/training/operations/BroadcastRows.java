@@ -3,12 +3,12 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 import com.tornadoml.cpu.MatrixOperations;
 
-public final class BroadcastColumns extends AbstractOperation {
+public final class BroadcastRows extends AbstractOperation {
     private final int columns;
     private final int rows;
     private final boolean requiresDerivativeChainValue;
 
-    public BroadcastColumns(final int rows, int columns, TrainingExecutionContext executionContext,
+    public BroadcastRows(final int rows, int columns, TrainingExecutionContext executionContext,
                             Operation leftOperation) {
         super(executionContext, leftOperation, null);
         this.columns = columns;
@@ -22,13 +22,13 @@ public final class BroadcastColumns extends AbstractOperation {
         var leftResult = leftOperation.forwardPassCalculation();
         var leftBuffer = executionContext.getMemoryBuffer(leftResult);
         var leftOffset = TrainingExecutionContext.addressOffset(leftResult);
-        assert rows == TrainingExecutionContext.addressLength(leftResult);
+        assert columns == TrainingExecutionContext.addressLength(leftResult);
 
         var result = executionContext.allocateForwardMemory(rows * columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
-        MatrixOperations.broadcastVectorToMatrixByColumns(leftBuffer, leftOffset, resultBuffer, resultOffset, rows, columns);
+        MatrixOperations.broadcastVectorToMatrixByRows(leftBuffer, leftOffset, resultBuffer, resultOffset, rows, columns);
 
         return result;
     }
@@ -51,7 +51,7 @@ public final class BroadcastColumns extends AbstractOperation {
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
-        MatrixOperations.reduceMatrixToVectorByColumns(derivativeBuffer, derivativeOffset, rows, columns,
+        MatrixOperations.reduceMatrixToVectorByRows(derivativeBuffer, derivativeOffset, rows, columns,
                 resultBuffer, resultOffset);
 
         return result;

@@ -46,7 +46,7 @@ public final class MatrixOperations {
     public static void transposeMatrix(float[] matrix, int matrixOffset,
                                        int rows, int columns, float[] result, int resultOffset) {
         assert matrix != result;
-        final int blockSize = 16;
+        final int blockSize = Math.max(SPECIES.length(), 8);
 
         for (int i = 0; i < rows; i += blockSize) {
             for (int j = 0; j < columns; j += blockSize) {
@@ -63,8 +63,8 @@ public final class MatrixOperations {
         }
     }
 
-    public static void broadcastVectorToMatrix(float[] vector, int vectorOffset, float[] matrix,
-                                               int matrixOffset, int rows, int columns) {
+    public static void broadcastVectorToMatrixByColumns(float[] vector, int vectorOffset, float[] matrix,
+                                                        int matrixOffset, int rows, int columns) {
         var speciesLength = SPECIES.length();
 
         for (int i = 0; i < rows; i++) {
@@ -83,21 +83,58 @@ public final class MatrixOperations {
         }
     }
 
+    public static void broadcastVectorToMatrixByRows(float[] vector, int vectorOffset, float[] matrix,
+                                                     int matrixOffset, int rows, int columns) {
+        for (int i = 0; i < rows; i++) {
+            var rowOffset = i * columns + matrixOffset;
+            System.arraycopy(vector, vectorOffset, matrix, rowOffset, columns);
+        }
+    }
+
     public static void subMatrix(float[] source, int startColumn, int rows, int columns,
                                  float[] destination, int destinationColumnsCount) {
 
         for (int i = 0; i < rows; i++) {
             var sourceRowOffset = i * columns + startColumn;
             var destinationRowOffset = i * destinationColumnsCount;
-
             System.arraycopy(source, sourceRowOffset, destination, destinationRowOffset, destinationColumnsCount);
         }
     }
 
-    public static void reduceMatrixToVector(float[] matrix, int matrixOffset, int rows, int columns, float[] vector, int vectorOffset) {
+    public static void reduceMatrixToVectorByColumns(float[] matrix, int matrixOffset,
+                                                     int rows, int columns,
+                                                     float[] vector, int vectorOffset) {
         for (int i = 0; i < rows; i++) {
             var rowOffset = i * columns + matrixOffset;
             vector[i + vectorOffset] = VectorOperations.sumVectorElements(matrix, rowOffset, columns);
+        }
+    }
+
+    public static void reduceMatrixToVectorByRows(float[] matrix, int matrixOffset,
+                                                  int rows, int columns,
+                                                  float[] vector, int vectorOffset) {
+        var columnsBound = SPECIES.loopBound(columns);
+
+        for (int c = 0; c < columnsBound; c += SPECIES.length()) {
+            var sumVec = FloatVector.zero(SPECIES);
+
+            for (int r = 0; r < rows; r++) {
+                var startIndex = r * columns + c + matrixOffset;
+                var values = FloatVector.fromArray(SPECIES, matrix, startIndex);
+                sumVec = sumVec.add(values);
+            }
+
+            sumVec.intoArray(vector, vectorOffset + c);
+        }
+
+        for (int c = columnsBound; c < columns; c++) {
+            var sum = 0.0f;
+
+            for (int r = 0; r < rows; r++) {
+                sum += matrix[r * columns + c + matrixOffset];
+            }
+
+            vector[c + vectorOffset] = sum;
         }
     }
 

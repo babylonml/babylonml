@@ -327,7 +327,7 @@ public final class NeuralNetwork {
                         var outputSize = layers[n].getOutputSize();
                         var biasesDeltaLayer = biasesDelta[t][n];
 
-                        MatrixOperations.reduceMatrixToVector(biasesDeltaLayer, 0, outputSize, submittedSizes[t],
+                        MatrixOperations.reduceMatrixToVectorByColumns(biasesDeltaLayer, 0, outputSize, submittedSizes[t],
                                 biasesDeltaLayer, 0);
                         VectorOperations.addVectorToVector(biasesDeltaSum[n], 0, biasesDeltaLayer, 0,
                                 biasesDeltaSum[n], 0, layers[n].getOutputSize());
@@ -341,7 +341,7 @@ public final class NeuralNetwork {
                     for (int n = 0; n < layers.length; n++) {
                         var outputSize = layers[n].getOutputSize();
 
-                        MatrixOperations.reduceMatrixToVector(biasesDeltaSum[n], 0, outputSize,
+                        MatrixOperations.reduceMatrixToVectorByColumns(biasesDeltaSum[n], 0, outputSize,
                                 submittedSizes[0], biasesDeltaSum[n], 0);
                     }
                 }

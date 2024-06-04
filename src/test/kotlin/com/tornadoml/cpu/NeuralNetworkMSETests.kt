@@ -131,7 +131,7 @@ class NeuralNetworkMSETests {
         val alpha = 0.001f
 
         weights -= weightsDelta * alpha / sampleSize
-        biases -= biasesDelta.reduce() * alpha / sampleSize
+        biases -= biasesDelta.reduceByColumns() * alpha / sampleSize
 
         neuralNetwork.fit(
             input.transpose().toArray(),
@@ -191,7 +191,7 @@ class NeuralNetworkMSETests {
             val biasesDelta = layerError
 
             weights -= weightsDelta * alpha / sampleSize
-            biases -= biasesDelta.reduce() / sampleSize * alpha
+            biases -= biasesDelta.reduceByColumns() / sampleSize * alpha
         }
 
         neuralNetwork.fit(
@@ -258,7 +258,7 @@ class NeuralNetworkMSETests {
                 val biasesDelta = layerError
 
                 weights -= weightsDelta * alpha / miniSampleSize
-                biases -= biasesDelta.reduce() / miniSampleSize * alpha
+                biases -= biasesDelta.reduceByColumns() / miniSampleSize * alpha
             }
         }
 
@@ -504,13 +504,13 @@ class NeuralNetworkMSETests {
         val firstLayerBiasesDelta = firstLayerError
 
         firstLayerWeights -= firstLayerWeightsDelta * alpha / samplesCount
-        firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / samplesCount
+        firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / samplesCount
 
         val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
         val secondLayerBiasesDelta = secondLayerError
 
         secondLayerWeights -= secondLayerWeightsDelta * alpha / samplesCount
-        secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / samplesCount
+        secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / samplesCount
 
 
         neuralNetwork.fit(
@@ -586,13 +586,13 @@ class NeuralNetworkMSETests {
             val firstLayerBiasesDelta = firstLayerError
 
             firstLayerWeights -= firstLayerWeightsDelta * alpha / samplesCount
-            firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / samplesCount
+            firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / samplesCount
 
             val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
             val secondLayerBiasesDelta = secondLayerError
 
             secondLayerWeights -= secondLayerWeightsDelta * alpha / samplesCount
-            secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / samplesCount
+            secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / samplesCount
         }
 
         neuralNetwork.fit(
@@ -676,13 +676,13 @@ class NeuralNetworkMSETests {
                 val firstLayerBiasesDelta = firstLayerError
 
                 firstLayerWeights -= firstLayerWeightsDelta * alpha / miniSampleSize
-                firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / miniSampleSize
+                firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / miniSampleSize
 
                 val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
                 val secondLayerBiasesDelta = secondLayerError
 
                 secondLayerWeights -= secondLayerWeightsDelta * alpha / miniSampleSize
-                secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / miniSampleSize
+                secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / miniSampleSize
             }
         }
 
@@ -1024,19 +1024,19 @@ class NeuralNetworkMSETests {
         val firstLayerBiasesDelta = firstLayerError
 
         firstLayerWeights -= firstLayerWeightsDelta * alpha / sampleCount
-        firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / sampleCount
+        firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
 
         val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
         val secondLayerBiasesDelta = secondLayerError
 
         secondLayerWeights -= secondLayerWeightsDelta * alpha / sampleCount
-        secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / sampleCount
+        secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
 
         val thirdLayerWeightsDelta = thirdLayerError * secondPrediction.transpose()
         val thirdLayerBiasesDelta = thirdLayerError
 
         thirdLayerWeights -= thirdLayerWeightsDelta * alpha / sampleCount
-        thirdLayerBiases -= thirdLayerBiasesDelta.reduce() * alpha / sampleCount
+        thirdLayerBiases -= thirdLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
 
         neuralNetwork.fit(
             input.transpose().toArray(), expected.transpose().toArray(), inputSize, outputSize,
@@ -1146,19 +1146,19 @@ class NeuralNetworkMSETests {
             val firstLayerBiasesDelta = firstLayerError
 
             firstLayerWeights -= firstLayerWeightsDelta * alpha / sampleCount
-            firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / sampleCount
+            firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
 
             val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
             val secondLayerBiasesDelta = secondLayerError
 
             secondLayerWeights -= secondLayerWeightsDelta * alpha / sampleCount
-            secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / sampleCount
+            secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
 
             val thirdLayerWeightsDelta = thirdLayerError * secondPrediction.transpose()
             val thirdLayerBiasesDelta = thirdLayerError
 
             thirdLayerWeights -= thirdLayerWeightsDelta * alpha / sampleCount
-            thirdLayerBiases -= thirdLayerBiasesDelta.reduce() * alpha / sampleCount
+            thirdLayerBiases -= thirdLayerBiasesDelta.reduceByColumns() * alpha / sampleCount
         }
 
         neuralNetwork.fit(
@@ -1274,19 +1274,19 @@ class NeuralNetworkMSETests {
                 val firstLayerBiasesDelta = firstLayerError
 
                 firstLayerWeights -= firstLayerWeightsDelta * alpha / miniSampleSize
-                firstLayerBiases -= firstLayerBiasesDelta.reduce() * alpha / miniSampleSize
+                firstLayerBiases -= firstLayerBiasesDelta.reduceByColumns() * alpha / miniSampleSize
 
                 val secondLayerWeightsDelta = secondLayerError * firstPrediction.transpose()
                 val secondLayerBiasesDelta = secondLayerError
 
                 secondLayerWeights -= secondLayerWeightsDelta * alpha / miniSampleSize
-                secondLayerBiases -= secondLayerBiasesDelta.reduce() * alpha / miniSampleSize
+                secondLayerBiases -= secondLayerBiasesDelta.reduceByColumns() * alpha / miniSampleSize
 
                 val thirdLayerWeightsDelta = thirdLayerError * secondPrediction.transpose()
                 val thirdLayerBiasesDelta = thirdLayerError
 
                 thirdLayerWeights -= thirdLayerWeightsDelta * alpha / miniSampleSize
-                thirdLayerBiases -= thirdLayerBiasesDelta.reduce() * alpha / miniSampleSize
+                thirdLayerBiases -= thirdLayerBiasesDelta.reduceByColumns() * alpha / miniSampleSize
             }
         }
 

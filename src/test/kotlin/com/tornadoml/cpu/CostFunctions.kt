@@ -9,7 +9,7 @@ fun mseCostFunction(actual: FloatMatrix, expected: FloatMatrix): Float {
 
     assert(squared.rows == 1)
 
-    return squared.reduce().sum() / squared.cols
+    return squared.reduceByColumns().sum() / squared.cols
 }
 
 /**
@@ -23,7 +23,7 @@ fun crossEntropyByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
     val logActual = actual.ln()
     val mul = expected.dotMul(logActual)
 
-    val sum = mul.reduce().sum()
+    val sum = mul.reduceByColumns().sum()
 
     return -sum / actual.cols
 }

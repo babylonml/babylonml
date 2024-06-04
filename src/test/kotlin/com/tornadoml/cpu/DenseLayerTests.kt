@@ -823,7 +823,7 @@ class DenseLayerTests {
             weightsDelta, 0, 1.0f / sampleSize.toFloat(),
             weightsDelta, 0, weightsDelta.size
         )
-        MatrixOperations.reduceMatrixToVector(
+        MatrixOperations.reduceMatrixToVectorByColumns(
             biasesDelta, 0, outputSize, sampleSize,
             biasesDelta, 0
         )

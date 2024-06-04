@@ -181,7 +181,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun broadcast(cols: Int): FloatMatrix {
+    fun broadcastByColumns(cols: Int): FloatMatrix {
         if (this.cols != 1) {
             throw IllegalArgumentException("Matrix must have only one column")
         }
@@ -191,6 +191,22 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[i][j] = data[i][0]
+            }
+        }
+
+        return result
+    }
+
+    fun broadcastByRows(rows: Int): FloatMatrix {
+        if (this.rows != 1) {
+            throw IllegalArgumentException("Matrix must have only one row")
+        }
+
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[0][j]
             }
         }
 
@@ -261,13 +277,13 @@ class FloatMatrix(val rows: Int, val cols: Int) {
 
     fun softMaxByColumns(): FloatMatrix {
         val exp = exp()
-        val sum = exp.transpose().reduce().broadcastRows(rows)
+        val sum = exp.transpose().reduceByColumns().broadcastRows(rows)
         return exp / sum
     }
 
     fun softMaxByRows(): FloatMatrix {
         val exp = exp()
-        val sum = exp.reduce().broadcastColumns(cols)
+        val sum = exp.reduceByColumns().broadcastColumns(cols)
         return exp / sum
     }
 
@@ -300,12 +316,24 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun reduce(): FloatVector {
+    fun reduceByColumns(): FloatVector {
         val result = FloatVector(rows)
 
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[i] += data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    fun reduceByRows(): FloatVector {
+        val result = FloatVector(cols)
+
+        for (i in 0 until cols) {
+            for (j in 0 until rows) {
+                result.data[i] += data[j][i]
             }
         }
 

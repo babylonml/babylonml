@@ -85,11 +85,11 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun reduceMatrixToVectorTest(seed: Long) {
+    fun reduceMatrixToVectorByColumnsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1000)
-        val matrixColumns = source.nextInt(1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source)
@@ -101,21 +101,53 @@ class MatrixOperationsTests {
         val matrixArray = FloatArray(matrixRows * matrixColumns + 1) {
             source.nextFloat()
         }
-        MatrixOperations.reduceMatrixToVector(
+        MatrixOperations.reduceMatrixToVectorByColumns(
             matrix.toFlatArray().copyInto(matrixArray), 0, matrixRows, matrixColumns,
             result, 0
         )
 
-        Assertions.assertArrayEquals(matrix.reduce().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
+        Assertions.assertArrayEquals(matrix.reduceByColumns().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
     }
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun broadCastVectorToMatrixTest(seed: Long) {
+    fun reduceMatrixToVectorByRowsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val vectorLength = source.nextInt(1000)
-        val columns = source.nextInt(1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source)
+
+        val matrixOffset = source.nextInt(17)
+        val vectorOffset = source.nextInt(17)
+
+        val result = FloatArray(matrixColumns + 1 + vectorOffset) {
+            source.nextFloat()
+        }
+
+        val matrixArray = FloatArray(matrixRows * matrixColumns + 1 + matrixOffset) {
+            source.nextFloat()
+        }
+        MatrixOperations.reduceMatrixToVectorByRows(
+            matrix.toFlatArray().copyInto(matrixArray, matrixOffset), matrixOffset, matrixRows, matrixColumns,
+            result, vectorOffset
+        )
+
+        Assertions.assertArrayEquals(
+            matrix.reduceByRows().toArray(),
+            result.copyOfRange(vectorOffset, matrixColumns + vectorOffset), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun broadCastVectorToMatrixByColumnsTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val vectorLength = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val vector = FloatVector(vectorLength)
         val matrix = FloatArray(vectorLength * columns + 1) {
@@ -128,13 +160,48 @@ class MatrixOperationsTests {
             source.nextFloat()
         }
 
-        MatrixOperations.broadcastVectorToMatrix(
+        MatrixOperations.broadcastVectorToMatrixByColumns(
             vector.toArray().copyInto(vectorArray), 0, matrix, 0,
             vectorLength, columns
         )
         Assertions.assertArrayEquals(
             vector.broadcastColumns(columns).toFlatArray(),
             matrix.copyOfRange(0, vectorLength * columns),
+            0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun broadCastVectorToMatrixByRowsTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val vectorLength = source.nextInt(1, 100)
+        val rows = source.nextInt(1, 100)
+
+        val vector = FloatVector(vectorLength)
+
+        val vectorOffset = source.nextInt(17)
+        val matrixOffset = source.nextInt(17)
+
+        val matrix = FloatArray(rows * vectorLength + 1 + matrixOffset) {
+            source.nextFloat()
+        }
+        vector.fillRandom(source)
+
+        val vectorArray = FloatArray(vectorLength + 1 + vectorOffset) {
+            source.nextFloat()
+        }
+
+        MatrixOperations.broadcastVectorToMatrixByRows(
+            vector.toArray().copyInto(vectorArray, vectorOffset),
+            vectorOffset, matrix, matrixOffset,
+            rows, vectorLength
+        )
+
+        Assertions.assertArrayEquals(
+            vector.broadcastRows(rows).toFlatArray(),
+            matrix.copyOfRange(matrixOffset, matrixOffset + rows * vectorLength),
             0.001f
         )
     }

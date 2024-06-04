@@ -3,12 +3,13 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 import com.tornadoml.cpu.MatrixOperations;
 
-public final class Broadcast extends AbstractOperation {
+public final class BroadcastColumns extends AbstractOperation {
     private final int columns;
     private final int rows;
     private final boolean requiresDerivativeChainValue;
 
-    public Broadcast(final int rows, int columns, TrainingExecutionContext executionContext, Operation leftOperation) {
+    public BroadcastColumns(final int rows, int columns, TrainingExecutionContext executionContext,
+                            Operation leftOperation) {
         super(executionContext, leftOperation, null);
         this.columns = columns;
         this.rows = rows;

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
-class BroadcastTests {
+class BroadcastColumnsTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
@@ -25,7 +25,12 @@ class BroadcastTests {
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val broadcast = Broadcast(rows, columns, executionContext, variable)
+        val broadcast = BroadcastColumns(
+            rows,
+            columns,
+            executionContext,
+            variable
+        )
 
         executionContext.initializeExecution(broadcast)
 

@@ -1,7 +1,6 @@
 package com.babylonml.backend.training;
 
-import com.babylonml.backend.training.operations.Operation;
-import com.babylonml.backend.training.operations.StartOperation;
+import com.babylonml.backend.training.operations.*;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -37,7 +36,7 @@ public final class TrainingExecutionContext {
     public void initializeExecution(Operation terminalOperation) {
         this.terminalOperation = terminalOperation;
 
-        //Find last operations for all layers.
+        //Find last operations for all layers and optimize the execution graph.
         splitExecutionGraphByLayers();
 
         //For each layer calculate the maximum buffer size needed for the backward and forward  calculation.
@@ -49,6 +48,9 @@ public final class TrainingExecutionContext {
     private void splitExecutionGraphByLayers() {
         var visitedOperations = new HashSet<Operation>();
         splitExecutionGraphByLayers(terminalOperation, visitedOperations);
+
+        //Optimize the execution graph by collapsing SoftMax and CrossEntropy operations into a single operation.
+        optimizeExecutionGraph();
 
         for (int i = layers.size() - 1; i >= 0; i--) {
             Operation currentOperation = layers.get(i);
@@ -104,7 +106,7 @@ public final class TrainingExecutionContext {
     public void executePropagation() {
         prepareNextPropagationStep();
 
-        executeForwardPropagation();
+        executeForwardPropagationNoResult();
         executeBackwardPropagation();
     }
 
@@ -133,6 +135,74 @@ public final class TrainingExecutionContext {
 
     public long executeForwardPropagation() {
         return terminalOperation.forwardPassCalculation();
+    }
+
+    private void optimizeExecutionGraph() {
+        var visitedOperations = new HashSet<Operation>();
+
+        for (var startOperation : layers) {
+            collapseSoftMaxCrossEntropy(startOperation, visitedOperations);
+        }
+    }
+
+    private void collapseSoftMaxCrossEntropy(Operation operation,
+                                             HashSet<Operation> visitedOperations) {
+        if (!visitedOperations.add(operation)) {
+            return;
+        }
+
+        var nextTestedOperation = operation.getNextOperation();
+
+        if (operation instanceof SoftMaxByRows softMax) {
+            if (nextTestedOperation instanceof CrossEntropyByRowsFunction crossEntropyFunction) {
+                var previousOperation = operation.getLeftPreviousOperation();
+
+                var nextOperation = crossEntropyFunction.getNextOperation();
+                nextTestedOperation = nextOperation;
+
+                if (softMax.getRows() != crossEntropyFunction.getRows() ||
+                        softMax.getColumns() != crossEntropyFunction.getColumns()) {
+                    throw new IllegalArgumentException("Softmax and cross entropy should have the same dimensions");
+                }
+
+                var softMaxCrossEntropy = new SoftMaxCrossEntropyByRowsFunction(softMax.getRows(),
+                        softMax.getColumns(),
+                        crossEntropyFunction.getExpectedValues(),
+                        this,
+                        previousOperation);
+
+                if (nextOperation != null) {
+                    var previousLeftNextOperation = nextOperation.getLeftPreviousOperation();
+                    var previousRightNextOperation = nextOperation.getRightPreviousOperation();
+
+                    if (previousLeftNextOperation == operation) {
+                        nextOperation.setLeftPreviousOperation(softMaxCrossEntropy);
+                    } else if (previousRightNextOperation == operation) {
+                        nextOperation.setRightPreviousOperation(softMaxCrossEntropy);
+                    } else {
+                        throw new IllegalArgumentException("Operation is not connected to the next operation");
+                    }
+                } else if (terminalOperation == crossEntropyFunction) {
+                    terminalOperation = softMaxCrossEntropy;
+                }
+            }
+        }
+
+        if (nextTestedOperation != null) {
+            collapseSoftMaxCrossEntropy(nextTestedOperation, visitedOperations);
+        }
+    }
+
+    private void executeForwardPropagationNoResult() {
+        var leftOperation = terminalOperation.getLeftPreviousOperation();
+        if (leftOperation != null) {
+            leftOperation.forwardPassCalculation();
+        }
+
+        var rightOperation = terminalOperation.getRightPreviousOperation();
+        if (rightOperation != null) {
+            rightOperation.forwardPassCalculation();
+        }
     }
 
     public void executeBackwardPropagation() {

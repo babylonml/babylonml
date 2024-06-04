@@ -19,6 +19,10 @@ public interface Operation {
 
     Operation getRightPreviousOperation();
 
+    void setLeftPreviousOperation(Operation leftPreviousOperation);
+
+    void setRightPreviousOperation(Operation rightPreviousOperation);
+
     Operation getNextOperation();
 
     void setNextOperation(Operation nextOperation);

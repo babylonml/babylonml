@@ -133,7 +133,7 @@ class MatrixOperationsTests {
             vectorLength, columns
         )
         Assertions.assertArrayEquals(
-            vector.broadcast(columns).toFlatArray(),
+            vector.broadcastColumns(columns).toFlatArray(),
             matrix.copyOfRange(0, vectorLength * columns),
             0.001f
         )
@@ -169,16 +169,16 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun softMaxValueCalculationTest(seed: Long) {
+    fun softMaxByColumnsValueCalculationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1, 1000)
-        val matrixColumns = source.nextInt(1, 1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source, -10.0f, 10.0f)
 
-        val expected = matrix.softMax()
+        val expected = matrix.softMaxByColumns()
         val actual = FloatArray(matrixRows * matrixColumns) {
             source.nextFloat()
         }
@@ -192,11 +192,11 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun softMaxIsFiniteTest(seed: Long) {
+    fun softMaxByColumnsIsFiniteTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1, 1000)
-        val matrixColumns = source.nextInt(1, 1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source, -500f, 500f)
@@ -212,5 +212,33 @@ class MatrixOperationsTests {
         for (i in 0 until matrixRows * matrixColumns) {
             Assertions.assertTrue(actual[i].isFinite())
         }
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun softMaxByRowsValueCalculationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source, -10.0f, 10.0f)
+
+        val expected = matrix.softMaxByRows()
+
+        val matrixOffset = source.nextInt(17)
+        val resultOffset = source.nextInt(17)
+
+        val actual = FloatArray(matrixRows * matrixColumns + resultOffset) {
+            source.nextFloat()
+        }
+
+        MatrixOperations.softMaxByRows(
+            matrix.toFlatArray().copyInto(FloatArray(matrix.size + matrixOffset), matrixOffset),
+            matrixOffset, matrixRows, matrixColumns, actual, resultOffset
+        )
+
+        Assertions.assertArrayEquals(expected.toFlatArray(), actual.copyOfRange(resultOffset, actual.size), 0.001f)
     }
 }

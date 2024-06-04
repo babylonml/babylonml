@@ -102,8 +102,6 @@ public final class MatrixOperations {
     }
 
     public static void softMaxByColumns(float[] matrix, int matrixOffset, int rows, int columns, float[] result, int resultOffset) {
-        assert matrix != result;
-        assert matrix.length - matrixOffset >= result.length - resultOffset;
         assert matrix.length + matrixOffset >= rows * columns;
         assert result.length + resultOffset >= rows * columns;
 
@@ -116,10 +114,6 @@ public final class MatrixOperations {
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(columns);
 
-        var log2 = FloatVector.broadcast(SPECIES, LOG_2);
-        var log2E = FloatVector.broadcast(SPECIES, LOG_2_E);
-        var two = FloatVector.broadcast(SPECIES, 2.0f);
-
         for (int j = 0; j < loopBound; j += speciesLength) {
             var mSum = FloatVector.zero(SPECIES);
             Vector<Float> nSum = FloatVector.broadcast(SPECIES, Float.NEGATIVE_INFINITY);
@@ -129,6 +123,7 @@ public final class MatrixOperations {
                 var columnValues = FloatVector.fromArray(SPECIES, matrix, resultIndex + matrixOffset);
 
                 //n = x * log e
+                var log2E = FloatVector.broadcast(SPECIES, LOG_2_E);
                 Vector<Float> nValues = columnValues.mul(log2E);
                 //rounding to nearest integer value, n = round(x * log e)
                 //extracting the sign of the values and multiplying them by -2, and add 1, to detect sing of 0.5 additivity
@@ -141,6 +136,7 @@ public final class MatrixOperations {
 
 
                 //t = x - ln (2) * n
+                var log2 = FloatVector.broadcast(SPECIES, LOG_2);
                 var tValues = columnValues.sub(nValues.mul(log2));
                 //m = e ^ t
                 var mValues = tValues.lanewise(VectorOperators.EXP);
@@ -148,6 +144,7 @@ public final class MatrixOperations {
                 //nMax = max(n, nSum)
                 var nMax = nValues.max(nSum);
                 //mSum = m * 2^(n - nMax) + mSum * 2^(nSum - nMax)
+                var two = FloatVector.broadcast(SPECIES, 2.0f);
                 mSum = mValues.mul(two.pow(nValues.sub(nMax))).add(mSum.mul(two.pow(nSum.sub(nMax))));
                 nSum = nMax;
             }
@@ -158,6 +155,7 @@ public final class MatrixOperations {
                 var columnValues = FloatVector.fromArray(SPECIES, matrix, i * columns + j + matrixOffset);
 
                 //n = x * log e
+                var log2E = FloatVector.broadcast(SPECIES, LOG_2_E);
                 Vector<Float> nValues = columnValues.mul(log2E);
                 //rounding to nearest integer value, n = round(x * log e)
                 //extracting the sign of the values and multiplying them by -2, and add 1, to detect sing of 0.5 additivity
@@ -169,11 +167,13 @@ public final class MatrixOperations {
                 nValues = nValues.add(roundingAdditivity).convert(VectorOperators.F2I, 0).convert(VectorOperators.I2F, 0);
 
                 //t = x - ln (2) * n
+                var log2 = FloatVector.broadcast(SPECIES, LOG_2);
                 var tValues = columnValues.sub(nValues.mul(log2));
                 //m = e ^ t
                 var mValues = tValues.lanewise(VectorOperators.EXP);
 
                 //result = m * 2^(n - nSum) * sumDivider
+                var two = FloatVector.broadcast(SPECIES, 2.0f);
                 columnValues = mValues.mul(two.pow(nValues.sub(nSum))).mul(sumDivider);
 
                 var resultIndex = i * columns + j;
@@ -234,6 +234,136 @@ public final class MatrixOperations {
                 //result = m * 2^(n - nSum) * sumDivider
                 result[resultIndex + resultOffset] =
                         (float) (mValue * Math.pow(2, nValue - nSum[sumIndex]) * sumDivider);
+            }
+        }
+    }
+
+    public static void softMaxByRows(float[] matrix, int matrixOffset, int rows, int columns,
+                                     float[] result, int resultOffset) {
+        assert matrix.length + matrixOffset >= rows * columns;
+        assert result.length + resultOffset >= rows * columns;
+
+
+        //n = round(x * log e)
+        //t = x - ln (2) * n (in such case  t lies in the range [-log 2 / 2, log 2 / 2])
+        //m = e ^ t
+        //e^x = m * 2^n
+        //we calculate m and n separately and then combine them to get the result and avoid overflow
+        var speciesLength = SPECIES.length();
+        var loopBound = SPECIES.loopBound(columns);
+
+        for (int r = 0; r < rows; r++) {
+            var nSum = Float.NEGATIVE_INFINITY;
+            var mSumVec = FloatVector.zero(SPECIES);
+
+            var startIndex = r * columns;
+            for (int c = 0; c < loopBound; c += speciesLength) {
+                var currentIndex = startIndex + c;
+                var values = FloatVector.fromArray(SPECIES, matrix, currentIndex + matrixOffset);
+
+                //n = x * log e
+                var log2E = FloatVector.broadcast(SPECIES, LOG_2_E);
+                var nValues = values.mul(log2E);
+                //rounding to nearest integer value, n = round(x * log e)
+                //extracting the sign of the values and multiplying them by -2, and add 1, to detect sing of 0.5 additivity
+                var valuesSigns = nValues.convert(VectorOperators.REINTERPRET_F2I, 0).lanewise(VectorOperators.ASHR, 31).
+                        lanewise(VectorOperators.LSHL, 1).
+                        add(IntVector.broadcast(IntVector.SPECIES_PREFERRED, 1)).convert(VectorOperators.I2F, 0);
+                var roundingAdditivity = FloatVector.broadcast(SPECIES, 0.5f).mul(valuesSigns);
+                //rounding to nearest integer value by adding 0.5 and converting to integer and back to float
+                nValues = (FloatVector)
+                        nValues.add(roundingAdditivity).convert(VectorOperators.F2I, 0).convert(VectorOperators.I2F, 0);
+
+
+                //t = x - ln (2) * n
+                var log2 = FloatVector.broadcast(SPECIES, LOG_2);
+                var tValues = values.sub(nValues.mul(log2));
+                //m = e ^ t
+                var mValues = tValues.lanewise(VectorOperators.EXP);
+
+                //nMax = max(n, nSum)
+                var nMax = Math.max(nValues.reduceLanes(VectorOperators.MAX), nSum);
+
+                var nMaxVec = FloatVector.broadcast(SPECIES, nMax);
+                var nSumVec = FloatVector.broadcast(SPECIES, nSum);
+
+                //mSum = m * 2^(n - nMax) + mSum * 2^(nSum - nMax)
+                var two = FloatVector.broadcast(SPECIES, 2.0f);
+                mSumVec = mValues.mul(two.pow(nValues.sub(nMax))).add(mSumVec.mul(two.pow(nSumVec.sub(nMaxVec))));
+                nSum = nMax;
+            }
+
+
+            var mSum = mSumVec.reduceLanes(VectorOperators.ADD);
+            for (int c = loopBound; c < columns; c++) {
+                var currentIndex = startIndex + c;
+                var columnValue = matrix[currentIndex + matrixOffset];
+
+                //n = round(x * log e)
+                var nValue = Math.round(columnValue * LOG_2_E);
+
+                //t = x - ln (2) * n
+                var tValue = columnValue - LOG_2 * nValue;
+                //m = e ^ t
+                var mValue = (float) Math.exp(tValue);
+
+                //nMax = max(n, nSum)
+                var nMax = Math.max(nValue, nSum);
+                //mSum = m * 2^(n - nMax) + mSum * 2^(nSum - nMax)
+                mSum =
+                        (float) (mValue * Math.pow(2, nValue - nMax) +
+                                mSum * Math.pow(2, nSum - nMax));
+                nSum = nMax;
+            }
+
+            var sumDividerVec = FloatVector.broadcast(SPECIES, 1.0f).div(mSum);
+            var nSumVec = FloatVector.broadcast(SPECIES, nSum);
+
+            for (int c = 0; c < loopBound; c += speciesLength) {
+                var currentIndex = startIndex + c;
+                var values = FloatVector.fromArray(SPECIES, matrix, currentIndex + matrixOffset);
+
+                //n = x * log e
+                var log2E = FloatVector.broadcast(SPECIES, LOG_2_E);
+                Vector<Float> nValues = values.mul(log2E);
+                //rounding to nearest integer value, n = round(x * log e)
+                //extracting the sign of the values and multiplying them by -2, and add 1, to detect sing of 0.5 additivity
+                var valuesSigns = nValues.convert(VectorOperators.REINTERPRET_F2I, 0).lanewise(VectorOperators.ASHR, 31).
+                        lanewise(VectorOperators.LSHL, 1).
+                        add(IntVector.broadcast(IntVector.SPECIES_PREFERRED, 1)).convert(VectorOperators.I2F, 0);
+                var roundingAdditivity = FloatVector.broadcast(SPECIES, 0.5f).mul(valuesSigns);
+                //rounding to nearest integer value by adding 0.5 and converting to integer and back to float
+                nValues = nValues.add(roundingAdditivity).convert(VectorOperators.F2I, 0).convert(VectorOperators.I2F, 0);
+
+                //t = x - ln (2) * n
+                var log2 = FloatVector.broadcast(SPECIES, LOG_2);
+                var tValues = values.sub(nValues.mul(log2));
+                //m = e ^ t
+                var mValues = tValues.lanewise(VectorOperators.EXP);
+
+                //result = m * 2^(n - nSum) * sumDivider
+                var two = FloatVector.broadcast(SPECIES, 2.0f);
+                values = mValues.mul(two.pow(nValues.sub(nSumVec))).mul(sumDividerVec);
+
+                values.intoArray(result, currentIndex + resultOffset);
+            }
+
+            var sumDivider = 1.0f / mSum;
+            for (int c = loopBound; c < columns; c++) {
+                var currentIndex = startIndex + c;
+                var value = matrix[currentIndex + matrixOffset];
+
+                //n = x * log e
+                var nValue = Math.round(value * LOG_2_E);
+
+                //t = x - ln (2) * n
+                var tValue = value - LOG_2 * nValue;
+                //m = e ^ t
+                var mValue = (float) Math.exp(tValue);
+
+                //result = m * 2^(n - nSum) * sumDivider
+                result[currentIndex + resultOffset] =
+                        (float) (mValue * Math.pow(2, nValue - nSum) * sumDivider);
             }
         }
     }

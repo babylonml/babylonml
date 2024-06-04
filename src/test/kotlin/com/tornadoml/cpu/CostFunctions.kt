@@ -18,3 +18,12 @@ fun mseCostFunction(actual: FloatMatrix, expected: FloatMatrix): Float {
 fun mseCostFunctionDerivative(actual: FloatMatrix, expected: FloatMatrix): FloatMatrix {
     return actual - expected
 }
+
+fun crossEntropyByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
+    val logActual = actual.ln()
+    val mul = expected.dotMul(logActual)
+
+    val sum = mul.reduce().sum()
+
+    return -sum / actual.cols
+}

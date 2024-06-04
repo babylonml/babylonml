@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
-class SoftMaxTests {
+class SoftMaxByRowsTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun softMaxPredictTest(seed: Long) {
@@ -16,7 +16,7 @@ class SoftMaxTests {
 
         val input  = FloatMatrix(inputSize, samplesCount)
         input.fillRandom(source)
-        val expected = input.softMax()
+        val expected = input.softMaxByColumns()
 
         val softMaxLayer = SoftMaxLayer(inputSize)
         val actual = FloatArray(inputSize * samplesCount) {

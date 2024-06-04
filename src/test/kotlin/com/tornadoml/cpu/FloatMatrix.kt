@@ -13,6 +13,12 @@ class FloatMatrix(val rows: Int, val cols: Int) {
             result.fillRandom(source)
             return result
         }
+
+        fun random(rows: Int, cols: Int, origin: Float, boundary: Float, source: UniformRandomProvider): FloatMatrix {
+            val result = FloatMatrix(rows, cols)
+            result.fillRandom(source, origin, boundary)
+            return result
+        }
     }
 
     constructor(rows: Int, cols: Int, data: FloatArray) : this(rows, cols) {
@@ -215,6 +221,18 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun ln(): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = kotlin.math.ln(data[i][j])
+            }
+        }
+
+        return result
+    }
+
     fun max(matrix: FloatMatrix): FloatMatrix {
         assert(rows == matrix.rows && cols == matrix.cols)
 
@@ -241,9 +259,15 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun softMax(): FloatMatrix {
+    fun softMaxByColumns(): FloatMatrix {
         val exp = exp()
         val sum = exp.transpose().reduce().broadcastRows(rows)
+        return exp / sum
+    }
+
+    fun softMaxByRows(): FloatMatrix {
+        val exp = exp()
+        val sum = exp.reduce().broadcastColumns(cols)
         return exp / sum
     }
 

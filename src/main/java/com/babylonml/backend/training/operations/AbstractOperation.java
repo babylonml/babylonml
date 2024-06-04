@@ -3,8 +3,8 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.TrainingExecutionContext;
 
 public abstract class AbstractOperation implements Operation {
-    protected final Operation leftOperation;
-    protected final Operation rightOperation;
+    protected Operation leftOperation;
+    protected Operation rightOperation;
 
     protected final TrainingExecutionContext executionContext;
 
@@ -48,6 +48,16 @@ public abstract class AbstractOperation implements Operation {
     @Override
     public Operation getRightPreviousOperation() {
         return rightOperation;
+    }
+
+    @Override
+    public void setLeftPreviousOperation(Operation leftPreviousOperation) {
+        this.leftOperation = leftPreviousOperation;
+    }
+
+    @Override
+    public void setRightPreviousOperation(Operation rightPreviousOperation) {
+        this.rightOperation = rightPreviousOperation;
     }
 
     @Override

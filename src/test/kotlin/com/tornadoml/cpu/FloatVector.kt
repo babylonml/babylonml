@@ -84,7 +84,7 @@ class FloatVector(val size: Int) {
         return result
     }
 
-    fun broadcast(cols: Int): FloatMatrix {
+    fun broadcastColumns(cols: Int): FloatMatrix {
         val result = FloatMatrix(size, cols)
 
         for (i in 0 until size) {

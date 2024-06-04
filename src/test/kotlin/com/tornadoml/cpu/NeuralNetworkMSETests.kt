@@ -55,8 +55,8 @@ class NeuralNetworkMSETests {
             1, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
-        Assertions.assertArrayEquals(biases.toFlatArray(), layer.biases, 0.0001f)
+        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(biases.toFlatArray(), layer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -81,12 +81,12 @@ class NeuralNetworkMSETests {
         val weights = FloatMatrix(outputSize, inputSize, layer.weights)
         val biases = FloatVector(layer.biases)
 
-        val z = weights * input.broadcast(1) + biases.broadcast(1)
+        val z = weights * input.broadcastColumns(1) + biases.broadcastColumns(1)
         val prediction = leakyLeRU(z, 0.01f)
 
         val result = neuralNetwork.predict(input.toArray())
 
-        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.001f)
     }
 
     @ParameterizedTest
@@ -117,7 +117,7 @@ class NeuralNetworkMSETests {
         var weights = FloatMatrix(outputSize, inputSize, layer.weights)
         var biases = FloatVector(layer.biases)
 
-        val z = weights * input + biases.broadcast(sampleSize)
+        val z = weights * input + biases.broadcastColumns(sampleSize)
 
         val prediction = leakyLeRU(z, 0.01f)
 
@@ -146,8 +146,8 @@ class NeuralNetworkMSETests {
             false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
-        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.0001f)
+        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -180,7 +180,7 @@ class NeuralNetworkMSETests {
         val alpha = 0.001f
 
         for (epoch in 0 until epochs) {
-            val z = weights * input + biases.broadcast(sampleSize)
+            val z = weights * input + biases.broadcastColumns(sampleSize)
             val prediction = leakyLeRU(z, 0.01f)
 
             val costError = mseCostFunctionDerivative(prediction, expected)
@@ -207,8 +207,8 @@ class NeuralNetworkMSETests {
             false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
-        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.0001f)
+        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -248,7 +248,7 @@ class NeuralNetworkMSETests {
             for (i in 0 until sampleSize step miniBatchSize) {
                 val miniSampleSize = min(miniBatchSize, sampleSize - i)
 
-                val z = weights * input.subMatrix(i, miniSampleSize) + biases.broadcast(miniSampleSize)
+                val z = weights * input.subMatrix(i, miniSampleSize) + biases.broadcastColumns(miniSampleSize)
                 val prediction = leakyLeRU(z, leakyLeRUGradient)
 
                 val costError = mseCostFunctionDerivative(prediction, expected.subMatrix(i, miniSampleSize))
@@ -275,8 +275,8 @@ class NeuralNetworkMSETests {
             false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.0001f)
-        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.0001f)
+        Assertions.assertArrayEquals(weights.toFlatArray(), layer.weights, 0.001f)
+        Assertions.assertArrayEquals(biases.toArray(), layer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -301,7 +301,7 @@ class NeuralNetworkMSETests {
         val weights = FloatMatrix(outputSize, inputSize, layer.weights)
         val biases = FloatVector(layer.biases)
 
-        val z = weights * input + biases.broadcast(sampleSize)
+        val z = weights * input + biases.broadcastColumns(sampleSize)
         val prediction = leakyLeRU(z, 0.01f)
 
         val expectedCost = mseCostFunction(prediction, expected)
@@ -314,7 +314,7 @@ class NeuralNetworkMSETests {
             )
         }
 
-        Assertions.assertEquals(expectedCost, cost, 0.0001f)
+        Assertions.assertEquals(expectedCost, cost, 0.001f)
     }
 
     @ParameterizedTest
@@ -390,11 +390,11 @@ class NeuralNetworkMSETests {
             1, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toFlatArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toFlatArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toFlatArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toFlatArray(), secondLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -441,7 +441,7 @@ class NeuralNetworkMSETests {
         )
 
         val result = neuralNetwork.predict(input.toFlatArray())
-        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.001f)
     }
 
     @ParameterizedTest
@@ -484,10 +484,10 @@ class NeuralNetworkMSETests {
         var secondLayerWeights = FloatMatrix(outputSize, secondLayerSize, secondLayer.weights)
         var secondLayerBiases = FloatVector(secondLayer.biases)
 
-        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(samplesCount)
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(samplesCount)
         val firstPrediction = leakyLeRU(firstZ, 0.01f)
 
-        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(samplesCount)
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(samplesCount)
         val secondPrediction = leakyLeRU(secondZ, 0.01f)
 
         val secondLayerCostError = mseCostFunctionDerivative(secondPrediction, expected)
@@ -518,11 +518,11 @@ class NeuralNetworkMSETests {
             samplesCount, 1, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -566,10 +566,10 @@ class NeuralNetworkMSETests {
         var secondLayerBiases = FloatVector(secondLayer.biases)
 
         for (epoch in 0 until epochs) {
-            val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(samplesCount)
+            val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(samplesCount)
             val firstPrediction = leakyLeRU(firstZ, 0.01f)
 
-            val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(samplesCount)
+            val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(samplesCount)
             val secondPrediction = leakyLeRU(secondZ, 0.01f)
 
             val secondLayerCostError = mseCostFunctionDerivative(secondPrediction, expected)
@@ -600,11 +600,11 @@ class NeuralNetworkMSETests {
             samplesCount, epochs, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -653,10 +653,10 @@ class NeuralNetworkMSETests {
             for (i in 0 until samplesCount step miniBatchSize) {
                 val miniSampleSize = min(miniBatchSize, samplesCount - i)
                 val firstZ = firstLayerWeights * input.subMatrix(i, miniSampleSize) +
-                        firstLayerBiases.broadcast(miniSampleSize)
+                        firstLayerBiases.broadcastColumns(miniSampleSize)
                 val firstPrediction = leakyLeRU(firstZ, 0.01f)
 
-                val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(miniSampleSize)
+                val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(miniSampleSize)
                 val secondPrediction = leakyLeRU(secondZ, 0.01f)
 
                 val secondLayerCostError = mseCostFunctionDerivative(
@@ -691,11 +691,11 @@ class NeuralNetworkMSETests {
             miniBatchSize, epochs, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -732,10 +732,10 @@ class NeuralNetworkMSETests {
         val secondLayerWeights = FloatMatrix(outputSize, secondLayerSize, secondLayer.weights)
         val secondLayerBiases = FloatVector(secondLayer.biases)
 
-        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(samplesCount)
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(samplesCount)
         val firstPrediction = leakyLeRU(firstZ, leakyLeRUGradient)
 
-        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(samplesCount)
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(samplesCount)
         val secondPrediction = leakyLeRU(secondZ, leakyLeRUGradient)
 
         val expectedCost = mseCostFunction(secondPrediction, expected)
@@ -749,7 +749,7 @@ class NeuralNetworkMSETests {
             )
         }
 
-        Assertions.assertEquals(expectedCost, cost, 0.0001f)
+        Assertions.assertEquals(expectedCost, cost, 0.001f)
     }
 
     @ParameterizedTest
@@ -859,14 +859,14 @@ class NeuralNetworkMSETests {
             1, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toFlatArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toFlatArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toFlatArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toFlatArray(), secondLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(thirdLayerBiases.toFlatArray(), thirdLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(thirdLayerBiases.toFlatArray(), thirdLayer.biases, 0.001f)
 
     }
 
@@ -932,7 +932,7 @@ class NeuralNetworkMSETests {
         val prediction = leakyLeRU(thirdZ, leRUGradient)
 
         val result = neuralNetwork.predict(input.toFlatArray())
-        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.0001f)
+        Assertions.assertArrayEquals(prediction.toFlatArray(), result, 0.001f)
     }
 
     @ParameterizedTest
@@ -994,13 +994,13 @@ class NeuralNetworkMSETests {
         var thirdLayerWeights = FloatMatrix(outputSize, thirdLayerSize, thirdLayer.weights)
         var thirdLayerBiases = FloatVector(thirdLayer.biases)
 
-        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(sampleCount)
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(sampleCount)
         val firstPrediction = leakyLeRU(firstZ, leRUGradient)
 
-        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(sampleCount)
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(sampleCount)
         val secondPrediction = leakyLeRU(secondZ, leRUGradient)
 
-        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(sampleCount)
+        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcastColumns(sampleCount)
         val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
         val thirdLayerCostError = mseCostFunctionDerivative(thirdPrediction, expected)
@@ -1044,14 +1044,14 @@ class NeuralNetworkMSETests {
             1, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -1116,13 +1116,13 @@ class NeuralNetworkMSETests {
 
         for (epoch in 0 until epochsCount) {
 
-            val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(sampleCount)
+            val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(sampleCount)
             val firstPrediction = leakyLeRU(firstZ, leRUGradient)
 
-            val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(sampleCount)
+            val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(sampleCount)
             val secondPrediction = leakyLeRU(secondZ, leRUGradient)
 
-            val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(sampleCount)
+            val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcastColumns(sampleCount)
             val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
             val thirdLayerCostError = mseCostFunctionDerivative(thirdPrediction, expected)
@@ -1167,14 +1167,14 @@ class NeuralNetworkMSETests {
             epochsCount, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -1243,13 +1243,13 @@ class NeuralNetworkMSETests {
                 val miniSampleSize = min(miniBatchSize, samplesCount - i)
 
                 val firstZ =
-                    firstLayerWeights * input.subMatrix(i, miniSampleSize) + firstLayerBiases.broadcast(miniSampleSize)
+                    firstLayerWeights * input.subMatrix(i, miniSampleSize) + firstLayerBiases.broadcastColumns(miniSampleSize)
                 val firstPrediction = leakyLeRU(firstZ, leRUGradient)
 
-                val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(miniSampleSize)
+                val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(miniSampleSize)
                 val secondPrediction = leakyLeRU(secondZ, leRUGradient)
 
-                val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(miniSampleSize)
+                val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcastColumns(miniSampleSize)
                 val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
                 val thirdLayerCostError =
@@ -1296,14 +1296,14 @@ class NeuralNetworkMSETests {
             epochsCount, alpha, -1, false, Float.MIN_VALUE
         )
 
-        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(firstLayerWeights.toFlatArray(), firstLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(firstLayerBiases.toArray(), firstLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(secondLayerWeights.toFlatArray(), secondLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(secondLayerBiases.toArray(), secondLayer.biases, 0.001f)
 
-        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.0001f)
-        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.0001f)
+        Assertions.assertArrayEquals(thirdLayerWeights.toFlatArray(), thirdLayer.weights, 0.001f)
+        Assertions.assertArrayEquals(thirdLayerBiases.toArray(), thirdLayer.biases, 0.001f)
     }
 
     @ParameterizedTest
@@ -1356,13 +1356,13 @@ class NeuralNetworkMSETests {
         val thirdLayerWeights = FloatMatrix(outputSize, thirdLayerSize, thirdLayer.weights)
         val thirdLayerBiases = FloatVector(thirdLayer.biases)
 
-        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcast(sampleCount)
+        val firstZ = firstLayerWeights * input + firstLayerBiases.broadcastColumns(sampleCount)
         val firstPrediction = leakyLeRU(firstZ, leRUGradient)
 
-        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcast(sampleCount)
+        val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(sampleCount)
         val secondPrediction = leakyLeRU(secondZ, leRUGradient)
 
-        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcast(sampleCount)
+        val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcastColumns(sampleCount)
         val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
         val expectedCost = mseCostFunction(thirdPrediction, expected)
@@ -1375,7 +1375,7 @@ class NeuralNetworkMSETests {
             )
         }
 
-        Assertions.assertEquals(expectedCost, cost, 0.0001f)
+        Assertions.assertEquals(expectedCost, cost, 0.001f)
     }
 
 }

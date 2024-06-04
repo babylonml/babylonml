@@ -328,6 +328,30 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    fun sumByColumns(): FloatMatrix {
+        val result = FloatMatrix(rows, 1)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][0] += data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    fun sumByRows() : FloatMatrix {
+        val result = FloatMatrix(1, cols)
+
+        for (i in 0 until cols) {
+            for (j in 0 until rows) {
+                result.data[0][i] += data[j][i]
+            }
+        }
+
+        return result
+    }
+
     fun reduceByRows(): FloatVector {
         val result = FloatVector(cols)
 

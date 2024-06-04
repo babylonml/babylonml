@@ -41,7 +41,45 @@ class BroadcastColumnsTests {
 
         val expectedResult = matrix.broadcastByColumns(columns)
 
-        Assertions.assertArrayEquals(expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun differentiationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val rows = source.nextInt(100)
+        val columns = source.nextInt(100)
+
+        val matrix = FloatMatrix.random(rows, 1, source)
+
+        val executionContext = TrainingExecutionContext()
+        val optimizer = SimpleGradientDescentOptimizer(1)
+        val learningRate = 0.01f
+
+        val variable = matrix.toVariable(executionContext, optimizer, learningRate)
+        val broadcast = BroadcastColumns(
+            rows,
+            columns,
+            executionContext,
+            variable
+        )
+
+        val gradients = FloatMatrix.random(rows, columns, source)
+        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), broadcast)
+
+        executionContext.initializeExecution(gradientSource)
+        executionContext.executePropagation()
+
+        val expectedGradients = gradients.sumByColumns()
+        val expectedResult = matrix - expectedGradients * learningRate
+
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(), variable.data, 0.001f
+        )
     }
 }

@@ -38,7 +38,42 @@ class AddTests {
 
         val expectedResult = firstMatrix + secondMatrix
 
-        Assertions.assertArrayEquals(expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun differentiationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val rows = source.nextInt(100)
+        val columns = source.nextInt(100)
+
+        val firstMatrix = FloatMatrix.random(rows, columns, source)
+        val secondMatrix = FloatMatrix.random(rows, columns, source)
+
+        val executionContext = TrainingExecutionContext()
+        val optimizer = SimpleGradientDescentOptimizer(1)
+        val learningRate = 0.01f
+
+        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
+        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+
+        val add = Add(executionContext, rows, columns, firstVariable, secondVariable)
+        val gradients = FloatMatrix.random(rows, columns, source)
+
+        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), add)
+
+        executionContext.initializeExecution(gradientSource)
+        executionContext.executePropagation()
+
+        val firstExpectedResult = firstMatrix - gradients * learningRate
+        val secondExpectedResult = secondMatrix - gradients * learningRate
+
+        Assertions.assertArrayEquals(firstExpectedResult.toFlatArray(), firstVariable.data, 0.001f)
+        Assertions.assertArrayEquals(secondExpectedResult.toFlatArray(), secondVariable.data, 0.001f)
     }
 }

@@ -89,15 +89,26 @@ public final class GeLUFunction extends AbstractOperation {
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
             var value = FloatVector.fromArray(SPECIES, leftBuffer, leftOffset + i);
 
-
-            // tanh = tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
-            var tanh = (value.mul(value.mul(value)).mul(SCALAR_4).add(value)).mul(SCALAR_3).lanewise(VectorOperators.TANH);
-            // d(GeLU(x))/dx = 0.5 * (1 + tanh + x * (1 - tanh^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
+            //h = tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
+            var h = (
+                    FloatVector.broadcast(SPECIES, SCALAR_3).mul(
+                            value.add(
+                                    value.mul(value).mul(value).mul(FloatVector.broadcast(SPECIES, SCALAR_4))
+                            )
+                    )
+            ).lanewise(VectorOperators.TANH);
+            // d(GeLU(x))/dx = 0.5 * (1 + h + x * (1 - h^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
             var vc = FloatVector.broadcast(SPECIES, SCALAR_1).mul(
-                    FloatVector.broadcast(SPECIES, SCALAR_2).add(tanh).add(
-                            value.mul(FloatVector.broadcast(SPECIES, SCALAR_3).add(
-                                            value.mul(value)).mul(
-                                            FloatVector.broadcast(SPECIES, SCALAR_2).sub(tanh.mul(tanh))
+                    FloatVector.broadcast(SPECIES, SCALAR_2).add(h).add(
+                            //x * (1 - h^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
+                            value.mul(
+                                    //sqrt(2 / PI) + 3 * 0.044715 * x^2)
+                                    FloatVector.broadcast(SPECIES, SCALAR_3).add(
+                                            value.mul(value).mul(FloatVector.broadcast(SPECIES, SCALAR_5)
+                                            )
+                                    ).mul(
+                                            //(1 - h^2)
+                                            FloatVector.broadcast(SPECIES, SCALAR_2).sub(h.mul(h))
                                     )
                             )
                     )
@@ -111,13 +122,14 @@ public final class GeLUFunction extends AbstractOperation {
 
         for (int i = loopBound; i < size; i++) {
             var value = leftBuffer[leftOffset + i];
-            var tanh = (float)
+            //h = tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
+            var h = (float)
                     Math.tanh(SCALAR_3 * (value + SCALAR_4 * value * value * value));
-            // d(GeLU(x))/dx = 0.5 * (1 + tanh + x * (1 - tanh^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
+            // d(GeLU(x))/dx = 0.5 * (1 + h + x * (1 - h^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
             resultBuffer[i + resultOffset] =
                     (SCALAR_1 *
-                            (SCALAR_2 + tanh + value * (SCALAR_3 +
-                                    SCALAR_5 * value * value) * (SCALAR_2 - tanh * tanh))) * derivativeBuffer[i
+                            (SCALAR_2 + h + value * (SCALAR_3 +
+                                    SCALAR_5 * value * value) * (SCALAR_2 - h * h))) * derivativeBuffer[i
                             + derivativeOffset];
         }
 

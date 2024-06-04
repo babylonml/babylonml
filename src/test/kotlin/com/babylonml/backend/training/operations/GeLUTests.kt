@@ -5,6 +5,7 @@ import com.babylonml.backend.training.TrainingExecutionContext
 import com.tornadoml.cpu.FloatMatrix
 import com.tornadoml.cpu.SeedsArgumentsProvider
 import com.tornadoml.cpu.geLU
+import com.tornadoml.cpu.geLUDerivative
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -39,5 +40,37 @@ class GeLUTests {
 
         Assertions.assertArrayEquals(expectedResult.toFlatArray(),
             buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun differentiationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val rows = source.nextInt(100)
+        val  columns = source.nextInt(100)
+
+        val matrix = FloatMatrix.random(rows, columns, source)
+
+        val executionContext = TrainingExecutionContext()
+        val optimizer = SimpleGradientDescentOptimizer(1)
+        val learningRate = 0.01f
+
+        val variable = matrix.toVariable(executionContext, optimizer, learningRate)
+        val geLU = GeLUFunction(rows, columns, executionContext, variable)
+
+        val gradients = FloatMatrix.random(rows, columns, source)
+        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), geLU)
+
+        executionContext.initializeExecution(gradientSource)
+        executionContext.executePropagation()
+
+        val expectedGradients = geLUDerivative(matrix).hadamardMul(gradients)
+
+        val expectedResult = matrix - expectedGradients * learningRate
+
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(), variable.data, 0.001f
+        )
     }
 }

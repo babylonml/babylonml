@@ -47,7 +47,7 @@ public final class BroadcastRows extends AbstractOperation {
         var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainValue);
 
 
-        var result = executionContext.allocateBackwardMemory(rows);
+        var result = executionContext.allocateBackwardMemory(columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
@@ -65,7 +65,7 @@ public final class BroadcastRows extends AbstractOperation {
 
     @Override
     public int getBackwardMemorySize() {
-        return rows;
+        return columns;
     }
 
     @Override

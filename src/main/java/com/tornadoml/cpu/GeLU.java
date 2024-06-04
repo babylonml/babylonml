@@ -39,13 +39,14 @@ public final class GeLU implements ActivationFunction {
         assert result.length >= length;
 
         for (int i = 0; i < length; i++) {
-            var tanh = (float)
+            //h = h(sqrt(2 / PI) * (x + 0.044715 * x^3))
+            var h = (float)
                     Math.tanh(SCALAR_3 * (input[i] + SCALAR_4 * input[i] * input[i] * input[i]));
-            // d(GeLU(x))/dx = 0.5 * (1 + tanh + x * (1 - tanh^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
+            // d(GeLU(x))/dx = 0.5 * (1 + h + x * (1 - h^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))
             result[i] = (float)
                     (SCALAR_1 *
-                            (SCALAR_2 + tanh + input[i] * (SCALAR_3 +
-                                    SCALAR_5 * input[i] * input[i]) * (SCALAR_2 - tanh * tanh)));
+                            (SCALAR_2 + h + input[i] * (SCALAR_3 +
+                                    SCALAR_5 * input[i] * input[i]) * (SCALAR_2 - h * h)));
         }
     }
 

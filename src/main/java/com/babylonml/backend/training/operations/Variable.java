@@ -7,17 +7,17 @@ public final class Variable extends AbstractOperation implements StartOperation 
     private final GradientOptimizer optimizer;
     private final float learningRate;
 
-    private final float[] variable;
+    private final float[] data;
 
     private final int rows;
     private final int columns;
 
-    public Variable(TrainingExecutionContext executionContext, GradientOptimizer optimizer, float[] variable, int rows,
+    public Variable(TrainingExecutionContext executionContext, GradientOptimizer optimizer, float[] data, int rows,
                     int columns, float learningRate) {
         super(executionContext, null, null);
 
         this.optimizer = optimizer;
-        this.variable = variable;
+        this.data = data;
         this.rows = rows;
         this.columns = columns;
         this.learningRate = learningRate;
@@ -29,7 +29,7 @@ public final class Variable extends AbstractOperation implements StartOperation 
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
-        System.arraycopy(variable, 0, resultBuffer, resultOffset, rows * columns);
+        System.arraycopy(data, 0, resultBuffer, resultOffset, rows * columns);
         return result;
     }
 
@@ -37,17 +37,6 @@ public final class Variable extends AbstractOperation implements StartOperation 
     @Override
     public int getForwardMemorySize() {
         return rows * columns;
-    }
-
-    @Override
-    public void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue) {
-        super.updateBackwardDerivativeChainValue(backwardDerivativeChainValue);
-
-        var derivativeBuffer = executionContext.getMemoryBuffer(backwardDerivativeChainValue);
-        var derivativeOffset = TrainingExecutionContext.addressOffset(backwardDerivativeChainValue);
-
-        optimizer.optimize(executionContext, variable, 0, rows, columns, derivativeBuffer,
-                derivativeOffset, learningRate);
     }
 
     @Override
@@ -69,5 +58,18 @@ public final class Variable extends AbstractOperation implements StartOperation 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return true;
+    }
+
+    public float[] getData() {
+        return data;
+    }
+
+    @Override
+    public void calculateGradientUpdate() {
+        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainValue);
+        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainValue);
+
+        optimizer.optimize(executionContext, data, 0, rows, columns, derivativeBuffer,
+                derivativeOffset, learningRate);
     }
 }

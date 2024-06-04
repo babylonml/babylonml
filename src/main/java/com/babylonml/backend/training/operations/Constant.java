@@ -52,4 +52,9 @@ public final class Constant extends AbstractOperation implements StartOperation 
     public boolean requiresBackwardDerivativeChainValue() {
         return false;
     }
+
+    @Override
+    public void calculateGradientUpdate() {
+        // No gradient update required
+    }
 }

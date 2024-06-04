@@ -70,6 +70,14 @@ public final class TrainingExecutionContext {
 
             lastOperationsInLayers.add(currentOperation);
         }
+
+        //we added operations in reverse order so correcting that.
+        for (int i = 0; i < lastOperationsInLayers.size() / 2; i++) {
+            var temp = lastOperationsInLayers.get(i);
+
+            lastOperationsInLayers.set(i, lastOperationsInLayers.get(lastOperationsInLayers.size() - i - 1));
+            lastOperationsInLayers.set(lastOperationsInLayers.size() - i - 1, temp);
+        }
     }
 
 
@@ -225,6 +233,11 @@ public final class TrainingExecutionContext {
     }
 
     private void backStep(Operation operation) {
+        if (operation instanceof StartOperation startOperation) {
+            startOperation.calculateGradientUpdate();
+            return;
+        }
+
         var leftOperation = operation.getLeftPreviousOperation();
         var layerIndex = operation.getLayerIndex();
 

@@ -31,32 +31,32 @@ public abstract class AbstractOperation implements Operation {
     }
 
 
-    public void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue) {
+    public final void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue) {
         this.derivativeChainValue = backwardDerivativeChainValue;
     }
 
     @Override
-    public int getLayerIndex() {
+    public final int getLayerIndex() {
         return layerIndex;
     }
 
     @Override
-    public Operation getLeftPreviousOperation() {
+    public final Operation getLeftPreviousOperation() {
         return leftOperation;
     }
 
     @Override
-    public Operation getRightPreviousOperation() {
+    public final Operation getRightPreviousOperation() {
         return rightOperation;
     }
 
     @Override
-    public void setLeftPreviousOperation(Operation leftPreviousOperation) {
+    public final void setLeftPreviousOperation(Operation leftPreviousOperation) {
         this.leftOperation = leftPreviousOperation;
     }
 
     @Override
-    public void setRightPreviousOperation(Operation rightPreviousOperation) {
+    public final void setRightPreviousOperation(Operation rightPreviousOperation) {
         this.rightOperation = rightPreviousOperation;
     }
 
@@ -66,12 +66,12 @@ public abstract class AbstractOperation implements Operation {
     }
 
     @Override
-    public void setNextOperation(Operation nextOperation) {
+    public final void setNextOperation(Operation nextOperation) {
         this.nextOperation = nextOperation;
     }
 
     @Override
-    public void setLayerIndex(int layerIndex) {
+    public final void setLayerIndex(int layerIndex) {
         this.layerIndex = layerIndex;
     }
 }

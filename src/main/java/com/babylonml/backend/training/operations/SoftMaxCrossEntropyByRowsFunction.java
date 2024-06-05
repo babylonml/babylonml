@@ -13,7 +13,8 @@ public final class SoftMaxCrossEntropyByRowsFunction extends AbstractOperation {
     private final int rows;
     private final int columns;
 
-    private long leftOperationResult;
+    private long softMaxResult;
+
     private final float[] expectedProbability;
 
     private final boolean requiresDerivativeChainValue;
@@ -32,41 +33,32 @@ public final class SoftMaxCrossEntropyByRowsFunction extends AbstractOperation {
 
     @Override
     public long forwardPassCalculation() {
-        leftOperationResult = leftOperation.forwardPassCalculation();
+        long leftOperationResult = leftOperation.forwardPassCalculation();
 
         var leftOperationBuffer = executionContext.getMemoryBuffer(leftOperationResult);
         var leftOperationOffset = TrainingExecutionContext.addressOffset(leftOperationResult);
 
         assert rows * columns == TrainingExecutionContext.addressLength(leftOperationResult);
 
-        var calculation = executionContext.allocateForwardMemory(rows * columns);
-        var calculationBuffer = executionContext.getMemoryBuffer(calculation);
-        var calculationOffset = TrainingExecutionContext.addressOffset(calculation);
+        softMaxResult = executionContext.allocateForwardMemory(rows * columns);
+        var softMaxBuffer = executionContext.getMemoryBuffer(softMaxResult);
+        var softMaxOffset = TrainingExecutionContext.addressOffset(softMaxResult);
 
         MatrixOperations.softMaxByRows(leftOperationBuffer, leftOperationOffset, rows, columns,
-                calculationBuffer, calculationOffset);
+                softMaxBuffer, softMaxOffset);
 
         var loopBound = SPECIES.loopBound(rows * columns);
-        for (int i = 0; i < loopBound; i += SPECIES.length()) {
-            var vec = FloatVector.fromArray(SPECIES, calculationBuffer,
-                    calculationOffset + i).lanewise(VectorOperators.LOG);
-            vec.intoArray(calculationBuffer, calculationOffset + i);
-        }
-
         var vecSum = FloatVector.zero(SPECIES);
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
-            var vec = FloatVector.fromArray(SPECIES, calculationBuffer, calculationOffset + i);
+            var vec = FloatVector.fromArray(SPECIES, softMaxBuffer,
+                    softMaxOffset + i).lanewise(VectorOperators.LOG);
             var expectedVec = FloatVector.fromArray(SPECIES, expectedProbability, i);
-
             vecSum = vec.fma(expectedVec, vecSum);
         }
 
         var sum = vecSum.reduceLanes(VectorOperators.ADD);
         for (int i = loopBound; i < rows * columns; i++) {
-            calculationBuffer[calculationOffset + i] = (float) Math.log(calculationBuffer[calculationOffset + i]);
-        }
-        for (int i = loopBound; i < rows * columns; i++) {
-            sum += expectedProbability[i] * calculationBuffer[calculationOffset + i];
+            sum += (float) Math.log(softMaxBuffer[softMaxOffset + i]) * expectedProbability[i];
         }
 
         var result = executionContext.allocateForwardMemory(1);
@@ -80,14 +72,14 @@ public final class SoftMaxCrossEntropyByRowsFunction extends AbstractOperation {
 
     @Override
     public long leftBackwardDerivativeChainValue() {
-        var leftBuffer = executionContext.getMemoryBuffer(leftOperationResult);
-        var leftOffset = TrainingExecutionContext.addressOffset(leftOperationResult);
+        var softMaxBuffer = executionContext.getMemoryBuffer(softMaxResult);
+        var softMaxOffset = TrainingExecutionContext.addressOffset(softMaxResult);
 
         var result = executionContext.allocateBackwardMemory(rows * columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
-        VectorOperations.subtractVectorFromVector(leftBuffer, leftOffset, expectedProbability, 0,
+        VectorOperations.subtractVectorFromVector(softMaxBuffer, softMaxOffset, expectedProbability, 0,
                 resultBuffer, resultOffset, rows * columns);
 
         return result;
@@ -100,7 +92,7 @@ public final class SoftMaxCrossEntropyByRowsFunction extends AbstractOperation {
 
     @Override
     public int getForwardMemorySize() {
-        return rows * columns + 1;
+        return 2 * rows * columns + 1;
     }
 
     @Override

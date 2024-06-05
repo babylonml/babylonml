@@ -114,7 +114,7 @@ public final class TrainingExecutionContext {
     public void executePropagation() {
         prepareNextPropagationStep();
 
-        executeForwardPropagationNoResult();
+        executeForwardPropagation();
         executeBackwardPropagation();
     }
 
@@ -183,9 +183,9 @@ public final class TrainingExecutionContext {
                     var previousLeftNextOperation = nextOperation.getLeftPreviousOperation();
                     var previousRightNextOperation = nextOperation.getRightPreviousOperation();
 
-                    if (previousLeftNextOperation == operation) {
+                    if (previousLeftNextOperation == crossEntropyFunction) {
                         nextOperation.setLeftPreviousOperation(softMaxCrossEntropy);
-                    } else if (previousRightNextOperation == operation) {
+                    } else if (previousRightNextOperation == crossEntropyFunction) {
                         nextOperation.setRightPreviousOperation(softMaxCrossEntropy);
                     } else {
                         throw new IllegalArgumentException("Operation is not connected to the next operation");
@@ -198,18 +198,6 @@ public final class TrainingExecutionContext {
 
         if (nextTestedOperation != null) {
             collapseSoftMaxCrossEntropy(nextTestedOperation, visitedOperations);
-        }
-    }
-
-    private void executeForwardPropagationNoResult() {
-        var leftOperation = terminalOperation.getLeftPreviousOperation();
-        if (leftOperation != null) {
-            leftOperation.forwardPassCalculation();
-        }
-
-        var rightOperation = terminalOperation.getRightPreviousOperation();
-        if (rightOperation != null) {
-            rightOperation.forwardPassCalculation();
         }
     }
 

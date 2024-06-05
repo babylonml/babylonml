@@ -57,6 +57,7 @@ public final class Multiplication extends AbstractOperation {
 
     @Override
     public long leftBackwardDerivativeChainValue() {
+
         //right^T
         var rightTranspose = executionContext.allocateBackwardMemory(firstMatrixColumns * secondMatrixColumns);
         var rightTransposeOffset = TrainingExecutionContext.addressOffset(rightTranspose);
@@ -72,7 +73,7 @@ public final class Multiplication extends AbstractOperation {
         var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainValue);
         assert TrainingExecutionContext.addressLength(derivativeChainValue) == firstMatrixRows * secondMatrixColumns;
 
-        var result = executionContext.allocateBackwardMemory(this.firstMatrixRows * secondMatrixColumns);
+        var result = executionContext.allocateBackwardMemory(firstMatrixRows * firstMatrixColumns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
@@ -85,14 +86,14 @@ public final class Multiplication extends AbstractOperation {
 
     @Override
     public long rightBackwardDerivativeChainValue() {
+        var leftResultBuffer = executionContext.getMemoryBuffer(leftOperationResult);
+        var leftOffset = TrainingExecutionContext.addressOffset(leftOperationResult);
+        assert TrainingExecutionContext.addressLength(leftOperationResult) == firstMatrixRows * firstMatrixColumns;
+
         //left^T
         var leftTranspose = executionContext.allocateBackwardMemory(firstMatrixRows * firstMatrixColumns);
-
         var leftTransposeBuffer = executionContext.getMemoryBuffer(leftTranspose);
-        var leftResultBuffer = executionContext.getMemoryBuffer(leftOperationResult);
-
         var leftTransposeOffset = TrainingExecutionContext.addressOffset(leftTranspose);
-        var leftOffset = TrainingExecutionContext.addressOffset(leftOperationResult);
 
         MatrixOperations.transposeMatrix(leftResultBuffer, leftOffset, firstMatrixRows, firstMatrixColumns,
                 leftTransposeBuffer, leftTransposeOffset);
@@ -102,7 +103,7 @@ public final class Multiplication extends AbstractOperation {
         assert TrainingExecutionContext.addressLength(derivativeChainValue) == firstMatrixRows * secondMatrixColumns;
 
 
-        var result = executionContext.allocateBackwardMemory(this.firstMatrixRows * firstMatrixColumns);
+        var result = executionContext.allocateBackwardMemory(firstMatrixColumns * secondMatrixColumns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
@@ -116,8 +117,8 @@ public final class Multiplication extends AbstractOperation {
 
     @Override
     public int getBackwardMemorySize() {
-        return firstMatrixColumns * secondMatrixColumns +
-                2 * firstMatrixRows * secondMatrixColumns + firstMatrixColumns * firstMatrixRows;
+        return 2 * (firstMatrixColumns * secondMatrixColumns +
+                firstMatrixRows * firstMatrixColumns);
     }
 
     @Override

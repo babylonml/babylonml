@@ -7,7 +7,10 @@ class GradientSource(
     executionContext: TrainingExecutionContext, private val rows: Int, private val columns: Int,
     private val gradients: FloatArray, leftOperation: AbstractOperation
 ) : AbstractOperation(executionContext, leftOperation, null) {
-    override fun forwardPassCalculation(): Long = TrainingExecutionContext.NULL
+    override fun forwardPassCalculation(): Long {
+        leftOperation.forwardPassCalculation()
+        return TrainingExecutionContext.NULL
+    }
 
     override fun getForwardMemorySize(): Int = 0
 

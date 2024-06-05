@@ -30,4 +30,6 @@ public interface Operation {
     void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue);
 
     boolean requiresBackwardDerivativeChainValue();
+
+    void reset();
 }

@@ -88,4 +88,11 @@ public final class Add extends AbstractOperation {
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
     }
+
+    @Override
+    public void reset() {
+        super.reset();
+
+        derivativeResult = TrainingExecutionContext.NULL;
+    }
 }

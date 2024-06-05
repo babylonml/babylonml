@@ -122,6 +122,8 @@ public final class TrainingExecutionContext {
     private void prepareNextPropagationStep() {
         forwardMemoryIndex = 0;
         backwardMemoryIndex = 0;
+
+        terminalOperation.reset();
     }
 
     public long allocateForwardMemory(int length) {

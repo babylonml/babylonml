@@ -74,4 +74,15 @@ public abstract class AbstractOperation implements Operation {
     public final void setLayerIndex(int layerIndex) {
         this.layerIndex = layerIndex;
     }
+
+    @Override
+    public void reset() {
+        if (leftOperation != null) {
+            leftOperation.reset();
+        }
+
+        if (rightOperation != null) {
+            rightOperation.reset();
+        }
+    }
 }

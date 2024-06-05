@@ -104,13 +104,26 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun dotMul(other: FloatMatrix): FloatMatrix {
+    fun dotMulRows(other: FloatMatrix): FloatMatrix {
         assert(rows == other.rows && cols == other.cols)
         val result = FloatMatrix(1, cols)
 
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[0][j] += data[i][j] * other.data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    fun dotMulCols(other: FloatMatrix): FloatMatrix {
+        assert(rows == other.rows && cols == other.cols)
+        val result = FloatMatrix(rows, 1)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][0] += data[i][j] * other.data[i][j]
             }
         }
 

@@ -304,7 +304,7 @@ class NeuralNetworkMSETests {
         val z = weights * input + biases.broadcastColumns(sampleSize)
         val prediction = leakyLeRU(z, 0.01f)
 
-        val expectedCost = mseCostFunction(prediction, expected)
+        val expectedCost = mseCostFunctionByColumns(prediction, expected)
 
         val cores = source.nextInt(1, 10)
         val cost = Executors.newFixedThreadPool(cores).use { executor ->
@@ -738,7 +738,7 @@ class NeuralNetworkMSETests {
         val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(samplesCount)
         val secondPrediction = leakyLeRU(secondZ, leakyLeRUGradient)
 
-        val expectedCost = mseCostFunction(secondPrediction, expected)
+        val expectedCost = mseCostFunctionByColumns(secondPrediction, expected)
 
         val cores = source.nextInt(1, 10)
         val cost = Executors.newFixedThreadPool(cores).use { executor ->
@@ -1365,7 +1365,7 @@ class NeuralNetworkMSETests {
         val thirdZ = thirdLayerWeights * secondPrediction + thirdLayerBiases.broadcastColumns(sampleCount)
         val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
-        val expectedCost = mseCostFunction(thirdPrediction, expected)
+        val expectedCost = mseCostFunctionByColumns(thirdPrediction, expected)
         val cores = source.nextInt(1, 10)
         val cost = Executors.newFixedThreadPool(cores).use { executor ->
             NeuralNetwork.trainingCost(

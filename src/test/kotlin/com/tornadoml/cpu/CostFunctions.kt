@@ -3,13 +3,22 @@ package com.tornadoml.cpu
 /**
  * Samples and actual results are grouped by columns
  */
-fun mseCostFunction(actual: FloatMatrix, expected: FloatMatrix): Float {
+fun mseCostFunctionByColumns(actual: FloatMatrix, expected: FloatMatrix): Float {
     val diff = expected - actual
-    val squared = diff.dotMul(diff)
+    val squared = diff.dotMulRows(diff)
 
     assert(squared.rows == 1)
 
     return squared.reduceByColumns().sum() / squared.cols
+}
+
+fun mseCostFunctionByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
+    val diff = expected - actual
+    val squared = diff.dotMulCols(diff)
+
+    assert(squared.cols == 1)
+
+    return squared.reduceByRows().sum() / squared.rows
 }
 
 /**
@@ -21,7 +30,7 @@ fun mseCostFunctionDerivative(actual: FloatMatrix, expected: FloatMatrix): Float
 
 fun crossEntropyByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
     val logActual = actual.ln()
-    val mul = expected.dotMul(logActual)
+    val mul = expected.dotMulRows(logActual)
 
     val sum = mul.reduceByColumns().sum()
 

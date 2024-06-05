@@ -63,7 +63,7 @@ class GeLUTests {
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), geLU)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val expectedGradients = geLUDerivative(matrix).hadamardMul(gradients)
 

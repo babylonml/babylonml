@@ -68,7 +68,7 @@ class AddTests {
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), add)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val firstExpectedResult = firstMatrix - gradients * learningRate
         val secondExpectedResult = secondMatrix - gradients * learningRate

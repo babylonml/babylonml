@@ -73,7 +73,7 @@ class BroadcastColumnsTests {
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), broadcast)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val expectedGradients = gradients.sumByColumns()
         val expectedResult = matrix - expectedGradients * learningRate

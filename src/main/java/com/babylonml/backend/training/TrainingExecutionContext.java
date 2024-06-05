@@ -110,12 +110,13 @@ public final class TrainingExecutionContext {
         }
     }
 
-    @SuppressWarnings("unused")
-    public void executePropagation() {
-        prepareNextPropagationStep();
+    public void executePropagation(int maxSteps) {
+        for (var i = 0; i < maxSteps; i++) {
+            prepareNextPropagationStep();
 
-        executeForwardPropagation();
-        executeBackwardPropagation();
+            executeForwardPropagation();
+            executeBackwardPropagation();
+        }
     }
 
     private void prepareNextPropagationStep() {

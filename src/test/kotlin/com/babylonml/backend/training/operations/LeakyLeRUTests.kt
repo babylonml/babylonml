@@ -69,7 +69,7 @@ class LeakyLeRUTests {
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), leakyLeRU)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val resultGradient = leakyLeRUDerivative(matrix, leakyLeRUSlope).hadamardMul(gradients)
         val expectedResult = matrix - resultGradient * learningRate

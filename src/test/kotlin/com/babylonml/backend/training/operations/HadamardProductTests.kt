@@ -68,7 +68,7 @@ class HadamardProductTests {
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), hadamard)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val firstGradient = gradients.hadamardMul(secondMatrix)
         val secondGradient = gradients.hadamardMul(firstMatrix)

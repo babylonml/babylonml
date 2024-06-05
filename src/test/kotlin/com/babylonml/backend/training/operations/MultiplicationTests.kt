@@ -83,7 +83,7 @@ class MultiplicationTests {
         )
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
+        executionContext.executePropagation(1)
 
         val firstMatrixExpectedGradients = gradients * secondMatrix.transpose()
         val secondMatrixExpectedGradients = firstMatrix.transpose() * gradients

@@ -64,6 +64,14 @@ public final class Variable extends AbstractOperation implements StartOperation 
         return data;
     }
 
+    public int getRows() {
+        return rows;
+    }
+
+    public int getColumns() {
+        return columns;
+    }
+
     @Override
     public void calculateGradientUpdate() {
         var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainValue);

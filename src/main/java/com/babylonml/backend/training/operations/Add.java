@@ -95,4 +95,12 @@ public final class Add extends AbstractOperation {
 
         derivativeResult = TrainingExecutionContext.NULL;
     }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getColumns() {
+        return columns;
+    }
 }

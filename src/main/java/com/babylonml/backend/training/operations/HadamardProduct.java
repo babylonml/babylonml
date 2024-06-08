@@ -97,4 +97,12 @@ public final class HadamardProduct extends AbstractOperation {
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
     }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getColumns() {
+        return columns;
+    }
 }

@@ -72,4 +72,12 @@ public final class BroadcastRows extends AbstractOperation {
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
     }
+
+    public int getRows() {
+        return rows;
+    }
+
+    public int getColumns() {
+        return columns;
+    }
 }

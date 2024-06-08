@@ -125,4 +125,16 @@ public final class Multiplication extends AbstractOperation {
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
     }
+
+    public int getFirstMatrixRows() {
+        return firstMatrixRows;
+    }
+
+    public int getFirstMatrixColumns() {
+        return firstMatrixColumns;
+    }
+
+    public int getSecondMatrixColumns() {
+        return secondMatrixColumns;
+    }
 }

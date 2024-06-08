@@ -1,4 +1,4 @@
-package com.babylonml.dsl.v1
+package com.babylonml.frontend
 
 import com.babylonml.backend.training.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.TrainingExecutionContext
@@ -23,7 +23,10 @@ object MatrixEngine {
         return buffer.copyOfRange(resultOffset, resultOffset + length)
     }
 
-    private fun toOperationGraph(matrix: Matrix, context: TrainingExecutionContext): Operation =
+    fun toOperationGraph(
+        matrix: Matrix,
+        context: TrainingExecutionContext
+    ): Operation =
         when (matrix) {
             is EagerMatrix -> {
                 Variable(
@@ -31,7 +34,7 @@ object MatrixEngine {
                     SimpleGradientDescentOptimizer(1),
                     matrix.data,
                     matrix.dims.rows,
-                    matrix.dims.cols,
+                    matrix.dims.columns,
                     0.001f
                 )
             }
@@ -42,10 +45,10 @@ object MatrixEngine {
 
                 when (matrix.op.type) {
                     MatrixOperationType.Unary ->
-                        matrix.op.toOperation(context, left, left, matrix.left.dims, matrix.left.dims)
+                        matrix.op.toBackendOperation(context, left, left, matrix.left.dims, matrix.left.dims)
 
                     MatrixOperationType.Binary ->
-                        matrix.op.toOperation(context, left, right(), matrix.left.dims, matrix.right.dims)
+                        matrix.op.toBackendOperation(context, left, right(), matrix.left.dims, matrix.right.dims)
                 }
             }
         }

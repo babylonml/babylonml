@@ -42,14 +42,17 @@ public final class DenseLayer implements TrainableLayer {
 
         //w * x
         MatrixOperations.matrixToMatrixMultiplication(weights, 0,
-                outputSize, inputSize, input, 0, inputSize, batchSize, prediction);
+                outputSize, inputSize, input, 0, inputSize, batchSize, prediction,
+                0);
 
         var biasesBuffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
-        MatrixOperations.broadcastVectorToMatrix(biases, biasesBuffer, outputSize, batchSize);
+        MatrixOperations.broadcastVectorToMatrixByColumns(biases, 0, biasesBuffer, 0,
+                outputSize, batchSize);
 
         //w * x + b
-        VectorOperations.addVectorToVector(prediction, biasesBuffer, prediction, batchSize * outputSize);
+        VectorOperations.addVectorToVector(prediction, 0, biasesBuffer, 0, prediction,
+                0, batchSize * outputSize);
         //g(w * x + b)
         activationFunction.value(prediction, prediction, batchSize * outputSize);
     }
@@ -60,15 +63,15 @@ public final class DenseLayer implements TrainableLayer {
         //w * x
         MatrixOperations.matrixToMatrixMultiplication(weights, 0,
                 outputSize, inputSize, input, inputOffset, inputSize,
-                batchSize, activationArgumentOutput);
+                batchSize, activationArgumentOutput, 0);
 
         var buffer = getOutputXBatchSizeBuffer(batchSize * outputSize);
         //broadcast biases
-        MatrixOperations.broadcastVectorToMatrix(biases, buffer, outputSize, batchSize);
+        MatrixOperations.broadcastVectorToMatrixByColumns(biases, 0, buffer, 0, outputSize, batchSize);
 
         //w * x + b
-        VectorOperations.addVectorToVector(activationArgumentOutput, buffer, activationArgumentOutput,
-                batchSize * outputSize);
+        VectorOperations.addVectorToVector(activationArgumentOutput, 0,
+                buffer, 0, activationArgumentOutput, 0, batchSize * outputSize);
 
         //g(w * x + b)
         activationFunction.value(activationArgumentOutput, predictionOutput, batchSize * outputSize);
@@ -94,8 +97,9 @@ public final class DenseLayer implements TrainableLayer {
         //g'(z[n])
         activationFunction.derivative(currentLayerActivationArgumentInput, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
-        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrorsInput, outputBatchSizeBuffer,
-                currentLayerErrorsInput, outputSize * batchSize);
+        VectorOperations.vectorToVectorElementWiseMultiplication(currentLayerErrorsInput, 0,
+                outputBatchSizeBuffer, 0, currentLayerErrorsInput, 0,
+                outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
         calculateWeightsDelta(input, 0, currentLayerErrorsInput, calculatedWeightsGradientOutput, calculatedBiasesGradientOutput,
@@ -126,8 +130,8 @@ public final class DenseLayer implements TrainableLayer {
         //g'(z[n])
         activationFunction.derivative(currentLayerActivationArgumentInput, outputBatchSizeBuffer, batchSize * outputSize);
         //dl/dz[n] = dL/dy * g'(z[n])
-        VectorOperations.vectorToVectorScalarMultiplication(currentLayerErrorInput, outputBatchSizeBuffer,
-                currentLayerErrorInput, outputSize * batchSize);
+        VectorOperations.vectorToVectorElementWiseMultiplication(currentLayerErrorInput, 0, outputBatchSizeBuffer,
+                0, currentLayerErrorInput, 0, outputSize * batchSize);
 
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
         calculateWeightsDelta(input, 0, currentLayerErrorInput, calculatedWeightsGradientOutput, calculatedBiasesGradientOutput,
@@ -164,12 +168,12 @@ public final class DenseLayer implements TrainableLayer {
                                              int batchSize) {
         var weightsSizeBuffer = getWeightsSizeBuffer(inputSize * outputSize);
         //w[n]^T
-        MatrixOperations.transposeMatrix(weights, 0, outputSize, inputSize, weightsSizeBuffer);
+        MatrixOperations.transposeMatrix(weights, 0, outputSize, inputSize, weightsSizeBuffer, 0);
 
         var firstInputBatchSizeBuffer = getFirstInputXBatchSizeBuffer(batchSize * inputSize);
         //w[n]^T * dL/dz[n]
         MatrixOperations.matrixToMatrixMultiplication(weightsSizeBuffer, 0, inputSize, outputSize,
-                currentLayerErrors, 0, outputSize, batchSize, firstInputBatchSizeBuffer);
+                currentLayerErrors, 0, outputSize, batchSize, firstInputBatchSizeBuffer, 0);
 
         var secondInputBatchSizeBuffer = getSecondInputXBatchSizeBuffer(batchSize * inputSize);
         //g'(z[n-1])
@@ -177,8 +181,9 @@ public final class DenseLayer implements TrainableLayer {
                 batchSize * inputSize);
 
         //w[n]^T * dL/dz[n] * g'(z[n-1])
-        VectorOperations.vectorToVectorScalarMultiplication(firstInputBatchSizeBuffer, secondInputBatchSizeBuffer,
-                previousLayerErrors, inputSize * batchSize);
+        VectorOperations.vectorToVectorElementWiseMultiplication(firstInputBatchSizeBuffer, 0,
+                secondInputBatchSizeBuffer, 0, previousLayerErrors, 0,
+                inputSize * batchSize);
     }
 
     private void calculateWeightsDelta(float[] input, int inputOffset,
@@ -188,10 +193,10 @@ public final class DenseLayer implements TrainableLayer {
                                        int batchSize) {
         var inputBatchSizeBuffer = getFirstInputXBatchSizeBuffer(batchSize * inputSize);
         //a[n-1]^T
-        MatrixOperations.transposeMatrix(input, inputOffset, inputSize, batchSize, inputBatchSizeBuffer);
+        MatrixOperations.transposeMatrix(input, inputOffset, inputSize, batchSize, inputBatchSizeBuffer, 0);
         //dL/dw[n] = dL/dz[n] * a[n-1]^T
         MatrixOperations.matrixToMatrixMultiplication(errors, 0, outputSize, batchSize,
-                inputBatchSizeBuffer, 0, batchSize, inputSize, weightsDelta);
+                inputBatchSizeBuffer, 0, batchSize, inputSize, weightsDelta, 0);
 
         System.arraycopy(errors, 0, biasesDelta, 0, outputSize * batchSize);
     }

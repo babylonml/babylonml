@@ -58,7 +58,7 @@ class DenseLayerTests {
         val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
         val biases = FloatVector(layer.biases)
 
-        val z = weights * input + biases.broadcast(sampleCount)
+        val z = weights * input + biases.broadcastColumns(sampleCount)
         Assertions.assertEquals(z.rows, layer.outputSize)
         Assertions.assertEquals(z.cols, sampleCount)
 
@@ -92,7 +92,7 @@ class DenseLayerTests {
         val x = FloatMatrix(layer.inputSize, 1)
         x.fillRandom(source)
 
-        val z = weights * x + biases.broadcast(1)
+        val z = weights * x + biases.broadcastColumns(1)
         val dZ = leakyLeRUDerivative(z, 0.01f)
         val dEdZ = dEdY.hadamardMul(dZ)
 
@@ -145,7 +145,7 @@ class DenseLayerTests {
         val x = FloatMatrix(layer.inputSize, sampleSize)
         x.fillRandom(source)
 
-        val z = weights * x + biases.broadcast(sampleSize)
+        val z = weights * x + biases.broadcastColumns(sampleSize)
         val dZ = leakyLeRUDerivative(z, 0.01f)
         val dEdZ = dEdY.hadamardMul(dZ)
 
@@ -232,7 +232,7 @@ class DenseLayerTests {
         val weights = FloatMatrix(layer.outputSize, layer.inputSize, layer.weights)
         val biases = FloatVector(layer.biases)
 
-        val z = weights * input + biases.broadcast(sampleCount)
+        val z = weights * input + biases.broadcastColumns(sampleCount)
         Assertions.assertEquals(z.rows, layer.outputSize)
         Assertions.assertEquals(z.cols, sampleCount)
 
@@ -273,7 +273,7 @@ class DenseLayerTests {
         val x = FloatMatrix(layer.inputSize, 1)
         x.fillRandom(source)
 
-        val z = weights * x + biases.broadcast(1)
+        val z = weights * x + biases.broadcastColumns(1)
         val dZ = leakyLeRUDerivative(z, 0.01f)
         val dEdZ = dEdY.hadamardMul(dZ)
 
@@ -321,7 +321,7 @@ class DenseLayerTests {
         val x = FloatMatrix(layer.inputSize, sampleSize)
         x.fillRandom(source)
 
-        val z = weights * x + biases.broadcast(sampleSize)
+        val z = weights * x + biases.broadcastColumns(sampleSize)
         val dZ = leakyLeRUDerivative(z, 0.01f)
         val dEdZ = dEdY.hadamardMul(dZ)
 
@@ -823,7 +823,10 @@ class DenseLayerTests {
             weightsDelta, 0, 1.0f / sampleSize.toFloat(),
             weightsDelta, 0, weightsDelta.size
         )
-        MatrixOperations.reduceMatrixToVector(biasesDelta, outputSize, sampleSize, biasesDelta)
+        MatrixOperations.reduceMatrixToVectorByColumns(
+            biasesDelta, 0, outputSize, sampleSize,
+            biasesDelta, 0
+        )
         VectorOperations.multiplyVectorToScalar(
             biasesDelta, 0, 1.0f / sampleSize.toFloat(),
             biasesDelta, 0, biasesDelta.size

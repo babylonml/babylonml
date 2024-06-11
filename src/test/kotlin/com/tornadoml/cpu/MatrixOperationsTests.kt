@@ -41,7 +41,7 @@ class MatrixOperationsTests {
             firstMatrix.toFlatArray().copyInto(firstMatrixArray, firstMatrixOffset),
             firstMatrixOffset, firsMatrixRows, firstMatrixColumns,
             secondMatrix.toFlatArray().copyInto(secondMatrixArray, secondMatrixOffset),
-            secondMatrixOffset, secondMatrixRows, secondMatrixColumns, result
+            secondMatrixOffset, secondMatrixRows, secondMatrixColumns, result, 0
         )
 
         Assertions.assertArrayEquals(
@@ -72,7 +72,7 @@ class MatrixOperationsTests {
 
         MatrixOperations.transposeMatrix(
             matrix.toFlatArray().copyInto(matrixArray, matrixOffset),
-            matrixOffset, matrixRows, matrixColumns, result
+            matrixOffset, matrixRows, matrixColumns, result, 0
         )
 
         Assertions.assertArrayEquals(
@@ -85,11 +85,11 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun reduceMatrixToVectorTest(seed: Long) {
+    fun reduceMatrixToVectorByColumnsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1000)
-        val matrixColumns = source.nextInt(1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source)
@@ -101,21 +101,53 @@ class MatrixOperationsTests {
         val matrixArray = FloatArray(matrixRows * matrixColumns + 1) {
             source.nextFloat()
         }
-        MatrixOperations.reduceMatrixToVector(
-            matrix.toFlatArray().copyInto(matrixArray), matrixRows, matrixColumns,
-            result
+        MatrixOperations.reduceMatrixToVectorByColumns(
+            matrix.toFlatArray().copyInto(matrixArray), 0, matrixRows, matrixColumns,
+            result, 0
         )
 
-        Assertions.assertArrayEquals(matrix.reduce().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
+        Assertions.assertArrayEquals(matrix.reduceByColumns().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
     }
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun broadCastVectorToMatrixTest(seed: Long) {
+    fun reduceMatrixToVectorByRowsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val vectorLength = source.nextInt(1000)
-        val columns = source.nextInt(1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source)
+
+        val matrixOffset = source.nextInt(17)
+        val vectorOffset = source.nextInt(17)
+
+        val result = FloatArray(matrixColumns + 1 + vectorOffset) {
+            source.nextFloat()
+        }
+
+        val matrixArray = FloatArray(matrixRows * matrixColumns + 1 + matrixOffset) {
+            source.nextFloat()
+        }
+        MatrixOperations.reduceMatrixToVectorByRows(
+            matrix.toFlatArray().copyInto(matrixArray, matrixOffset), matrixOffset, matrixRows, matrixColumns,
+            result, vectorOffset
+        )
+
+        Assertions.assertArrayEquals(
+            matrix.reduceByRows().toArray(),
+            result.copyOfRange(vectorOffset, matrixColumns + vectorOffset), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun broadCastVectorToMatrixByColumnsTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val vectorLength = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val vector = FloatVector(vectorLength)
         val matrix = FloatArray(vectorLength * columns + 1) {
@@ -128,13 +160,48 @@ class MatrixOperationsTests {
             source.nextFloat()
         }
 
-        MatrixOperations.broadcastVectorToMatrix(
-            vector.toArray().copyInto(vectorArray), matrix,
+        MatrixOperations.broadcastVectorToMatrixByColumns(
+            vector.toArray().copyInto(vectorArray), 0, matrix, 0,
             vectorLength, columns
         )
         Assertions.assertArrayEquals(
-            vector.broadcast(columns).toFlatArray(),
+            vector.broadcastColumns(columns).toFlatArray(),
             matrix.copyOfRange(0, vectorLength * columns),
+            0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun broadCastVectorToMatrixByRowsTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val vectorLength = source.nextInt(1, 100)
+        val rows = source.nextInt(1, 100)
+
+        val vector = FloatVector(vectorLength)
+
+        val vectorOffset = source.nextInt(17)
+        val matrixOffset = source.nextInt(17)
+
+        val matrix = FloatArray(rows * vectorLength + 1 + matrixOffset) {
+            source.nextFloat()
+        }
+        vector.fillRandom(source)
+
+        val vectorArray = FloatArray(vectorLength + 1 + vectorOffset) {
+            source.nextFloat()
+        }
+
+        MatrixOperations.broadcastVectorToMatrixByRows(
+            vector.toArray().copyInto(vectorArray, vectorOffset),
+            vectorOffset, matrix, matrixOffset,
+            rows, vectorLength
+        )
+
+        Assertions.assertArrayEquals(
+            vector.broadcastRows(rows).toFlatArray(),
+            matrix.copyOfRange(matrixOffset, matrixOffset + rows * vectorLength),
             0.001f
         )
     }
@@ -153,7 +220,7 @@ class MatrixOperationsTests {
         val startColumn = source.nextInt(matrixColumns - 1)
         val columns = source.nextInt(matrixColumns - startColumn)
 
-        val copy = matrix.subMatrix(startColumn, columns)
+        val copy = matrix.subColumns(startColumn, columns)
 
         val result = FloatArray(matrixRows * columns) {
             source.nextFloat()
@@ -169,22 +236,22 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun softMaxValueCalculationTest(seed: Long) {
+    fun softMaxByColumnsValueCalculationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1, 1000)
-        val matrixColumns = source.nextInt(1, 1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source, -10.0f, 10.0f)
 
-        val expected = matrix.softMax()
+        val expected = matrix.softMaxByColumns()
         val actual = FloatArray(matrixRows * matrixColumns) {
             source.nextFloat()
         }
 
         MatrixOperations.softMaxByColumns(
-            matrix.toFlatArray(), matrixRows, matrixColumns, actual
+            matrix.toFlatArray(), 0, matrixRows, matrixColumns, actual, 0
         )
 
         Assertions.assertArrayEquals(expected.toFlatArray(), actual, 0.001f)
@@ -192,25 +259,53 @@ class MatrixOperationsTests {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun softMaxIsFiniteTest(seed: Long) {
+    fun softMaxByColumnsIsFiniteTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val matrixRows = source.nextInt(1, 1000)
-        val matrixColumns = source.nextInt(1, 1000)
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix(matrixRows, matrixColumns)
         matrix.fillRandom(source, -500f, 500f)
 
         val actual = FloatArray(matrixRows * matrixColumns) {
-          source.nextFloat()
+            source.nextFloat()
         }
 
         MatrixOperations.softMaxByColumns(
-            matrix.toFlatArray(), matrixRows, matrixColumns, actual
+            matrix.toFlatArray(), 0, matrixRows, matrixColumns, actual, 0
         )
 
         for (i in 0 until matrixRows * matrixColumns) {
             Assertions.assertTrue(actual[i].isFinite())
         }
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun softMaxByRowsValueCalculationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val matrix = FloatMatrix(matrixRows, matrixColumns)
+        matrix.fillRandom(source, -10.0f, 10.0f)
+
+        val expected = matrix.softMaxByRows()
+
+        val matrixOffset = source.nextInt(17)
+        val resultOffset = source.nextInt(17)
+
+        val actual = FloatArray(matrixRows * matrixColumns + resultOffset) {
+            source.nextFloat()
+        }
+
+        MatrixOperations.softMaxByRows(
+            matrix.toFlatArray().copyInto(FloatArray(matrix.size + matrixOffset), matrixOffset),
+            matrixOffset, matrixRows, matrixColumns, actual, resultOffset
+        )
+
+        Assertions.assertArrayEquals(expected.toFlatArray(), actual.copyOfRange(resultOffset, actual.size), 0.001f)
     }
 }

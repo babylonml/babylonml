@@ -546,7 +546,8 @@ class TrainingExecutionContextTests {
         val inputSize = source.nextInt(1, 100)
         val outputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(20, 100)
-        val miniBatchSize = source.nextInt(2, 10)
+        val miniBatchCount = source.nextInt(2, 10)
+        val miniBatchSize = batchSize / miniBatchCount
 
         val executionContext = TrainingExecutionContext()
         val input = FloatMatrix.random(batchSize, inputSize, source)
@@ -587,22 +588,22 @@ class TrainingExecutionContextTests {
 
         for (i in 0 until epochs) {
             for (start in 0 until batchSize step miniBatchSize) {
-                val miniBatchCount = min(miniBatchSize, batchSize - start)
-                val miniInput = input.subRows(start, miniBatchCount)
+                val miniBatchSampleCount = min(miniBatchSize, batchSize - start)
+                val miniInput = input.subRows(start, miniBatchSampleCount)
 
                 val z = miniInput * weightsMatrix +
-                        biasesMatrix.broadcastByRows(miniBatchCount)
+                        biasesMatrix.broadcastByRows(miniBatchSampleCount)
                 val prediction = leakyLeRU(z, leakyLeRUSlope)
 
                 val costError =
-                    mseCostFunctionDerivative(prediction, expectedValues.subRows(start, miniBatchCount))
+                    mseCostFunctionDerivative(prediction, expectedValues.subRows(start, miniBatchSampleCount))
                 val layerError = costError.hadamardMul(leakyLeRUDerivative(z, leakyLeRUSlope))
 
                 val weightsDelta = miniInput.transpose() * layerError
                 val biasesDelta = layerError
 
-                weightsMatrix -= weightsDelta * learningRate / miniBatchCount
-                biasesMatrix -= biasesDelta.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix -= weightsDelta * learningRate / miniBatchSampleCount
+                biasesMatrix -= biasesDelta.sumByRows() * learningRate / miniBatchSampleCount
             }
         }
 
@@ -946,7 +947,7 @@ class TrainingExecutionContextTests {
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersMultiSampleTestSeveralEpochsMiniBatch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
-        val learningRate = 0.01f
+        val learningRate = 0.001f
         val leakyLeRUSlope = 0.01f
 
         val outputSize = source.nextInt(1, 100)
@@ -954,7 +955,8 @@ class TrainingExecutionContextTests {
         val inputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(20, 100)
         val epochs = source.nextInt(5, 50)
-        val miniBatchSize = source.nextInt(2, 10)
+        val miniBatchCount = source.nextInt(2, 10)
+        val miniBatchSize = batchSize / miniBatchCount
 
         val inputMatrix = FloatMatrix.random(batchSize, inputSize, source)
         var weightsMatrix1 = FloatMatrix.random(inputSize, hiddenSize, source)
@@ -1018,16 +1020,16 @@ class TrainingExecutionContextTests {
         executionContext.executePropagation(epochs * fullBatchesCount)
         for (i in 0 until epochs) {
             for (start in 0 until batchSize step miniBatchSize) {
-                val miniBatchCount = min(miniBatchSize, batchSize - start)
-                val miniInput = inputMatrix.subRows(start, miniBatchCount)
+                val miniBatchSampleCount = min(miniBatchSize, batchSize - start)
+                val miniInput = inputMatrix.subRows(start, miniBatchSampleCount)
 
-                val z1 = miniInput * weightsMatrix1 + biasesMatrix1.broadcastByRows(miniBatchCount)
+                val z1 = miniInput * weightsMatrix1 + biasesMatrix1.broadcastByRows(miniBatchSampleCount)
                 val prediction1 = leakyLeRU(z1, leakyLeRUSlope)
 
-                val z2 = prediction1 * weightsMatrix2 + biasesMatrix2.broadcastByRows(miniBatchCount)
+                val z2 = prediction1 * weightsMatrix2 + biasesMatrix2.broadcastByRows(miniBatchSampleCount)
                 val prediction2 = leakyLeRU(z2, leakyLeRUSlope)
 
-                val costError = mseCostFunctionDerivative(prediction2, expectedValues.subRows(start, miniBatchCount))
+                val costError = mseCostFunctionDerivative(prediction2, expectedValues.subRows(start, miniBatchSampleCount))
                 val layerError2 = costError.hadamardMul(leakyLeRUDerivative(z2, leakyLeRUSlope))
 
                 val weightsDelta2 = prediction1.transpose() * layerError2
@@ -1039,11 +1041,11 @@ class TrainingExecutionContextTests {
 
                 val biasesDelta1 = layerError1
 
-                weightsMatrix1 -= weightsDelta1 * learningRate / miniBatchCount
-                biasesMatrix1 -= biasesDelta1.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix1 -= weightsDelta1 * learningRate / miniBatchSampleCount
+                biasesMatrix1 -= biasesDelta1.sumByRows() * learningRate / miniBatchSampleCount
 
-                weightsMatrix2 -= weightsDelta2 * learningRate / miniBatchCount
-                biasesMatrix2 -= biasesDelta2.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix2 -= weightsDelta2 * learningRate / miniBatchSampleCount
+                biasesMatrix2 -= biasesDelta2.sumByRows() * learningRate / miniBatchSampleCount
             }
         }
 
@@ -1515,8 +1517,8 @@ class TrainingExecutionContextTests {
         val hiddenSize2 = source.nextInt(1, 100)
         val outputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(20, 100)
-        val miniBatchSize = source.nextInt(2, 10)
-
+        val miniBatchCount = source.nextInt(2, 10)
+        val miniBatchSize = batchSize / miniBatchCount
         val epochs = source.nextInt(5, 50)
 
         val inputMatrix = FloatMatrix.random(batchSize, inputSize, source)
@@ -1593,19 +1595,19 @@ class TrainingExecutionContextTests {
 
         for (i in 0 until epochs) {
             for (start in 0 until batchSize step miniBatchSize) {
-                val miniBatchCount = min(miniBatchSize, batchSize - start)
-                val miniInput = inputMatrix.subRows(start, miniBatchCount)
+                val miniBatchSampleCount = min(miniBatchSize, batchSize - start)
+                val miniInput = inputMatrix.subRows(start, miniBatchSampleCount)
 
-                val z1 = miniInput * weightsMatrix1 + biasesMatrix1.broadcastByRows(miniBatchCount)
+                val z1 = miniInput * weightsMatrix1 + biasesMatrix1.broadcastByRows(miniBatchSampleCount)
                 val prediction1 = leakyLeRU(z1, leakyLeRUSlope)
 
-                val z2 = prediction1 * weightsMatrix2 + biasesMatrix2.broadcastByRows(miniBatchCount)
+                val z2 = prediction1 * weightsMatrix2 + biasesMatrix2.broadcastByRows(miniBatchSampleCount)
                 val prediction2 = leakyLeRU(z2, leakyLeRUSlope)
 
-                val z3 = prediction2 * weightsMatrix3 + biasesMatrix3.broadcastByRows(miniBatchCount)
+                val z3 = prediction2 * weightsMatrix3 + biasesMatrix3.broadcastByRows(miniBatchSampleCount)
                 val prediction3 = leakyLeRU(z3, leakyLeRUSlope)
 
-                val costError = mseCostFunctionDerivative(prediction3, expectedValues.subRows(start, miniBatchCount))
+                val costError = mseCostFunctionDerivative(prediction3, expectedValues.subRows(start, miniBatchSampleCount))
                 val layerError3 = costError.hadamardMul(leakyLeRUDerivative(z3, leakyLeRUSlope))
 
                 val weightsDelta3 = prediction2.transpose() * layerError3
@@ -1622,14 +1624,14 @@ class TrainingExecutionContextTests {
                 val weightsDelta1 = miniInput.transpose() * layerError1
                 val biasesDelta1 = layerError1
 
-                weightsMatrix1 -= weightsDelta1 * learningRate / miniBatchCount
-                biasesMatrix1 -= biasesDelta1.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix1 -= weightsDelta1 * learningRate / miniBatchSampleCount
+                biasesMatrix1 -= biasesDelta1.sumByRows() * learningRate / miniBatchSampleCount
 
-                weightsMatrix2 -= weightsDelta2 * learningRate / miniBatchCount
-                biasesMatrix2 -= biasesDelta2.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix2 -= weightsDelta2 * learningRate / miniBatchSampleCount
+                biasesMatrix2 -= biasesDelta2.sumByRows() * learningRate / miniBatchSampleCount
 
-                weightsMatrix3 -= weightsDelta3 * learningRate / miniBatchCount
-                biasesMatrix3 -= biasesDelta3.sumByRows() * learningRate / miniBatchCount
+                weightsMatrix3 -= weightsDelta3 * learningRate / miniBatchSampleCount
+                biasesMatrix3 -= biasesDelta3.sumByRows() * learningRate / miniBatchSampleCount
             }
         }
 

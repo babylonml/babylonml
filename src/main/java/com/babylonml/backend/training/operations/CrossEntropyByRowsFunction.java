@@ -1,32 +1,31 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 
 public class CrossEntropyByRowsFunction extends AbstractOperation {
-    private final float[] expectedValues;
 
-    private final int rows;
-    private final int columns;
+    private final int maxRows;
+    private final int maxColumns;
 
-    public CrossEntropyByRowsFunction(int rows, int columns, float[] expectedValues,
+    public CrossEntropyByRowsFunction(Operation expectedValues,
                                       TrainingExecutionContext executionContext, Operation leftOperation) {
-        super(executionContext, leftOperation, null);
-        this.expectedValues = expectedValues;
+        super(executionContext, leftOperation, expectedValues);
 
-        this.rows = rows;
-        this.columns = columns;
+        this.maxRows = leftOperation.getResultMaxRows();
+        this.maxColumns = leftOperation.getResultMaxColumns();
     }
 
-    public int getRows() {
-        return rows;
+    public int getResultMaxRows() {
+        return maxRows;
     }
 
-    public int getColumns() {
-        return columns;
+    public int getResultMaxColumns() {
+        return maxColumns;
     }
 
-    public float[] getExpectedValues() {
-        return expectedValues;
+    public Operation getExpectedValues() {
+        return rightOperation;
     }
 
     @Override
@@ -48,13 +47,15 @@ public class CrossEntropyByRowsFunction extends AbstractOperation {
     }
 
     @Override
-    public int getForwardMemorySize() {
-        return 0;
+    public IntIntImmutablePair[] getForwardMemoryAllocations() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in forward pass");
     }
 
     @Override
-    public int getBackwardMemorySize() {
-        return 0;
+    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in backward pass");
     }
 
     @Override

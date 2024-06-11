@@ -1,6 +1,12 @@
 package com.babylonml.backend.training.operations;
 
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+
 public interface Operation {
+    int getResultMaxRows();
+
+    int getResultMaxColumns();
+
     int getLayerIndex();
 
     void setLayerIndex(int layerIndex);
@@ -11,9 +17,9 @@ public interface Operation {
 
     long rightBackwardDerivativeChainValue();
 
-    int getForwardMemorySize();
+    IntIntImmutablePair[] getForwardMemoryAllocations();
 
-    int getBackwardMemorySize();
+    IntIntImmutablePair[] getBackwardMemoryAllocations();
 
     Operation getLeftPreviousOperation();
 
@@ -31,5 +37,5 @@ public interface Operation {
 
     boolean requiresBackwardDerivativeChainValue();
 
-    void reset();
+    void prepareForNextPropagation();
 }

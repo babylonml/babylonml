@@ -23,13 +23,13 @@ class LeakyLeRUTests {
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val leakyLeRUSlope = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val leakyLeRU = LeakyLeRUFunction(rows, columns, leakyLeRUSlope, executionContext, variable)
+        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, executionContext, variable)
 
         executionContext.initializeExecution(leakyLeRU)
 
@@ -57,13 +57,13 @@ class LeakyLeRUTests {
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
-        val learningRate = 0.01f
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
 
+        val learningRate = 0.01f
         val leakyLeRUSlope = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val leakyLeRU = LeakyLeRUFunction(rows, columns, leakyLeRUSlope, executionContext, variable)
+        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, executionContext, variable)
 
         val gradients = FloatMatrix.random(rows, columns, source)
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), leakyLeRU)

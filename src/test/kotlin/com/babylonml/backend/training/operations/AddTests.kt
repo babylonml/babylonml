@@ -22,13 +22,13 @@ class AddTests {
         val secondMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val add = Add(executionContext, rows, columns, firstVariable, secondVariable)
+        val add = Add(executionContext, firstVariable, secondVariable, false)
 
         executionContext.initializeExecution(add)
         val result = executionContext.executeForwardPropagation()
@@ -56,13 +56,14 @@ class AddTests {
         val secondMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val add = Add(executionContext, rows, columns, firstVariable, secondVariable)
+        val add = Add(executionContext, firstVariable, secondVariable, false)
         val gradients = FloatMatrix.random(rows, columns, source)
 
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), add)

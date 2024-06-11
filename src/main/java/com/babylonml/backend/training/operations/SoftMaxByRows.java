@@ -1,16 +1,17 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 
 public class SoftMaxByRows extends AbstractOperation {
-    private final int rows;
-    private final int columns;
+    private final int maxRows;
+    private final int maxColumns;
 
-    public SoftMaxByRows(TrainingExecutionContext executionContext, Operation leftOperation, int rows, int columns) {
+    public SoftMaxByRows(TrainingExecutionContext executionContext, Operation leftOperation) {
         super(executionContext, leftOperation, null);
 
-        this.rows = rows;
-        this.columns = columns;
+        this.maxRows = leftOperation.getResultMaxRows();
+        this.maxColumns = leftOperation.getResultMaxColumns();
     }
 
     @Override
@@ -32,25 +33,29 @@ public class SoftMaxByRows extends AbstractOperation {
     }
 
     @Override
-    public int getForwardMemorySize() {
-        return 0;
+    public int getResultMaxRows() {
+        return maxRows;
     }
 
     @Override
-    public int getBackwardMemorySize() {
-        return 0;
+    public int getResultMaxColumns() {
+        return maxColumns;
+    }
+
+    @Override
+    public IntIntImmutablePair[] getForwardMemoryAllocations() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in forward pass");
+    }
+
+    @Override
+    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in backward pass");
     }
 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return false;
-    }
-
-    public int getRows() {
-        return rows;
-    }
-
-    public int getColumns() {
-        return columns;
     }
 }

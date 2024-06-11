@@ -26,18 +26,16 @@ class SoftMaxByRowsCrossEntropyTests {
         )
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
         val softMax = SoftMaxByRows(
             executionContext,
             variable,
-            rows,
-            columns
         )
         val crossEntropy = CrossEntropyByRowsFunction(
-            rows, columns, expectedProbabilitiesMatrix.toFlatArray(),
+            expectedProbabilitiesMatrix.toConstant(executionContext),
             executionContext, softMax
         )
 
@@ -71,18 +69,16 @@ class SoftMaxByRowsCrossEntropyTests {
         )
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
         val softMax = SoftMaxByRows(
             executionContext,
-            variable,
-            rows,
-            columns
+            variable
         )
         val crossEntropy = CrossEntropyByRowsFunction(
-            rows, columns, expectedMatrix.toFlatArray(),
+            expectedMatrix.toConstant(executionContext),
             executionContext, softMax
         )
 

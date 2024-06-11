@@ -18,16 +18,16 @@ class GeLUTests {
         val source = RandomSource.ISAAC.create(seed)
 
         val rows = source.nextInt(100)
-        val  columns = source.nextInt(100)
+        val columns = source.nextInt(100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val geLU = GeLUFunction(rows, columns, executionContext, variable)
+        val geLU = GeLUFunction(executionContext, variable)
 
         executionContext.initializeExecution(geLU)
 
@@ -38,8 +38,10 @@ class GeLUTests {
 
         val expectedResult = geLU(matrix)
 
-        Assertions.assertArrayEquals(expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+        )
     }
 
     @ParameterizedTest
@@ -48,16 +50,17 @@ class GeLUTests {
         val source = RandomSource.ISAAC.create(seed)
 
         val rows = source.nextInt(100)
-        val  columns = source.nextInt(100)
+        val columns = source.nextInt(100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val geLU = GeLUFunction(rows, columns, executionContext, variable)
+        val geLU = GeLUFunction(executionContext, variable)
 
         val gradients = FloatMatrix.random(rows, columns, source)
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), geLU)

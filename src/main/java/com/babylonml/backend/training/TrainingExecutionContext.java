@@ -1,6 +1,7 @@
 package com.babylonml.backend.training;
 
 import com.babylonml.backend.training.operations.*;
+import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -8,10 +9,9 @@ import java.util.function.ToIntFunction;
 
 public final class TrainingExecutionContext {
     public static final long NULL = 0;
+    public static final int DIMENSIONS_SIZE = 2;
 
     private static final int FORWARD_MEMORY_TYPE = 1;
-
-    private static final int MEMORY_TYPE_MASK = ~(Integer.MIN_VALUE >> 2);
 
     private float[] forwardMemoryBuffer;
     private int forwardMemoryIndex;
@@ -123,25 +123,35 @@ public final class TrainingExecutionContext {
         forwardMemoryIndex = 0;
         backwardMemoryIndex = 0;
 
-        terminalOperation.reset();
+        terminalOperation.prepareForNextPropagation();
     }
 
-    public long allocateForwardMemory(int length) {
+
+    public long allocateForwardMemory(int rows, int columns) {
+        var length = rows * columns + DIMENSIONS_SIZE;
+
         assert forwardMemoryIndex + length <= forwardMemoryBuffer.length;
+        forwardMemoryBuffer[forwardMemoryIndex] = Float.intBitsToFloat(rows);
+        forwardMemoryBuffer[forwardMemoryIndex + 1] = Float.intBitsToFloat(columns);
+
 
         var address = address(FORWARD_MEMORY_TYPE, forwardMemoryIndex, length);
-        forwardMemoryIndex += length;
 
-        return address;
+        forwardMemoryIndex += length;
+        return address + DIMENSIONS_SIZE;
     }
 
-    public long allocateBackwardMemory(int length) {
+    public long allocateBackwardMemory(int rows, int columns) {
+        var length = rows * columns + DIMENSIONS_SIZE;
         assert backwardMemoryIndex + length <= currentStepBackwardMemoryBuffer.length;
+        currentStepBackwardMemoryBuffer[backwardMemoryIndex] = Float.intBitsToFloat(rows);
+        currentStepBackwardMemoryBuffer[backwardMemoryIndex + 1] = Float.intBitsToFloat(columns);
+
 
         var address = address(currentBackwardMemoryBufferFlag, backwardMemoryIndex, length);
         backwardMemoryIndex += length;
 
-        return address;
+        return address + DIMENSIONS_SIZE;
     }
 
     public long executeForwardPropagation() {
@@ -164,20 +174,14 @@ public final class TrainingExecutionContext {
 
         var nextTestedOperation = operation.getNextOperation();
 
-        if (operation instanceof SoftMaxByRows softMax) {
+        if (operation instanceof SoftMaxByRows) {
             if (nextTestedOperation instanceof CrossEntropyByRowsFunction crossEntropyFunction) {
                 var previousOperation = operation.getLeftPreviousOperation();
 
                 var nextOperation = crossEntropyFunction.getNextOperation();
                 nextTestedOperation = nextOperation;
 
-                if (softMax.getRows() != crossEntropyFunction.getRows() ||
-                        softMax.getColumns() != crossEntropyFunction.getColumns()) {
-                    throw new IllegalArgumentException("Softmax and cross entropy should have the same dimensions");
-                }
-
-                var softMaxCrossEntropy = new SoftMaxCrossEntropyByRowsFunction(softMax.getRows(),
-                        softMax.getColumns(),
+                var softMaxCrossEntropy = new SoftMaxCrossEntropyByRowsFunction(
                         crossEntropyFunction.getExpectedValues(),
                         this,
                         previousOperation);
@@ -262,11 +266,28 @@ public final class TrainingExecutionContext {
 
         for (var operation : layers) {
             forwardBufferLength += calculateSingleLayerMemoryRequirements(operation,
-                    visitedOperationsForward, Operation::getForwardMemorySize);
+                    visitedOperationsForward, op -> {
+                        var allocations = op.getForwardMemoryAllocations();
+                        var sum = 0;
+
+                        for (var allocation : allocations) {
+                            sum += allocation.firstInt() * allocation.secondInt() + DIMENSIONS_SIZE;
+                        }
+                        return sum;
+                    });
             backwardBufferLength =
                     Math.max(backwardBufferLength,
                             calculateSingleLayerMemoryRequirements(operation, visitedOperationsBackward,
-                                    Operation::getBackwardMemorySize));
+                                    op -> {
+                                        var allocations = op.getBackwardMemoryAllocations();
+                                        var sum = 0;
+
+                                        for (var allocation : allocations) {
+                                            sum += allocation.firstInt() * allocation.secondInt() + DIMENSIONS_SIZE;
+                                        }
+                                        return sum;
+
+                                    }));
 
             visitedOperationsForward.clear();
             visitedOperationsBackward.clear();
@@ -311,7 +332,7 @@ public final class TrainingExecutionContext {
         return address == 0;
     }
 
-    public float[] getMemoryBuffer(long address) {
+    public float @NonNull [] getMemoryBuffer(long address) {
         var memoryType = memoryType(address);
 
         return switch (memoryType) {
@@ -338,12 +359,12 @@ public final class TrainingExecutionContext {
         return MemoryType.PREVIOUS_BACKWARD;
     }
 
-    public static int addressLength(long address) {
-        if (isNull(address)) {
-            throw new IllegalArgumentException("Provided address is null");
-        }
+    public static int rows(float[] buffer, int offset) {
+        return Float.floatToIntBits(buffer[offset - 2]);
+    }
 
-        return (int) (address >> 32) & MEMORY_TYPE_MASK;
+    public static int columns(float[] buffer, int offset) {
+        return Float.floatToIntBits(buffer[offset - 1]);
     }
 
     public static int addressOffset(long address) {

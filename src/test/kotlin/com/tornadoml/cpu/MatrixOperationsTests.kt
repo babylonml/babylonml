@@ -220,7 +220,7 @@ class MatrixOperationsTests {
         val startColumn = source.nextInt(matrixColumns - 1)
         val columns = source.nextInt(matrixColumns - startColumn)
 
-        val copy = matrix.subMatrix(startColumn, columns)
+        val copy = matrix.subColumns(startColumn, columns)
 
         val result = FloatArray(matrixRows * columns) {
             source.nextFloat()

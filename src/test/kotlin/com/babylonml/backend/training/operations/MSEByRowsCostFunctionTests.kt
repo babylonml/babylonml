@@ -25,14 +25,17 @@ class MSEByRowsCostFunctionTests {
         )
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val predictedValuesVariable = predictedValuesMatrix.toVariable(
             executionContext, optimizer, learningRate
         )
+        val expectedValuesConst = Constant(
+            executionContext, expectedValuesMatrix.toFlatArray(), rows, columns
+        )
         val mseCostFunction = MSEByRowsCostFunction(
-            executionContext, predictedValuesVariable, rows, columns, expectedValuesMatrix.toFlatArray()
+            executionContext, predictedValuesVariable, expectedValuesConst
         )
 
         executionContext.initializeExecution(mseCostFunction)
@@ -41,7 +44,6 @@ class MSEByRowsCostFunctionTests {
         val buffer = executionContext.getMemoryBuffer(result)
         val resultOffset = TrainingExecutionContext.addressOffset(result)
 
-        Assertions.assertEquals(1, TrainingExecutionContext.addressLength(result))
         val expectedResult = mseCostFunctionByRows(
             predictedValuesMatrix, expectedValuesMatrix
         )
@@ -63,14 +65,17 @@ class MSEByRowsCostFunctionTests {
         )
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val predictedValuesVariable = predictedValuesMatrix.toVariable(
             executionContext, optimizer, learningRate
         )
+        val expectedValuesConst = Constant(
+            executionContext, expectedValuesMatrix.toFlatArray(), rows, columns
+        )
         val mseCostFunction = MSEByRowsCostFunction(
-            executionContext, predictedValuesVariable, rows, columns, expectedValuesMatrix.toFlatArray()
+            executionContext, predictedValuesVariable, expectedValuesConst
         )
 
         executionContext.initializeExecution(mseCostFunction)

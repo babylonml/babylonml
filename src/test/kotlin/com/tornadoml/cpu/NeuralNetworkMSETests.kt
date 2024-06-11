@@ -245,16 +245,16 @@ class NeuralNetworkMSETests {
         val leakyLeRUGradient = 0.01f
 
         for (epoch in 0 until epochs) {
-            for (i in 0 until sampleSize step miniBatchSize) {
-                val miniSampleSize = min(miniBatchSize, sampleSize - i)
+            for (start in 0 until sampleSize step miniBatchSize) {
+                val miniSampleSize = min(miniBatchSize, sampleSize - start)
 
-                val z = weights * input.subMatrix(i, miniSampleSize) + biases.broadcastColumns(miniSampleSize)
+                val z = weights * input.subColumns(start, miniSampleSize) + biases.broadcastColumns(miniSampleSize)
                 val prediction = leakyLeRU(z, leakyLeRUGradient)
 
-                val costError = mseCostFunctionDerivative(prediction, expected.subMatrix(i, miniSampleSize))
+                val costError = mseCostFunctionDerivative(prediction, expected.subColumns(start, miniSampleSize))
                 val layerError = costError.hadamardMul(leakyLeRUDerivative(z, leakyLeRUGradient))
 
-                val weightsDelta = layerError * input.subMatrix(i, miniSampleSize).transpose()
+                val weightsDelta = layerError * input.subColumns(start, miniSampleSize).transpose()
                 val biasesDelta = layerError
 
                 weights -= weightsDelta * alpha / miniSampleSize
@@ -652,7 +652,7 @@ class NeuralNetworkMSETests {
         for (epoch in 0 until epochs) {
             for (i in 0 until samplesCount step miniBatchSize) {
                 val miniSampleSize = min(miniBatchSize, samplesCount - i)
-                val firstZ = firstLayerWeights * input.subMatrix(i, miniSampleSize) +
+                val firstZ = firstLayerWeights * input.subColumns(i, miniSampleSize) +
                         firstLayerBiases.broadcastColumns(miniSampleSize)
                 val firstPrediction = leakyLeRU(firstZ, 0.01f)
 
@@ -661,7 +661,7 @@ class NeuralNetworkMSETests {
 
                 val secondLayerCostError = mseCostFunctionDerivative(
                     secondPrediction,
-                    expected.subMatrix(i, miniSampleSize)
+                    expected.subColumns(i, miniSampleSize)
                 )
                 val secondLayerError = secondLayerCostError.hadamardMul(leakyLeRUDerivative(secondZ, leakyLeRUGradient))
 
@@ -672,7 +672,7 @@ class NeuralNetworkMSETests {
                     )
                 )
 
-                val firstLayerWeightsDelta = firstLayerError * input.subMatrix(i, miniSampleSize).transpose()
+                val firstLayerWeightsDelta = firstLayerError * input.subColumns(i, miniSampleSize).transpose()
                 val firstLayerBiasesDelta = firstLayerError
 
                 firstLayerWeights -= firstLayerWeightsDelta * alpha / miniSampleSize
@@ -1243,7 +1243,7 @@ class NeuralNetworkMSETests {
                 val miniSampleSize = min(miniBatchSize, samplesCount - i)
 
                 val firstZ =
-                    firstLayerWeights * input.subMatrix(i, miniSampleSize) + firstLayerBiases.broadcastColumns(miniSampleSize)
+                    firstLayerWeights * input.subColumns(i, miniSampleSize) + firstLayerBiases.broadcastColumns(miniSampleSize)
                 val firstPrediction = leakyLeRU(firstZ, leRUGradient)
 
                 val secondZ = secondLayerWeights * firstPrediction + secondLayerBiases.broadcastColumns(miniSampleSize)
@@ -1253,7 +1253,7 @@ class NeuralNetworkMSETests {
                 val thirdPrediction = leakyLeRU(thirdZ, leRUGradient)
 
                 val thirdLayerCostError =
-                    mseCostFunctionDerivative(thirdPrediction, expected.subMatrix(i, miniSampleSize))
+                    mseCostFunctionDerivative(thirdPrediction, expected.subColumns(i, miniSampleSize))
                 val thirdLayerError = thirdLayerCostError.hadamardMul(leakyLeRUDerivative(thirdZ, leRUGradient))
 
                 val secondLayerError = (thirdLayerWeights.transpose() * thirdLayerError).hadamardMul(
@@ -1270,7 +1270,7 @@ class NeuralNetworkMSETests {
                     )
                 )
 
-                val firstLayerWeightsDelta = firstLayerError * input.subMatrix(i, miniSampleSize).transpose()
+                val firstLayerWeightsDelta = firstLayerError * input.subColumns(i, miniSampleSize).transpose()
                 val firstLayerBiasesDelta = firstLayerError
 
                 firstLayerWeights -= firstLayerWeightsDelta * alpha / miniSampleSize

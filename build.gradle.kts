@@ -24,6 +24,7 @@ dependencies {
     implementation("org.apache.commons:commons-rng-sampling:1.5")
     implementation("net.openhft:zero-allocation-hashing:0.16")
     implementation("it.unimi.dsi:fastutil:8.5.13")
+    implementation("org.jspecify:jspecify:0.3.0")
 
     // Test dependencies
     testImplementation(platform("org.junit:junit-bom:5.10.2"))

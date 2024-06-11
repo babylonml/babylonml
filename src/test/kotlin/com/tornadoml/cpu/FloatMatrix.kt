@@ -2,6 +2,7 @@ package com.tornadoml.cpu
 
 import com.babylonml.backend.training.GradientOptimizer
 import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.operations.Constant
 import com.babylonml.backend.training.operations.Variable
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
@@ -134,6 +135,18 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return Variable(exec, optimizer, toFlatArray(), rows, cols, learningRate)
     }
 
+    fun toVariable(
+        name: String, exec: TrainingExecutionContext, optimizer: GradientOptimizer,
+        learningRate: Float
+    ): Variable {
+        return Variable(name, exec, optimizer, toFlatArray(), rows, cols, learningRate)
+    }
+
+
+    fun toConstant(exec: TrainingExecutionContext): Constant {
+        return Constant(exec, toFlatArray(), rows, cols)
+    }
+
     operator fun times(float: Float): FloatMatrix {
         val result = FloatMatrix(rows, cols)
 
@@ -194,6 +207,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    @Suppress("unused")
     fun broadcastByColumns(cols: Int): FloatMatrix {
         if (this.cols != 1) {
             throw IllegalArgumentException("Matrix must have only one column")
@@ -226,12 +240,24 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun subMatrix(start: Int, count: Int): FloatMatrix {
+    fun subColumns(start: Int, count: Int): FloatMatrix {
         val result = FloatMatrix(rows, count)
 
         for (i in 0 until rows) {
             for (j in 0 until count) {
                 result.data[i][j] = data[i][start + j]
+            }
+        }
+
+        return result
+    }
+
+    fun subRows(start: Int, count: Int): FloatMatrix {
+        val result = FloatMatrix(count, cols)
+
+        for (i in 0 until count) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[start + i][j]
             }
         }
 
@@ -341,6 +367,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
+    @Suppress("unused")
     fun sumByColumns(): FloatMatrix {
         val result = FloatMatrix(rows, 1)
 
@@ -353,7 +380,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun sumByRows() : FloatMatrix {
+    fun sumByRows(): FloatMatrix {
         val result = FloatMatrix(1, cols)
 
         for (i in 0 until cols) {

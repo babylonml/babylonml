@@ -1,6 +1,7 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
@@ -8,45 +9,60 @@ import jdk.incubator.vector.VectorSpecies;
 public final class LeakyLeRUFunction extends AbstractOperation {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int size;
+    private final int maxRows;
+    private final int maxColumns;
+
     private final boolean requiresDerivativeChainValue;
     private final float leakyLeRUASlope;
 
-    private long leftValue;
+    private long leftResultPointer;
 
-    public LeakyLeRUFunction(int rows, int columns, float leakyLeRUASlope, TrainingExecutionContext executionContext,
+    public LeakyLeRUFunction(float leakyLeRUASlope, TrainingExecutionContext executionContext,
                              Operation leftOperation) {
-        super(executionContext, leftOperation, null);
+        this(null, leakyLeRUASlope, executionContext, leftOperation);
+    }
+
+    public LeakyLeRUFunction(String name, float leakyLeRUASlope, TrainingExecutionContext executionContext,
+                             Operation leftOperation) {
+        super(name, executionContext, leftOperation, null);
         this.leakyLeRUASlope = leakyLeRUASlope;
-        this.size = rows * columns;
+
+        this.maxRows = leftOperation.getResultMaxRows();
+        this.maxColumns = leftOperation.getResultMaxColumns();
+
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
     public long forwardPassCalculation() {
-        leftValue = leftOperation.forwardPassCalculation();
+        leftResultPointer = leftOperation.forwardPassCalculation();
 
-        var leftBuffer = executionContext.getMemoryBuffer(leftValue);
-        var leftOffset = TrainingExecutionContext.addressOffset(leftValue);
+        var leftResultBuffer = executionContext.getMemoryBuffer(leftResultPointer);
+        var leftResultOffset = TrainingExecutionContext.addressOffset(leftResultPointer);
 
-        assert size == TrainingExecutionContext.addressLength(leftValue);
+        var rows = TrainingExecutionContext.rows(leftResultBuffer, leftResultOffset);
+        var columns = TrainingExecutionContext.columns(leftResultBuffer, leftResultOffset);
 
-        var result = executionContext.allocateForwardMemory(size);
+        assert maxColumns >= columns;
+        assert maxRows >= rows;
+
+        var result = executionContext.allocateForwardMemory(rows, columns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
+        var size = rows * columns;
         var loopBound = SPECIES.loopBound(size);
         var zero = FloatVector.zero(SPECIES);
 
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
-            var va = FloatVector.fromArray(SPECIES, leftBuffer, leftOffset + i);
+            var va = FloatVector.fromArray(SPECIES, leftResultBuffer, leftResultOffset + i);
             var mask = va.compare(VectorOperators.LT, zero);
             var vc = va.mul(leakyLeRUASlope, mask);
             vc.intoArray(resultBuffer, resultOffset + i);
         }
 
         for (int i = loopBound; i < size; i++) {
-            var leftValue = leftBuffer[leftOffset + i];
+            var leftValue = leftResultBuffer[leftResultOffset + i];
             resultBuffer[i + resultOffset] = leftValue > 0 ? leftValue : leakyLeRUASlope * leftValue;
         }
 
@@ -55,23 +71,34 @@ public final class LeakyLeRUFunction extends AbstractOperation {
 
     @Override
     public long leftBackwardDerivativeChainValue() {
-        var leftBuffer = executionContext.getMemoryBuffer(leftValue);
-        var leftOffset = TrainingExecutionContext.addressOffset(leftValue);
+        var leftResultBuffer = executionContext.getMemoryBuffer(leftResultPointer);
+        var leftResultOffset = TrainingExecutionContext.addressOffset(leftResultPointer);
+        var leftRows = TrainingExecutionContext.rows(leftResultBuffer, leftResultOffset);
+        var leftColumns = TrainingExecutionContext.columns(leftResultBuffer, leftResultOffset);
 
-        var result = executionContext.allocateBackwardMemory(size);
+        var derivativeChainBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
+        var derivativeChainOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
+        var derivativeRows = TrainingExecutionContext.rows(derivativeChainBuffer, derivativeChainOffset);
+        var derivativeColumns = TrainingExecutionContext.columns(derivativeChainBuffer, derivativeChainOffset);
+
+        assert leftRows == derivativeRows;
+        assert leftColumns == derivativeColumns;
+
+        assert maxRows >= leftRows;
+        assert maxColumns >= leftColumns;
+
+        var result = executionContext.allocateBackwardMemory(leftRows, leftColumns);
         var resultBuffer = executionContext.getMemoryBuffer(result);
         var resultOffset = TrainingExecutionContext.addressOffset(result);
 
-        var derivativeChainBuffer = executionContext.getMemoryBuffer(derivativeChainValue);
-        var derivativeChainOffset = TrainingExecutionContext.addressOffset(derivativeChainValue);
-
+        var size = leftRows * leftColumns;
         var loopBound = SPECIES.loopBound(size);
         var zero = FloatVector.zero(SPECIES);
         var slope = FloatVector.broadcast(SPECIES, leakyLeRUASlope);
         var one = FloatVector.broadcast(SPECIES, 1.0f);
 
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
-            var va = FloatVector.fromArray(SPECIES, leftBuffer, leftOffset + i);
+            var va = FloatVector.fromArray(SPECIES, leftResultBuffer, leftResultOffset + i);
             var mask = va.compare(VectorOperators.LT, zero);
             var vc = one.mul(slope, mask);
 
@@ -82,7 +109,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
         }
 
         for (int i = loopBound; i < size; i++) {
-            resultBuffer[i + resultOffset] = (leftBuffer[i + leftOffset] > 0 ? 1.0f : leakyLeRUASlope) *
+            resultBuffer[i + resultOffset] = (leftResultBuffer[i + leftResultOffset] > 0 ? 1.0f : leakyLeRUASlope) *
                     derivativeChainBuffer[i + derivativeChainOffset];
         }
 
@@ -95,17 +122,31 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     }
 
     @Override
-    public int getForwardMemorySize() {
-        return size;
-    }
-
-    @Override
-    public int getBackwardMemorySize() {
-        return size;
-    }
-
-    @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
+    }
+
+    @Override
+    public int getResultMaxRows() {
+        return maxRows;
+    }
+
+    @Override
+    public int getResultMaxColumns() {
+        return maxColumns;
+    }
+
+    @Override
+    public IntIntImmutablePair[] getForwardMemoryAllocations() {
+        return new IntIntImmutablePair[]{
+                new IntIntImmutablePair(maxRows, maxColumns)
+        };
+    }
+
+    @Override
+    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
+        return new IntIntImmutablePair[]{
+                new IntIntImmutablePair(maxRows, maxColumns)
+        };
     }
 }

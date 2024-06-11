@@ -1,6 +1,8 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public abstract class AbstractOperation implements Operation {
     protected Operation leftOperation;
@@ -8,13 +10,23 @@ public abstract class AbstractOperation implements Operation {
 
     protected final TrainingExecutionContext executionContext;
 
-    protected long derivativeChainValue;
+    protected long derivativeChainPointer;
 
     protected Operation nextOperation;
     private int layerIndex = -1;
 
+    @Nullable
+    protected String name;
+
     public AbstractOperation(TrainingExecutionContext executionContext,
                              Operation leftOperation, Operation rightOperation) {
+        this(null, executionContext, leftOperation, rightOperation);
+    }
+
+
+    public AbstractOperation(@Nullable String name, @NonNull TrainingExecutionContext executionContext,
+                             Operation leftOperation, Operation rightOperation) {
+        this.name = name;
 
         this.leftOperation = leftOperation;
         this.rightOperation = rightOperation;
@@ -32,7 +44,7 @@ public abstract class AbstractOperation implements Operation {
 
 
     public final void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue) {
-        this.derivativeChainValue = backwardDerivativeChainValue;
+        this.derivativeChainPointer = backwardDerivativeChainValue;
     }
 
     @Override
@@ -76,13 +88,13 @@ public abstract class AbstractOperation implements Operation {
     }
 
     @Override
-    public void reset() {
+    public void prepareForNextPropagation() {
         if (leftOperation != null) {
-            leftOperation.reset();
+            leftOperation.prepareForNextPropagation();
         }
 
         if (rightOperation != null) {
-            rightOperation.reset();
+            rightOperation.prepareForNextPropagation();
         }
     }
 }

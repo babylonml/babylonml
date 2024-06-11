@@ -22,13 +22,13 @@ class HadamardProductTests {
         val secondMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val hadamard = HadamardProduct(rows, columns, executionContext, firstVariable, secondVariable)
+        val hadamard = HadamardProduct(executionContext, firstVariable, secondVariable)
 
         executionContext.initializeExecution(hadamard)
         val result = executionContext.executeForwardPropagation()
@@ -56,13 +56,13 @@ class HadamardProductTests {
         val secondMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(1)
+        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val hadamard = HadamardProduct(rows, columns, executionContext, firstVariable, secondVariable)
+        val hadamard = HadamardProduct(executionContext, firstVariable, secondVariable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
         val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), hadamard)

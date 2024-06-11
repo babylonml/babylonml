@@ -174,7 +174,7 @@ public interface TrainableLayer extends Layer {
     /**
      * Performance optimized form of the backward propagation step for the training phase.
      * <p>
-     * This method is used when the layer is the last layer in the neural network. So no error calculation is needed.
+     * This method is used when the layer is the first layer in the neural network. So no error calculation is needed.
      * <p>
      * Size of passed in arrays may be bigger than needed, so never rely on the size of the arrays and use such
      * parameters as batch size, input size and output size, to calculate the size of the arrays.
@@ -195,7 +195,13 @@ public interface TrainableLayer extends Layer {
      *                                Amount of rows equals to output size and amount of columns equals to batch size.
      * @param batchSize               Size of the batch.
      */
-    void backwardLastLayer(float[] input, int inputOffset, float[] currentLayerErrorsInput, float[] weightsGradientOutput,
-                           float[] biasesGradientOutput,
-                           int batchSize);
+    void backwardFirstLayer(float[] input, int inputOffset, float[] currentLayerErrorsInput, float[] weightsGradientOutput,
+                            float[] biasesGradientOutput,
+                            int batchSize);
+
+    /**
+     * Returns the size of the weights of the layer.
+     * @
+     */
+    int getWeightsSize();
 }

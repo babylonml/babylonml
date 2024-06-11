@@ -73,7 +73,17 @@ tasks {
             "-Djava.awt.headless=true"
         )
     }
+
+
+    register<JavaExec>("makemore") {
+        group = "application"
+        mainClass = "com.tornadoml.makemore.Makemore"
+        classpath = sourceSets["main"].runtimeClasspath
+        jvmArgs = listOf(
+            "-server",
+            "-Xmx16g",
+            "--add-modules",
+            "jdk.incubator.vector",
+        )
+    }
 }
-
-
-

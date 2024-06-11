@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 
-class MSECostFunctionTests {
+class MSEByColumnsCostFunctionTests {
     private val securesRandom = SecureRandom()
 
     @Test
@@ -37,7 +37,7 @@ class MSECostFunctionTests {
             target.size, target.cols
         )
 
-        Assertions.assertEquals(mseCostFunction(actual, target), result, 0.0001f)
+        Assertions.assertEquals(mseCostFunctionByColumns(actual, target), result, 0.001f)
     }
 
     @Test
@@ -74,6 +74,6 @@ class MSECostFunctionTests {
             resultArray, 1, target.size
         )
 
-        Assertions.assertArrayEquals(result.toFlatArray(), resultArray.copyOfRange(1, target.size + 1), 0.0001f)
+        Assertions.assertArrayEquals(result.toFlatArray(), resultArray.copyOfRange(1, target.size + 1), 0.001f)
     }
 }

@@ -10,7 +10,7 @@ public final class SoftMaxLayer implements NonTrainableLayer {
 
     @Override
     public void predict(float[] input, float[] prediction, int batchSize) {
-        MatrixOperations.softMaxByColumns(input, inputSize, batchSize, prediction);
+        MatrixOperations.softMaxByColumns(input, 0, inputSize, batchSize, prediction, 0);
     }
 
     @Override
@@ -26,8 +26,8 @@ public final class SoftMaxLayer implements NonTrainableLayer {
     @Override
     public void backwardLastLayer(float[] input, float[] costFunctionInput, float[] previousLayerErrorOutput,
                                   int batchSize) {
-        VectorOperations.subtractVectorFromVector(input, costFunctionInput, previousLayerErrorOutput,
-                inputSize * batchSize);
+        VectorOperations.subtractVectorFromVector(input, 0, costFunctionInput, 0, previousLayerErrorOutput,
+                0, inputSize * batchSize);
 
     }
 }

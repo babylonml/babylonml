@@ -1,9 +1,27 @@
 package com.tornadoml.cpu
 
+import com.babylonml.backend.training.GradientOptimizer
+import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.operations.Constant
+import com.babylonml.backend.training.operations.Variable
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
 
 class FloatMatrix(val rows: Int, val cols: Int) {
+    companion object {
+        fun random(rows: Int, cols: Int, source: UniformRandomProvider): FloatMatrix {
+            val result = FloatMatrix(rows, cols)
+            result.fillRandom(source)
+            return result
+        }
+
+        fun random(rows: Int, cols: Int, origin: Float, boundary: Float, source: UniformRandomProvider): FloatMatrix {
+            val result = FloatMatrix(rows, cols)
+            result.fillRandom(source, origin, boundary)
+            return result
+        }
+    }
+
     constructor(rows: Int, cols: Int, data: FloatArray) : this(rows, cols) {
         assert(data.size == rows * cols)
 
@@ -95,7 +113,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun dotMul(other: FloatMatrix): FloatMatrix {
+    fun dotMulRows(other: FloatMatrix): FloatMatrix {
         assert(rows == other.rows && cols == other.cols)
         val result = FloatMatrix(1, cols)
 
@@ -106,6 +124,35 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         }
 
         return result
+    }
+
+    fun dotMulCols(other: FloatMatrix): FloatMatrix {
+        assert(rows == other.rows && cols == other.cols)
+        val result = FloatMatrix(rows, 1)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][0] += data[i][j] * other.data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    fun toVariable(exec: TrainingExecutionContext, optimizer: GradientOptimizer, learningRate: Float): Variable {
+        return Variable(exec, optimizer, toFlatArray(), rows, cols, learningRate)
+    }
+
+    fun toVariable(
+        name: String, exec: TrainingExecutionContext, optimizer: GradientOptimizer,
+        learningRate: Float
+    ): Variable {
+        return Variable(name, exec, optimizer, toFlatArray(), rows, cols, learningRate)
+    }
+
+
+    fun toConstant(exec: TrainingExecutionContext): Constant {
+        return Constant(exec, toFlatArray(), rows, cols)
     }
 
     operator fun times(float: Float): FloatMatrix {
@@ -168,12 +215,57 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun subMatrix(start: Int, count: Int): FloatMatrix {
+    @Suppress("unused")
+    fun broadcastByColumns(cols: Int): FloatMatrix {
+        if (this.cols != 1) {
+            throw IllegalArgumentException("Matrix must have only one column")
+        }
+
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[i][0]
+            }
+        }
+
+        return result
+    }
+
+    fun broadcastByRows(rows: Int): FloatMatrix {
+        if (this.rows != 1) {
+            throw IllegalArgumentException("Matrix must have only one row")
+        }
+
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[0][j]
+            }
+        }
+
+        return result
+    }
+
+    fun subColumns(start: Int, count: Int): FloatMatrix {
         val result = FloatMatrix(rows, count)
 
         for (i in 0 until rows) {
             for (j in 0 until count) {
                 result.data[i][j] = data[i][start + j]
+            }
+        }
+
+        return result
+    }
+
+    fun subRows(start: Int, count: Int): FloatMatrix {
+        val result = FloatMatrix(count, cols)
+
+        for (i in 0 until count) {
+            for (j in 0 until cols) {
+                result.data[i][j] = data[start + i][j]
             }
         }
 
@@ -186,6 +278,18 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[i][j] = sqrt(data[i][j])
+            }
+        }
+
+        return result
+    }
+
+    fun ln(): FloatMatrix {
+        val result = FloatMatrix(rows, cols)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][j] = kotlin.math.ln(data[i][j])
             }
         }
 
@@ -218,9 +322,15 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun softMax() : FloatMatrix {
+    fun softMaxByColumns(): FloatMatrix {
         val exp = exp()
-        val sum = exp.transpose().reduce().broadcastRows(rows)
+        val sum = exp.transpose().reduceByColumns().broadcastRows(rows)
+        return exp / sum
+    }
+
+    fun softMaxByRows(): FloatMatrix {
+        val exp = exp()
+        val sum = exp.reduceByColumns().broadcastColumns(cols)
         return exp / sum
     }
 
@@ -228,7 +338,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
     fun fillRandom(source: UniformRandomProvider) {
         for (i in 0 until rows) {
             for (j in 0 until cols) {
-                data[i][j] = source.nextFloat()
+                data[i][j] = source.nextFloat(-1.0f, 1.0f)
             }
         }
     }
@@ -253,12 +363,49 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         return result
     }
 
-    fun reduce(): FloatVector {
+    fun reduceByColumns(): FloatVector {
         val result = FloatVector(rows)
 
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 result.data[i] += data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    @Suppress("unused")
+    fun sumByColumns(): FloatMatrix {
+        val result = FloatMatrix(rows, 1)
+
+        for (i in 0 until rows) {
+            for (j in 0 until cols) {
+                result.data[i][0] += data[i][j]
+            }
+        }
+
+        return result
+    }
+
+    fun sumByRows(): FloatMatrix {
+        val result = FloatMatrix(1, cols)
+
+        for (i in 0 until cols) {
+            for (j in 0 until rows) {
+                result.data[0][i] += data[j][i]
+            }
+        }
+
+        return result
+    }
+
+    fun reduceByRows(): FloatVector {
+        val result = FloatVector(cols)
+
+        for (i in 0 until cols) {
+            for (j in 0 until rows) {
+                result.data[i] += data[j][i]
             }
         }
 

@@ -1,5 +1,7 @@
 package com.tornadoml.cpu
 
+import com.babylonml.FloatVector
+import com.babylonml.div
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
@@ -157,8 +159,8 @@ class VectorOperationsTests {
 
             VectorOperations.divideScalarOnVectorElements(
                 scalar,
-                vector.toArray().copyInto(vectorArray),
-                result,
+                vector.toArray().copyInto(vectorArray), 0,
+                result, 0,
                 vectorLength
             )
 
@@ -189,8 +191,9 @@ class VectorOperationsTests {
                 source.nextFloat()
             }
             VectorOperations.vectorElementsSqrt(
-                vector.toArray().copyInto(vectorArray),
+                vector.toArray().copyInto(vectorArray), 0,
                 result,
+                0,
                 vectorLength
             )
             Assertions.assertArrayEquals(vector.sqrt().toArray(), result.copyOfRange(0, vectorLength), 0.001f)
@@ -254,9 +257,9 @@ class VectorOperationsTests {
                 source.nextFloat()
             }
             VectorOperations.maxBetweenVectorElements(
-                firstVector.toArray().copyInto(firstArray),
-                secondVector.toArray().copyInto(secondArray),
-                result,
+                firstVector.toArray().copyInto(firstArray), 0,
+                secondVector.toArray().copyInto(secondArray), 0,
+                result, 0,
                 vectorLength
             )
             Assertions.assertArrayEquals(
@@ -319,8 +322,8 @@ class VectorOperationsTests {
 
             VectorOperations.addScalarToVector(
                 scalar,
-                vector.toArray().copyInto(vectorArray),
-                result, vectorLength
+                vector.toArray().copyInto(vectorArray), 0,
+                result, 0, vectorLength
             )
 
             Assertions.assertArrayEquals((vector + scalar).toArray(), result.copyOfRange(0, vectorLength), 0.001f)

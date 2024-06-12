@@ -1,16 +1,6 @@
-package com.tornadoml.cpu
+package com.babylonml
 
-/**
- * Samples and actual results are grouped by columns
- */
-fun mseCostFunctionByColumns(actual: FloatMatrix, expected: FloatMatrix): Float {
-    val diff = expected - actual
-    val squared = diff.dotMulRows(diff)
-
-    assert(squared.rows == 1)
-
-    return squared.reduceByColumns().sum() / squared.cols
-}
+import com.babylonml.matrix.FloatMatrix
 
 fun mseCostFunctionByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
     val diff = expected - actual

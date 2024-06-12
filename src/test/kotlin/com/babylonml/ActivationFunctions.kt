@@ -1,5 +1,6 @@
-package com.tornadoml.cpu
+package com.babylonml
 
+import com.babylonml.matrix.FloatMatrix
 import kotlin.math.sqrt
 import kotlin.math.tanh
 

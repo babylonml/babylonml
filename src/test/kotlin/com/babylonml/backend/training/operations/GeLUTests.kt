@@ -1,11 +1,11 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.training.SimpleGradientDescentOptimizer
+import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.TrainingExecutionContext
-import com.tornadoml.cpu.FloatMatrix
-import com.tornadoml.cpu.SeedsArgumentsProvider
-import com.tornadoml.cpu.geLU
-import com.tornadoml.cpu.geLUDerivative
+import com.babylonml.matrix.FloatMatrix
+import com.babylonml.SeedsArgumentsProvider
+import com.babylonml.geLU
+import com.babylonml.geLUDerivative
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -23,7 +23,8 @@ class GeLUTests {
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext()
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)

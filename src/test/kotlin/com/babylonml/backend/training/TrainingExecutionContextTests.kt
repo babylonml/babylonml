@@ -1,7 +1,9 @@
 package com.babylonml.backend.training
 
+import com.babylonml.*
 import com.babylonml.backend.training.operations.*
-import com.tornadoml.cpu.*
+import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
+import com.babylonml.matrix.FloatMatrix
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -30,7 +32,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val learningRate = 0.001f
 
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
         val thirdVariable = thirdMatrix.toVariable(executionContext, optimizer, learningRate)
@@ -71,7 +74,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val learningRate = 0.001f
 
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val inputVariable = inputMatrix.toVariable(executionContext, optimizer, learningRate)
         val weightsVariable = weightsMatrix.toVariable(executionContext, optimizer, learningRate)
         val biasVariable = biasMatrix.toVariable(executionContext, optimizer, learningRate)
@@ -117,7 +121,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val learningRate = 0.001f
 
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val inputVariable = inputMatrix.toVariable(executionContext, optimizer, learningRate)
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -181,7 +186,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val learningRate = 0.001f
 
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
 
         val inputVariable = inputMatrix.toVariable(executionContext, optimizer, learningRate)
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -258,7 +264,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val learningRate = 0.001f
 
-        val optimizer = SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer =
+            SimpleGradientDescentOptimizer(NullDataSource())
         val inputVariable = inputMatrix.toVariable(executionContext, optimizer, learningRate)
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -343,7 +350,8 @@ class TrainingExecutionContextTests {
         var biasesMatrix = FloatMatrix.random(1, outputSize, source)
 
         val constant = Constant(executionContext, input.toFlatArray(), 1, inputSize)
-        val optimizer = SimpleGradientDescentOptimizer(constant)
+        val optimizer =
+            SimpleGradientDescentOptimizer(constant)
         val weightsVariable = weightsMatrix.toVariable(
             executionContext,
             optimizer, learningRate
@@ -557,7 +565,9 @@ class TrainingExecutionContextTests {
 
         val miniBatchInputSource = MiniBatchInputSource(input.toArray(), inputSize, miniBatchSize, executionContext)
         val optimizer =
-            SimpleGradientDescentOptimizer(miniBatchInputSource)
+            SimpleGradientDescentOptimizer(
+                miniBatchInputSource
+            )
 
         val weightsVariable = weightsMatrix.toVariable(
             "weightsVariable", executionContext, optimizer,
@@ -642,7 +652,8 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext()
         val input = inputMatrix.toConstant(executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasesMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -741,7 +752,8 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext()
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, batchSize, executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasesMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -844,7 +856,8 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext()
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, batchSize, executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
             "weightsVariable1",
@@ -967,7 +980,8 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext()
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, miniBatchSize, executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
             "weightsVariable1",
@@ -1099,7 +1113,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val input = inputMatrix.toConstant(executionContext)
 
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasesMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -1236,7 +1251,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, batchSize, executionContext)
 
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasesMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -1378,7 +1394,8 @@ class TrainingExecutionContextTests {
         val executionContext = TrainingExecutionContext()
 
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, batchSize, executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
             "weightsVariable1",
@@ -1534,7 +1551,8 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext()
         val input = MiniBatchInputSource(inputMatrix.toArray(), inputSize, miniBatchSize, executionContext)
-        val optimizer = SimpleGradientDescentOptimizer(input)
+        val optimizer =
+            SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
             "weightsVariable1",

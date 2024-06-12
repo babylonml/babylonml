@@ -2,6 +2,7 @@ package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Collections;
 import java.util.Set;
@@ -101,7 +102,7 @@ public class MiniBatchInputSource extends AbstractOperation implements StartOper
     }
 
     @Override
-    public void addMiniBatchListener(MiniBatchListener listener) {
+    public void addMiniBatchListener(@NonNull  MiniBatchListener listener) {
         miniBatchListeners.add(listener);
     }
 

@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.TrainingExecutionContext;
-import com.babylonml.backend.training.GradientOptimizer;
+import com.babylonml.backend.training.optimizer.GradientOptimizer;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -73,7 +73,7 @@ public final class Variable extends AbstractOperation implements StartOperation 
 
     @Override
     public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return optimizer.getRequiredMemoryAllocations(rows, columns);
+        return optimizer.calculateRequiredMemoryAllocations(rows, columns);
     }
 
     @Override

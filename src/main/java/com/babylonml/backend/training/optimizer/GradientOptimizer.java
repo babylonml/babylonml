@@ -1,5 +1,6 @@
-package com.babylonml.backend.training;
+package com.babylonml.backend.training.optimizer;
 
+import com.babylonml.backend.training.TrainingExecutionContext;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
 
 public interface GradientOptimizer {
@@ -7,5 +8,5 @@ public interface GradientOptimizer {
                   float[] matrix, int matrixOffset, int rows, int columns, float[] gradient,
                   int gradientOffset, float learningRate);
 
-    IntIntImmutablePair[] getRequiredMemoryAllocations(int rows, int columns);
+    IntIntImmutablePair[] calculateRequiredMemoryAllocations(int rows, int columns);
 }

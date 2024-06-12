@@ -99,10 +99,12 @@ public final class AdamOptimizer implements WeightsOptimizer {
     }
 
     private static void calculateCorrections(float[] correctedMovingAverage, float[] correctedMovingAverageSqr, float learningRate) {
-        VectorOperations.vectorElementsSqrt(correctedMovingAverageSqr, correctedMovingAverageSqr, correctedMovingAverageSqr.length);
-        VectorOperations.addScalarToVector(1e-8f, correctedMovingAverageSqr, correctedMovingAverageSqr, correctedMovingAverageSqr.length);
-        VectorOperations.divideScalarOnVectorElements(-learningRate, correctedMovingAverageSqr,
-                correctedMovingAverageSqr, correctedMovingAverageSqr.length);
+        VectorOperations.vectorElementsSqrt(correctedMovingAverageSqr, 0, correctedMovingAverageSqr, 0,
+                correctedMovingAverageSqr.length);
+        VectorOperations.addScalarToVector(1e-8f, correctedMovingAverageSqr, 0,
+                correctedMovingAverageSqr, 0, correctedMovingAverageSqr.length);
+        VectorOperations.divideScalarOnVectorElements(-learningRate, correctedMovingAverageSqr, 0,
+                correctedMovingAverageSqr, 0, correctedMovingAverageSqr.length);
         VectorOperations.vectorToVectorElementWiseMultiplication(correctedMovingAverage, 0,
                 correctedMovingAverageSqr, 0, correctedMovingAverage, 0,
                 correctedMovingAverage.length);

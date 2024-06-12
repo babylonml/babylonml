@@ -47,16 +47,20 @@ public class AMSGradOptimizer implements WeightsOptimizer {
     }
 
     private static void correctAvgMovementSqr(float[] avgWeightsMovementSqr, float[] correctedAvgWeightsMovementSqr) {
-        VectorOperations.maxBetweenVectorElements(avgWeightsMovementSqr, correctedAvgWeightsMovementSqr,
-                correctedAvgWeightsMovementSqr, correctedAvgWeightsMovementSqr.length);
+        VectorOperations.maxBetweenVectorElements(avgWeightsMovementSqr, 0,
+                correctedAvgWeightsMovementSqr, 0,
+                correctedAvgWeightsMovementSqr, 0,
+                correctedAvgWeightsMovementSqr.length);
     }
 
     private static void calculateCorrections(float[] movingAverage, float[] correctedMovingAverageSqr,
                                              float[] calculationBuffer, float learningRate) {
-        VectorOperations.vectorElementsSqrt(correctedMovingAverageSqr, calculationBuffer, correctedMovingAverageSqr.length);
-        VectorOperations.addScalarToVector(1e-8f, calculationBuffer, calculationBuffer, correctedMovingAverageSqr.length);
-        VectorOperations.divideScalarOnVectorElements(-learningRate, calculationBuffer,
-                calculationBuffer, correctedMovingAverageSqr.length);
+        VectorOperations.vectorElementsSqrt(correctedMovingAverageSqr, 0, calculationBuffer,
+                0, correctedMovingAverageSqr.length);
+        VectorOperations.addScalarToVector(1e-8f, calculationBuffer, 0, calculationBuffer,
+                0, correctedMovingAverageSqr.length);
+        VectorOperations.divideScalarOnVectorElements(-learningRate, calculationBuffer, 0,
+                calculationBuffer, 0, correctedMovingAverageSqr.length);
         VectorOperations.vectorToVectorElementWiseMultiplication(movingAverage, 0,
                 calculationBuffer, 0,
                 calculationBuffer, 0, movingAverage.length);

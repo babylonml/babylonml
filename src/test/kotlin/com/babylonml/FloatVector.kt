@@ -1,15 +1,12 @@
-package com.tornadoml.cpu
+package com.babylonml
 
+import com.babylonml.matrix.FloatMatrix
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.exp
 import kotlin.math.sqrt
 
 class FloatVector(val size: Int) {
     internal val data = FloatArray(size)
-
-    constructor(data: FloatArray) : this(data.size) {
-        System.arraycopy(data, 0, this.data, 0, size)
-    }
 
     operator fun plus(other: FloatVector): FloatVector {
         assert(size == other.size)
@@ -151,10 +148,6 @@ class FloatVector(val size: Int) {
         for (i in 0 until size) {
             data[i] = source.nextFloat()
         }
-    }
-
-    fun copy() = FloatVector(size).also {
-        System.arraycopy(data, 0, it.data, 0, size)
     }
 
     fun toArray() = data.copyOf()

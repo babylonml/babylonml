@@ -1,9 +1,10 @@
-package com.tornadoml.cpu
+package com.babylonml.matrix
 
-import com.babylonml.backend.training.GradientOptimizer
+import com.babylonml.backend.training.optimizer.GradientOptimizer
 import com.babylonml.backend.training.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Constant
 import com.babylonml.backend.training.operations.Variable
+import com.babylonml.FloatVector
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
 
@@ -32,7 +33,7 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         }
     }
 
-    constructor(data: Array<FloatArray>): this(data.size, data[0].size) {
+    constructor(data: Array<FloatArray>) : this(data.size, data[0].size) {
         for (i in 0 until rows) {
             for (j in 0 until cols) {
                 this.data[i][j] = data[i][j]
@@ -411,19 +412,6 @@ class FloatMatrix(val rows: Int, val cols: Int) {
 
         return result
     }
-
-    fun copy(): FloatMatrix {
-        val result = FloatMatrix(rows, cols)
-
-        for (i in 0 until rows) {
-            for (j in 0 until cols) {
-                result.data[i][j] = data[i][j]
-            }
-        }
-
-        return result
-    }
-
 
     fun toFlatArray(): FloatArray {
         val result = FloatArray(rows * cols)

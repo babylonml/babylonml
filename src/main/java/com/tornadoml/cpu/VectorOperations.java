@@ -93,19 +93,20 @@ public final class VectorOperations {
         }
     }
 
-    public static void vectorElementsSqrt(float[] vector, float[] result, int length) {
+    public static void vectorElementsSqrt(float[] vector, int vectorOffset, float[] result, int resultOffset,
+                                          int length) {
         var speciesLength = SPECIES.length();
         var loopBound = SPECIES.loopBound(length);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, vector, i);
+            var va = FloatVector.fromArray(SPECIES, vector, i + vectorOffset);
             var vc = va.sqrt();
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = (float) Math.sqrt(vector[i]);
+            result[i + resultOffset] = (float) Math.sqrt(vector[i + vectorOffset]);
         }
 
     }
@@ -152,7 +153,8 @@ public final class VectorOperations {
         return s;
     }
 
-    public static void addScalarToVector(float scalar, float[] vector, float[] result, int length) {
+    public static void addScalarToVector(float scalar, float[] vector, int vectorOffset,
+                                         float[] result, int resultOffset, int length) {
         assert vector.length >= length;
         assert result.length >= length;
 
@@ -162,18 +164,19 @@ public final class VectorOperations {
         var broadCastedScalar = FloatVector.broadcast(SPECIES, scalar);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, vector, i);
+            var va = FloatVector.fromArray(SPECIES, vector, i + vectorOffset);
             var vc = va.add(broadCastedScalar);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = vector[i] + scalar;
+            result[i + resultOffset] = vector[i + vectorOffset] + scalar;
         }
     }
 
-    public static void divideScalarOnVectorElements(float scalar, float[] vector, float[] result, int length) {
+    public static void divideScalarOnVectorElements(float scalar, float[] vector, int vectorOffset,
+                                                    float[] result, int resultOffset, int length) {
         assert vector.length >= length;
         assert result.length >= length;
 
@@ -183,18 +186,20 @@ public final class VectorOperations {
         var one = FloatVector.broadcast(SPECIES, scalar);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, vector, i);
+            var va = FloatVector.fromArray(SPECIES, vector, i + vectorOffset);
             var vc = one.div(va);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = scalar / vector[i];
+            result[i + resultOffset] = scalar / vector[i + vectorOffset];
         }
     }
 
-    public static void maxBetweenVectorElements(float[] firstVector, float[] secondVector, float[] result, int length) {
+    public static void maxBetweenVectorElements(float[] firstVector, int firstVectorOffset,
+                                                float[] secondVector, int secondVectorOffset, float[] result,
+                                                int resultOffset, int length) {
         assert firstVector.length >= length;
         assert secondVector.length >= length;
         assert result.length >= length;
@@ -203,15 +208,15 @@ public final class VectorOperations {
         var loopBound = SPECIES.loopBound(length);
 
         for (int i = 0; i < loopBound; i += speciesLength) {
-            var va = FloatVector.fromArray(SPECIES, firstVector, i);
-            var vb = FloatVector.fromArray(SPECIES, secondVector, i);
+            var va = FloatVector.fromArray(SPECIES, firstVector, i + firstVectorOffset);
+            var vb = FloatVector.fromArray(SPECIES, secondVector, i + secondVectorOffset);
             var vc = va.max(vb);
 
-            vc.intoArray(result, i);
+            vc.intoArray(result, i + resultOffset);
         }
 
         for (int i = loopBound; i < length; i++) {
-            result[i] = Math.max(firstVector[i], secondVector[i]);
+            result[i + resultOffset] = Math.max(firstVector[i + firstVectorOffset], secondVector[i + secondVectorOffset]);
         }
     }
 }

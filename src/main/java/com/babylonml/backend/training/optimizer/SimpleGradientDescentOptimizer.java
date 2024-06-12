@@ -1,5 +1,6 @@
-package com.babylonml.backend.training;
+package com.babylonml.backend.training.optimizer;
 
+import com.babylonml.backend.training.TrainingExecutionContext;
 import com.babylonml.backend.training.operations.InputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.tornadoml.cpu.VectorOperations;
@@ -28,7 +29,7 @@ public class SimpleGradientDescentOptimizer implements GradientOptimizer, MiniBa
     }
 
     @Override
-    public IntIntImmutablePair[] getRequiredMemoryAllocations(int rows, int columns) {
+    public IntIntImmutablePair[] calculateRequiredMemoryAllocations(int rows, int columns) {
         return new IntIntImmutablePair[]{
                 new IntIntImmutablePair(rows, columns)
         };

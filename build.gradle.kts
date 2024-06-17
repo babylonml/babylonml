@@ -22,7 +22,7 @@ dependencies {
     implementation("org.apache.commons:commons-rng-core:1.5")
     implementation("org.apache.commons:commons-rng-simple:1.5")
     implementation("org.apache.commons:commons-rng-sampling:1.5")
-    implementation("net.openhft:zero-allocation-hashing:0.16")
+    implementation("net.openhft:zero-allocation-hashing:0.26ea0")
     implementation("it.unimi.dsi:fastutil:8.5.13")
     implementation("org.jspecify:jspecify:0.3.0")
 

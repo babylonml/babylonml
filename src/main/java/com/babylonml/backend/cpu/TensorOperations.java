@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 public final class TensorOperations {
 
-    public static int stride(int[] shape) {
+    public static int stride(int @NonNull [] shape) {
         int stride = 1;
         for (int dim : shape) {
             stride *= dim;
@@ -15,7 +15,7 @@ public final class TensorOperations {
         return stride;
     }
 
-    public static int @NonNull [] calculateMaxShape(int[] leftShape, int[] rightShape) {
+    public static int @NonNull [] calculateMaxShape(int @NonNull [] leftShape, int @NonNull [] rightShape) {
         final int[] maxShape;
 
         if (leftShape.length == rightShape.length) {
@@ -32,7 +32,7 @@ public final class TensorOperations {
         return maxShape;
     }
 
-    private static boolean isNotBroadcastCompatible(int[] firstShape, int[] secondShape) {
+    private static boolean isNotBroadcastCompatible(int @NonNull [] firstShape, int @NonNull [] secondShape) {
         for (int i = 0; i < firstShape.length; i++) {
             if (firstShape[i] != secondShape[i] && firstShape[i] != 1 && secondShape[i] != 1) {
                 return true;
@@ -50,7 +50,7 @@ public final class TensorOperations {
      * @return 0 if shapes are not needed to be broadcast, 1 if first shape is a candidate for broadcasting
      * and 2 if second shape is a candidate for broadcasting. -1 if shapes are not broadcast compatible.
      */
-    public static int broadcastCandidate(int[] firstShape, int[] secondShape) {
+    public static int broadcastCandidate(int @NonNull [] firstShape, int @NonNull [] secondShape) {
         int candidate = 0;
 
         if (firstShape.length < secondShape.length) {
@@ -85,8 +85,8 @@ public final class TensorOperations {
     }
 
 
-    public static void broadcast(float[] input, int inputOffset, int[] inputShape,
-                                 float[] output, int outputOffset, int[] outputShape) {
+    public static void broadcast(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
+                                 float @NonNull [] output, int outputOffset, int @NonNull [] outputShape) {
         if (outputShape.length < inputShape.length) {
             throw new IllegalArgumentException("Output shape must have at least the same rank as input shape");
         }
@@ -125,9 +125,10 @@ public final class TensorOperations {
                 currentRank, batchRank);
     }
 
-    private static void copyAndBroadcastDimension(float[] input, int inputOffset, int inputStrideWidth,
-                                                  int[] inputShape, float[] output, int outputOffset, int outputStrideWidth,
-                                                  int[] outputShape, int currentRank, int batchRank) {
+    private static void copyAndBroadcastDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
+                                                  int @NonNull [] inputShape, float @NonNull [] output,
+                                                  int outputOffset, int outputStrideWidth,
+                                                  int @NonNull [] outputShape, int currentRank, int batchRank) {
         assert currentRank <= batchRank;
 
         if (currentRank == batchRank) {
@@ -158,8 +159,8 @@ public final class TensorOperations {
         }
     }
 
-    private static void duplicateDimension(float[] output, int outputOffset,
-                                           int outputStrideWidth, int[] outputShape, int currentRank) {
+    private static void duplicateDimension(float @NonNull [] output, int outputOffset,
+                                           int outputStrideWidth, int @NonNull [] outputShape, int currentRank) {
         var repeat = outputShape[currentRank];
         var outputIndex = outputOffset + outputStrideWidth;
 
@@ -183,7 +184,7 @@ public final class TensorOperations {
         }
     }
 
-    public static int @NonNull [] broadcastShape(int[] inputShape, int[] outputShape) {
+    public static int @NonNull [] broadcastShape(int @NonNull [] inputShape, int @NonNull [] outputShape) {
         if (outputShape.length > inputShape.length) {
             var newInputShape = new int[outputShape.length];
 
@@ -198,8 +199,8 @@ public final class TensorOperations {
     }
 
 
-    public static void reduce(float[] input, int inputOffset, int[] inputShape, float[] output,
-                              int outputOffset, int[] outputShape) {
+    public static void reduce(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
+                              float @NonNull [] output, int outputOffset, int @NonNull [] outputShape) {
         if (inputShape.length < outputShape.length) {
             throw new IllegalArgumentException("Input shape must have at least the same rank as output shape");
         }
@@ -215,7 +216,7 @@ public final class TensorOperations {
 
         var batchRank = -1;
 
-        for (int i = inputShape.length - 1; i >= 0; i--) {
+        for (int i = outputShape.length - 1; i >= 0; i--) {
             if (inputShape[i] != outputShape[i]) {
                 batchRank = i;
                 break;
@@ -239,9 +240,10 @@ public final class TensorOperations {
 
     }
 
-    private static void copyAndReduceDimension(float[] input, int inputOffset, int inputStrideWidth,
-                                               int[] inputShape, float[] output, int outputOffset, int outputStrideWidth,
-                                               int[] outputShape, int currentRank, int batchRank) {
+    private static void copyAndReduceDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
+                                               int @NonNull [] inputShape, float @NonNull [] output,
+                                               int outputOffset, int outputStrideWidth,
+                                               int @NonNull [] outputShape, int currentRank, int batchRank) {
         assert currentRank <= batchRank;
 
         if (currentRank == batchRank) {
@@ -251,34 +253,81 @@ public final class TensorOperations {
             if (inputShape[currentRank] != outputShape[currentRank]) {
                 assert outputShape[currentRank] == 1;
 
-                reduceDimension(input, inputOffset, inputShape, inputStrideWidth,
-                        output, outputOffset, outputStrideWidth, outputShape, currentRank);
+                var repeat = inputShape[currentRank];
+                for (int i = 1; i < repeat; i++) {
+                    var inputIndex = inputOffset + i * inputStrideWidth;
+                    VectorOperations.addVectorToVector(input, inputIndex,
+                            output, outputOffset, output, outputOffset, outputStrideWidth);
+                }
             }
         } else {
             var outputDimension = outputShape[currentRank];
+            var inputDimension = inputShape[currentRank];
 
-            for (int i = 0; i < outputDimension; i++) {
-                copyAndReduceDimension(input, inputOffset + i * inputStrideWidth,
+            if (inputDimension == outputDimension) {
+                for (int i = 0; i < outputDimension; i++) {
+                    copyAndReduceDimension(input, inputOffset + i * inputStrideWidth,
+                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            output, outputOffset + i * outputStrideWidth,
+                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            currentRank + 1, batchRank);
+                }
+            } else {
+                assert outputDimension == 1;
+
+                copyAndReduceDimension(input, inputOffset,
                         inputStrideWidth / inputShape[currentRank + 1], inputShape,
-                        output, outputOffset + i * outputStrideWidth,
+                        output, outputOffset,
                         outputStrideWidth / outputShape[currentRank + 1], outputShape,
                         currentRank + 1, batchRank);
+                for (int i = 1; i < inputDimension; i++) {
+                    reduceDimension(input, inputOffset + i * inputStrideWidth,
+                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            output, outputOffset,
+                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            currentRank + 1, batchRank);
+                }
             }
         }
     }
 
-    private static void reduceDimension(float[] input, int inputOffset, int[] inputShape,
-                                        int inputStrideWidth, float[] output, int outputOffset,
-                                        int outputStrideWidth, int[] outputShape, int currentRank) {
-        assert outputShape[currentRank] == 1;
-        assert inputStrideWidth == outputStrideWidth;
+    private static void reduceDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
+                                        int @NonNull [] inputShape, float @NonNull [] output,
+                                        int outputOffset, int outputStrideWidth,
+                                        int @NonNull [] outputShape, int currentRank, int batchRank) {
+        var outputDimension = outputShape[currentRank];
+        var inputDimension = inputShape[currentRank];
 
-        var repeat = inputShape[currentRank];
-        for (int i = 0; i < repeat; i++) {
-            var inputIndex = inputOffset + i * inputStrideWidth;
-            VectorOperations.addVectorToVector(input, inputIndex,
-                    output, outputOffset, input, inputIndex, inputStrideWidth);
+        if (currentRank == batchRank) {
+            if (inputDimension != outputDimension) {
+                assert outputShape[currentRank] == 1;
+
+                var repeat = inputShape[currentRank];
+                for (int i = 0; i < repeat; i++) {
+                    var inputIndex = inputOffset + i * inputStrideWidth;
+                    VectorOperations.addVectorToVector(input, inputIndex,
+                            output, outputOffset, output, outputOffset, outputStrideWidth);
+                }
+            }
+        } else {
+            if (inputDimension == outputDimension) {
+                for (int i = 0; i < inputDimension; i++) {
+                    reduceDimension(input, inputOffset + i * inputStrideWidth,
+                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            output, outputOffset + i * outputStrideWidth,
+                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            currentRank + 1, batchRank);
+                }
+            } else {
+                assert outputDimension == 1;
+                for (int i = 0; i < inputDimension; i++) {
+                    reduceDimension(input, inputOffset + i * inputStrideWidth,
+                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            output, outputOffset,
+                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            currentRank + 1, batchRank);
+                }
+            }
         }
-
     }
 }

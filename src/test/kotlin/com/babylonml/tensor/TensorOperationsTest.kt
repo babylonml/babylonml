@@ -126,4 +126,74 @@ class TensorOperationsTest {
             actualResultArray, 0.001f
         )
     }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun matrixToMatrixByColumnsReduceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val matrix = FloatTensor.random(source, matrixRows, matrixColumns)
+
+        val vector = matrix.reduce(matrixRows, 1)
+        val actualResultArray = FloatArray(matrixRows)
+
+        TensorOperations.reduce(
+            matrix.toFlatArray(), 0, intArrayOf(matrixRows, matrixColumns),
+            actualResultArray, 0, intArrayOf(matrixRows, 1)
+        )
+
+        Assertions.assertArrayEquals(vector.toFlatArray(), actualResultArray, 0.001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun matrixToScalarReduceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 100)
+        val matrixColumns = source.nextInt(1, 100)
+
+        val initialMatrix = FloatTensor.random(source, matrixRows, matrixColumns)
+        val scalar = initialMatrix.reduce(1)
+
+        val actualResultArray = FloatArray(1)
+
+        TensorOperations.reduce(
+            initialMatrix.toFlatArray(), 0, intArrayOf(matrixRows, matrixColumns),
+            actualResultArray, 0, intArrayOf(1)
+        )
+
+        Assertions.assertEquals(scalar.toFlatArray()[0], actualResultArray[0], 0.001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun multipleDimensionsReduceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val tensorDimensions = source.nextInt(3, 6)
+        val shape = IntArray(tensorDimensions) { source.nextInt(2, 7) }
+        val reduceDimensionsCount = source.nextInt(1, tensorDimensions)
+        val permutation = PermutationSampler.natural(tensorDimensions)
+        PermutationSampler.shuffle(source, permutation)
+
+       val newShape = shape.copyOf()
+        for (i in 0 until reduceDimensionsCount) {
+            newShape[permutation[i]] = 1
+        }
+
+        val tensor = FloatTensor.random(source, *shape)
+        val reducedTensor = tensor.reduce(*newShape)
+        val actualResultArray = FloatArray(reducedTensor.size)
+
+        TensorOperations.reduce(
+            tensor.toFlatArray(), 0, shape,
+            actualResultArray, 0, newShape
+        )
+
+        Assertions.assertArrayEquals(reducedTensor.toFlatArray(), actualResultArray, 0.001f)
+    }
 }

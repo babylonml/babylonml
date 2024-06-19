@@ -151,15 +151,8 @@ public abstract class AbstractOperation implements Operation {
         }
 
         var broadcastTensor = executionContext.allocateForwardMemory(secondTensorShape);
-        var broadcastTensorBuffer = executionContext.getMemoryBuffer(broadcastTensor.pointer());
-        var broadcastTensorOffset = TrainingExecutionContext.addressOffset(broadcastTensor.pointer());
-
-        var firstTensorBuffer = executionContext.getMemoryBuffer(firstTensor.pointer());
-        var firstTensorOffset = TrainingExecutionContext.addressOffset(firstTensor.pointer());
-
-
-        TensorOperations.broadcast(firstTensorBuffer, firstTensorOffset, firstTensorShape,
-                broadcastTensorBuffer, broadcastTensorOffset, secondTensorShape);
+        TensorOperations.broadcast(firstTensor.buffer(), firstTensor.offset(), firstTensorShape,
+                broadcastTensor.buffer(), broadcastTensor.offset(), secondTensor.shape());
 
         if (broadcastCandidate == 1) {
             function.apply(secondTensor, broadcastTensor, broadcastTensor);
@@ -193,15 +186,9 @@ public abstract class AbstractOperation implements Operation {
             firstTensor = temp;
         }
 
-        var reducedTensor = executionContext.allocateForwardMemory(firstTensorShape);
-        var reducedTensorBuffer = executionContext.getMemoryBuffer(reducedTensor.pointer());
-        var reducedTensorOffset = TrainingExecutionContext.addressOffset(reducedTensor.pointer());
-
-        var firstTensorBuffer = executionContext.getMemoryBuffer(firstTensor.pointer());
-        var firstTensorOffset = TrainingExecutionContext.addressOffset(firstTensor.pointer());
-
-        TensorOperations.reduce(firstTensorBuffer, firstTensorOffset, firstTensorShape,
-                reducedTensorBuffer, reducedTensorOffset, secondTensorShape);
+        var reducedTensor = executionContext.allocateForwardMemory(secondTensorShape);
+        TensorOperations.reduce(firstTensor.buffer(), firstTensor.offset(), firstTensor.shape(),
+                reducedTensor.buffer(), reducedTensor.offset(), secondTensor.shape());
 
         if (broadcastCandidate == 1) {
             function.apply(secondTensor, reducedTensor, reducedTensor);

@@ -196,15 +196,11 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
 
         val tensor = FloatTensor(modifiedNewShape)
 
-        val indexes = enumerateIndexes()
-        val newIndexes = tensor.enumerateIndexes()
-        for ((index, newIndex) in indexes.zip(newIndexes)) {
-            if (index.contentEquals(newIndex)) {
-                tensor.set(newIndex, get(index))
-            } else {
-                val value = tensor.get(newIndex)
-                tensor.set(newIndex, value + get(index))
-            }
+        for (index in enumerateIndexes()) {
+            val reducedIndex = tensor.reducedIndex(index)
+            val value = tensor.get(reducedIndex)
+
+            tensor.set(reducedIndex, value + get(index))
         }
 
         if (newShape.size == shape.size) {
@@ -236,6 +232,10 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         }
 
         return result
+    }
+
+    private fun reducedIndex(indexes: IntArray): IntArray {
+        return indexes.mapIndexed() { index, value -> if (value >= shape[index]) 0 else value }.toIntArray()
     }
 
     private fun flattenIndex(indexes: IntArray): Int {
@@ -312,6 +312,30 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
 
             for (indexes in result.enumerateIndexes()) {
                 result.set(indexes, source.nextFloat(-1.0f, 1.0f))
+            }
+
+            return result
+        }
+
+        @Suppress("unused")
+        fun natural(vararg  shape: Int): FloatTensor {
+            val result = FloatTensor(shape)
+            var i = 0
+
+            for (indexes in result.enumerateIndexes()) {
+                result.set(indexes, i.toFloat())
+                i++
+            }
+
+            return result
+        }
+
+        @Suppress("unused")
+        fun constant(value: Float, vararg shape: Int): FloatTensor {
+            val result = FloatTensor(shape)
+
+            for (indexes in result.enumerateIndexes()) {
+                result.set(indexes, value)
             }
 
             return result

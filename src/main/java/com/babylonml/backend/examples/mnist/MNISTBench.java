@@ -1,4 +1,4 @@
-package com.tornadoml.mnist;
+package com.babylonml.backend.examples.mnist;
 
 
 public class MNISTBench extends MNISTBase {

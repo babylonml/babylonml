@@ -1,8 +1,7 @@
 package com.babylonml.matrix
 
 import com.babylonml.backend.training.optimizer.GradientOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
-import com.babylonml.backend.training.operations.Constant
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Variable
 import com.babylonml.FloatVector
 import org.apache.commons.rng.UniformRandomProvider
@@ -141,19 +140,14 @@ class FloatMatrix(val rows: Int, val cols: Int) {
     }
 
     fun toVariable(exec: TrainingExecutionContext, optimizer: GradientOptimizer, learningRate: Float): Variable {
-        return Variable(exec, optimizer, toFlatArray(), rows, cols, learningRate)
+        return Variable(exec, optimizer, toFlatArray(), intArrayOf(rows, cols), learningRate)
     }
 
     fun toVariable(
         name: String, exec: TrainingExecutionContext, optimizer: GradientOptimizer,
         learningRate: Float
     ): Variable {
-        return Variable(name, exec, optimizer, toFlatArray(), rows, cols, learningRate)
-    }
-
-
-    fun toConstant(exec: TrainingExecutionContext): Constant {
-        return Constant(exec, toFlatArray(), rows, cols)
+        return Variable(name, exec, optimizer, toFlatArray(), intArrayOf(rows, cols), learningRate)
     }
 
     operator fun times(float: Float): FloatMatrix {

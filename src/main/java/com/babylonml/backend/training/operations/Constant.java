@@ -1,76 +1,65 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
-import java.util.Collections;
-import java.util.Set;
-import java.util.WeakHashMap;
 
 @SuppressWarnings("unused")
-public final class Constant extends AbstractOperation implements StartOperation, InputSource {
+public final class Constant extends AbstractOperation implements StartOperation {
     private final float[] constant;
+    private final int[] shape;
 
-    private final int rows;
-    private final int columns;
-    private long miniBatchIndex;
 
-    private final Set<MiniBatchListener> miniBatchListeners = Collections.newSetFromMap(new WeakHashMap<>());
-
-    public Constant(TrainingExecutionContext executionContext, float[] constant, int rows, int columns) {
-        this(null, executionContext, constant, rows, columns);
+    public Constant(TrainingExecutionContext executionContext, float[] constant, int[] shape) {
+        this(null, executionContext, constant, shape);
     }
 
-    public Constant(String name, TrainingExecutionContext executionContext, float[] constant, int rows, int columns) {
+    public Constant(String name, TrainingExecutionContext executionContext, float[] constant, int[] shape) {
         super(name, executionContext, null, null);
         this.constant = constant;
-        this.rows = rows;
-        this.columns = columns;
-    }
-
-
-    @Override
-    public int getResultMaxRows() {
-        return rows;
+        this.shape = shape;
     }
 
     @Override
-    public int getResultMaxColumns() {
-        return columns;
+    public int @NonNull [] getMaxResultShape() {
+        return shape;
     }
 
     @Override
-    public long forwardPassCalculation() {
-        var result = executionContext.allocateForwardMemory(rows, columns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+    public @NonNull TensorPointer forwardPassCalculation() {
+        var result = executionContext.allocateForwardMemory(shape);
 
-        System.arraycopy(constant, 0, resultBuffer, resultOffset, rows * columns);
+        var stride = TensorOperations.stride(shape);
+        System.arraycopy(constant, 0, result.buffer(), result.offset(), stride);
 
         return result;
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
+    @NotNull
     @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(rows, columns)
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                shape
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[0];
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[0][0];
     }
 
     @Override
@@ -81,20 +70,5 @@ public final class Constant extends AbstractOperation implements StartOperation,
     @Override
     public void calculateGradientUpdate() {
         // No gradient update required
-    }
-
-    @Override
-    public void addMiniBatchListener(@NonNull MiniBatchListener listener) {
-        miniBatchListeners.add(listener);
-    }
-
-    @Override
-    public void prepareForNextPropagation() {
-        super.prepareForNextPropagation();
-
-        miniBatchIndex++;
-        for (var listener : miniBatchListeners) {
-            listener.onMiniBatchStart(miniBatchIndex, rows);
-        }
     }
 }

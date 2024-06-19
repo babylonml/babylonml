@@ -1,7 +1,6 @@
-package com.tornadoml.cpu
+package com.babylonml
 
-import com.babylonml.FloatVector
-import com.babylonml.div
+import com.babylonml.backend.cpu.VectorOperations
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test

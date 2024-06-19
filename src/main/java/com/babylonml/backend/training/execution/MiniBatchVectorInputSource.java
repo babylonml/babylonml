@@ -1,14 +1,16 @@
-package com.babylonml.backend.training.operations;
+package com.babylonml.backend.training.execution;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.training.operations.AbstractOperation;
+import com.babylonml.backend.training.operations.MiniBatchListener;
+import com.babylonml.backend.training.operations.StartOperation;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-public class MiniBatchInputSource extends AbstractOperation implements StartOperation, InputSource {
+class MiniBatchVectorInputSource extends AbstractOperation implements StartOperation, InputSource {
     private final float[][] data;
 
     private final int columns;
@@ -19,8 +21,8 @@ public class MiniBatchInputSource extends AbstractOperation implements StartOper
 
     private final Set<MiniBatchListener> miniBatchListeners = Collections.newSetFromMap(new WeakHashMap<>());
 
-    public MiniBatchInputSource(float[][] data, int columns, int miniBatchSize,
-                                TrainingExecutionContext executionContext) {
+    MiniBatchVectorInputSource(float[][] data, int columns, int miniBatchSize,
+                               TrainingExecutionContext executionContext) {
         super(executionContext, null, null);
 
         this.data = data;
@@ -30,22 +32,19 @@ public class MiniBatchInputSource extends AbstractOperation implements StartOper
     }
 
     @Override
-    public int getResultMaxRows() {
-        return miniBatchSize;
+    public int @NonNull [] getMaxResultShape() {
+        return new int[]{
+                miniBatchSize, columns
+        };
     }
 
     @Override
-    public int getResultMaxColumns() {
-        return columns;
-    }
-
-    @Override
-    public long forwardPassCalculation() {
+    public @NonNull TensorPointer forwardPassCalculation() {
         var currentBatchSize = Math.min(miniBatchSize, data.length - currentRowIndex);
         var result = executionContext.allocateForwardMemory(currentBatchSize, columns);
 
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
         for (int i = 0; i < currentBatchSize; i++) {
             var dataRow = data[currentRowIndex + i];
@@ -57,25 +56,26 @@ public class MiniBatchInputSource extends AbstractOperation implements StartOper
         return result;
     }
 
+    @NotNull
     @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(miniBatchSize, columns)
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                new int[]{miniBatchSize, columns},
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[0];
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[0][];
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
@@ -96,18 +96,37 @@ public class MiniBatchInputSource extends AbstractOperation implements StartOper
             currentRowIndex = 0;
         }
 
+        notifyListeners();
+    }
+
+    private void notifyListeners() {
         for (var listener : miniBatchListeners) {
             listener.onMiniBatchStart(miniBatchIndex, Math.min(miniBatchSize, data.length - currentRowIndex));
         }
     }
 
     @Override
-    public void addMiniBatchListener(@NonNull  MiniBatchListener listener) {
+    public void addMiniBatchListener(@NonNull MiniBatchListener listener) {
         miniBatchListeners.add(listener);
+    }
+
+    @Override
+    public int getDataSize() {
+        return data.length;
     }
 
     @Override
     public void calculateGradientUpdate() {
         // No gradient update required
+    }
+
+    @Override
+    public void startEpochExecution() {
+        super.startEpochExecution();
+
+        currentRowIndex = 0;
+        miniBatchIndex = 0;
+
+        notifyListeners();
     }
 }

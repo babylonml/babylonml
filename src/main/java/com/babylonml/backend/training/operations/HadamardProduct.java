@@ -1,148 +1,95 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import com.tornadoml.cpu.VectorOperations;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.cpu.VectorOperations;
+
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
 
 public final class HadamardProduct extends AbstractOperation {
 
-    private long leftOperationPointer;
-    private long rightOperationPointer;
+    private TensorPointer leftOperandPointer;
+    private TensorPointer rightOperandPointer;
 
     private final boolean requiresDerivativeChainValue;
 
-    private final int maxRows;
-    private final int maxColumns;
+    private final int[] maxShape;
 
-    public HadamardProduct(TrainingExecutionContext executionContext,
-                           Operation leftOperation, Operation rightOperation) {
-        super(executionContext, leftOperation, rightOperation);
-        this.maxRows = Math.max(leftOperation.getResultMaxRows(), rightOperation.getResultMaxRows());
-        this.maxColumns = Math.max(leftOperation.getResultMaxColumns(), rightOperation.getResultMaxColumns());
+    public HadamardProduct(Operation leftOperation, Operation rightOperation) {
+        super(leftOperation, rightOperation);
 
+        this.maxShape = TensorOperations.calculateMaxShape(leftOperation.getMaxResultShape(),
+                rightOperation.getMaxResultShape());
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue() ||
                 rightOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
-    public long forwardPassCalculation() {
-        leftOperationPointer = leftOperation.forwardPassCalculation();
-        rightOperationPointer = rightOperation.forwardPassCalculation();
-
-        var leftOperationValueOffset = TrainingExecutionContext.addressOffset(leftOperationPointer);
-        var leftOperationValueBuffer = executionContext.getMemoryBuffer(leftOperationPointer);
-        var leftOperationRows = TrainingExecutionContext.rows(leftOperationValueBuffer, leftOperationValueOffset);
-        var leftOperationColumns = TrainingExecutionContext.columns(leftOperationValueBuffer, leftOperationValueOffset);
-
-        var rightOperationValueOffset = TrainingExecutionContext.addressOffset(rightOperationPointer);
-        var rightOperationValueBuffer = executionContext.getMemoryBuffer(rightOperationPointer);
-        var rightOperationRows = TrainingExecutionContext.rows(rightOperationValueBuffer, rightOperationValueOffset);
-        var rightOperationColumns = TrainingExecutionContext.columns(rightOperationValueBuffer, rightOperationValueOffset);
-
-        assert leftOperationRows == rightOperationRows;
-        assert leftOperationColumns == rightOperationColumns;
-
-        assert maxRows >= leftOperationRows;
-        assert maxColumns >= leftOperationColumns;
-
-        var result = executionContext.allocateForwardMemory(leftOperationRows, rightOperationColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        VectorOperations.vectorToVectorElementWiseMultiplication(leftOperationValueBuffer,
-                leftOperationValueOffset, rightOperationValueBuffer,
-                rightOperationValueOffset, resultBuffer, resultOffset, leftOperationRows * leftOperationColumns);
-
-        return result;
+    public int @NonNull [] getMaxResultShape() {
+        return maxShape;
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
-        var rightOperationValueBuffer = executionContext.getMemoryBuffer(rightOperationPointer);
-        var rightOperationValueOffset = TrainingExecutionContext.addressOffset(rightOperationPointer);
+    public @NonNull TensorPointer forwardPassCalculation() {
+        leftOperandPointer = leftOperation.forwardPassCalculation();
+        rightOperandPointer = rightOperation.forwardPassCalculation();
 
-        var rightOperationRows = TrainingExecutionContext.rows(rightOperationValueBuffer, rightOperationValueOffset);
-        var rightOperationColumns = TrainingExecutionContext.columns(rightOperationValueBuffer, rightOperationValueOffset);
-
-        var derivativeChainBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeChainOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
-
-        var derivativeChainRows = TrainingExecutionContext.rows(derivativeChainBuffer, derivativeChainOffset);
-        var derivativeChainColumns = TrainingExecutionContext.columns(derivativeChainBuffer, derivativeChainOffset);
-
-        assert rightOperationRows == derivativeChainRows;
-        assert rightOperationColumns == derivativeChainColumns;
-
-        assert maxRows >= rightOperationRows;
-        assert maxColumns >= rightOperationColumns;
-
-        var result = executionContext.allocateBackwardMemory(derivativeChainRows, derivativeChainColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        VectorOperations.vectorToVectorElementWiseMultiplication(derivativeChainBuffer, derivativeChainOffset,
-                rightOperationValueBuffer, rightOperationValueOffset, resultBuffer, resultOffset,
-                derivativeChainRows * derivativeChainColumns);
-
-        return result;
+        return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, ((firstTensor, secondTensor, result) ->
+                VectorOperations.vectorToVectorElementWiseMultiplication(firstTensor.buffer(), firstTensor.offset(),
+                        secondTensor.buffer(), secondTensor.offset(), result.buffer(), result.offset(),
+                        TensorOperations.stride(result.shape()))
+        ));
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
-        var leftOperationValueBuffer = executionContext.getMemoryBuffer(leftOperationPointer);
-        var leftOperationValueOffset = TrainingExecutionContext.addressOffset(leftOperationPointer);
-        var leftOperationRows = TrainingExecutionContext.rows(leftOperationValueBuffer, leftOperationValueOffset);
-        var leftOperationColumns = TrainingExecutionContext.columns(leftOperationValueBuffer, leftOperationValueOffset);
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(derivativeChainPointer);
 
-        var derivativeChainBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeChainOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
-        var derivativeChainRows = TrainingExecutionContext.rows(derivativeChainBuffer, derivativeChainOffset);
-        var derivativeChainColumns = TrainingExecutionContext.columns(derivativeChainBuffer, derivativeChainOffset);
-
-        assert leftOperationRows == derivativeChainRows;
-        assert leftOperationColumns == derivativeChainColumns;
-
-        assert maxRows >= leftOperationRows;
-        assert maxColumns >= leftOperationColumns;
-
-        var result = executionContext.allocateBackwardMemory(derivativeChainRows, derivativeChainColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        VectorOperations.vectorToVectorElementWiseMultiplication(derivativeChainBuffer, derivativeChainOffset,
-                leftOperationValueBuffer, leftOperationValueOffset, resultBuffer, resultOffset,
-                derivativeChainRows * derivativeChainColumns);
-
-        return result;
+        return reduceIfNeeded(derivativeChainPointer, rightOperandPointer, ((derivativeTensor, rightTensor, result) ->
+                        VectorOperations.vectorToVectorElementWiseMultiplication(
+                                result.buffer(), result.offset(),
+                                rightTensor.buffer(), rightTensor.offset(), derivativeTensor.buffer(),
+                                derivativeTensor.offset(),
+                                TensorOperations.stride(derivativeTensor.shape()))
+                )
+        );
     }
 
     @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
+        Objects.requireNonNull(derivativeChainPointer);
+
+        return reduceIfNeeded(derivativeChainPointer, leftOperandPointer, ((derivativeTensor, leftTensor, result) ->
+                        VectorOperations.vectorToVectorElementWiseMultiplication(
+                                result.buffer(), result.offset(),
+                                leftTensor.buffer(), leftTensor.offset(), derivativeTensor.buffer(),
+                                derivativeTensor.offset(),
+                                TensorOperations.stride(derivativeTensor.shape()))
+                )
+        );
+    }
+
+    @NotNull
+    @Override
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns),
-                new IntIntImmutablePair(maxRows, maxColumns),
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[][]{
+                maxShape,
+                maxShape
         };
     }
 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
-    }
-
-    @Override
-    public int getResultMaxRows() {
-        return maxRows;
-    }
-
-    @Override
-    public int getResultMaxColumns() {
-        return maxColumns;
     }
 }

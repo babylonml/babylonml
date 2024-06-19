@@ -1,55 +1,71 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
-public final class MSEByRowsCostFunction extends AbstractOperation {
+import java.util.Objects;
+
+public final class MSEByRowsCostFunction extends AbstractOperation implements CostFunction {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int maxRows;
-    private final int maxColumns;
+    private final int @NonNull [] maxShape;
 
     private final boolean requiresDerivativeChainValue;
 
-    private long predictionOperandPointer;
-    private long expectedValuesPointer;
+    private TensorPointer predictionOperandPointer;
+    private TensorPointer expectedValuesPointer;
 
-    public MSEByRowsCostFunction(TrainingExecutionContext executionContext, Operation predictionOperation,
+    private boolean trainingMode;
+
+    public MSEByRowsCostFunction(Operation predictionOperation,
                                  Operation expectedValuesOperation) {
-        this(null, executionContext, predictionOperation, expectedValuesOperation);
+        this(null, predictionOperation, expectedValuesOperation);
     }
 
     public MSEByRowsCostFunction(String name,
-                                 TrainingExecutionContext executionContext, Operation predictionOperation,
+                                 Operation predictionOperation,
                                  Operation expectedValuesOperation) {
-        super(name, executionContext, predictionOperation, expectedValuesOperation);
-        this.maxRows = leftOperation.getResultMaxRows();
-        this.maxColumns = leftOperation.getResultMaxColumns();
+        super(name, predictionOperation, expectedValuesOperation);
+
+        this.maxShape = TensorOperations.calculateMaxShape(predictionOperation.getMaxResultShape(),
+                expectedValuesOperation.getMaxResultShape());
 
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
-    public long forwardPassCalculation() {
+    public int @NonNull [] getMaxResultShape() {
+        return maxShape;
+    }
+
+    @Override
+    public @NonNull TensorPointer forwardPassCalculation() {
         predictionOperandPointer = leftOperation.forwardPassCalculation();
-
-        var predictionOperandBuffer = executionContext.getMemoryBuffer(predictionOperandPointer);
-        var predictionOperandOffset = TrainingExecutionContext.addressOffset(predictionOperandPointer);
-        var predictionOperandRows = TrainingExecutionContext.rows(predictionOperandBuffer, predictionOperandOffset);
-        var predictionOperandColumns = TrainingExecutionContext.columns(predictionOperandBuffer, predictionOperandOffset);
-
         expectedValuesPointer = rightOperation.forwardPassCalculation();
-        var expectedValuesBuffer = executionContext.getMemoryBuffer(expectedValuesPointer);
-        var expectedValuesOffset = TrainingExecutionContext.addressOffset(expectedValuesPointer);
+
+        if (trainingMode) {
+            return TrainingExecutionContext.NULL;
+        }
+
+        var predictionOperandBuffer = predictionOperandPointer.buffer();
+        var predictionOperandOffset = predictionOperandPointer.offset();
+
+        var expectedValuesBuffer = expectedValuesPointer.buffer();
+        var expectedValuesOffset = expectedValuesPointer.offset();
 
         var result = executionContext.allocateForwardMemory(1, 1);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
-        var loopBound = SPECIES.loopBound(predictionOperandRows * predictionOperandColumns);
+        var stride = TensorOperations.stride(predictionOperandPointer.shape());
+        var loopBound = SPECIES.loopBound(stride);
+
         var vecSum = FloatVector.zero(SPECIES);
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
             var vec = FloatVector.fromArray(SPECIES, predictionOperandBuffer, predictionOperandOffset + i);
@@ -60,79 +76,83 @@ public final class MSEByRowsCostFunction extends AbstractOperation {
         }
 
         var sum = vecSum.reduceLanes(VectorOperators.ADD);
-        for (int i = loopBound; i < predictionOperandRows * predictionOperandColumns; i++) {
+        for (int i = loopBound; i < stride; i++) {
             var value = predictionOperandBuffer[predictionOperandOffset + i] -
                     expectedValuesBuffer[i + expectedValuesOffset];
             sum += value * value;
         }
 
-        resultBuffer[resultOffset] = sum / predictionOperandRows;
+        resultBuffer[resultOffset] = sum;
 
         return result;
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
-        var predictionOperandBuffer = executionContext.getMemoryBuffer(predictionOperandPointer);
-        var predictionOperandOffset = TrainingExecutionContext.addressOffset(predictionOperandPointer);
-        var predictionOperandRows = TrainingExecutionContext.rows(predictionOperandBuffer, predictionOperandOffset);
-        var predictionOperandColumns = TrainingExecutionContext.columns(predictionOperandBuffer, predictionOperandOffset);
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(expectedValuesPointer);
+        Objects.requireNonNull(predictionOperandPointer);
 
-        var expectedValues = executionContext.getMemoryBuffer(expectedValuesPointer);
-        var expectedValuesOffset = TrainingExecutionContext.addressOffset(expectedValuesPointer);
+        var predictionOperandBuffer = predictionOperandPointer.buffer();
+        var predictionOperandOffset = predictionOperandPointer.offset();
 
-        var result = executionContext.allocateBackwardMemory(predictionOperandRows, predictionOperandColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var expectedValuesBuffer = expectedValuesPointer.buffer();
+        var expectedValuesOffset = expectedValuesPointer.offset();
 
-        var loopBound = SPECIES.loopBound(predictionOperandRows * predictionOperandColumns);
+        var result = executionContext.allocateBackwardMemory(predictionOperandPointer.shape());
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
+
+        var stride = TensorOperations.stride(predictionOperandPointer.shape());
+        var loopBound = SPECIES.loopBound(stride);
+
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
             var vec = FloatVector.fromArray(SPECIES, predictionOperandBuffer, predictionOperandOffset + i);
-            var expectedVec = FloatVector.fromArray(SPECIES, expectedValues, i + expectedValuesOffset);
+            var expectedVec = FloatVector.fromArray(SPECIES, expectedValuesBuffer, i + expectedValuesOffset);
 
             var diff = vec.sub(expectedVec);
             diff.intoArray(resultBuffer, resultOffset + i);
         }
 
-        for (int i = loopBound; i < predictionOperandRows * predictionOperandColumns; i++) {
+        for (int i = loopBound; i < stride; i++) {
             resultBuffer[i + resultOffset] = predictionOperandBuffer[i + predictionOperandOffset]
-                    - expectedValues[i + expectedValuesOffset];
+                    - expectedValuesBuffer[i + expectedValuesOffset];
         }
 
         return result;
     }
 
+    @NotNull
     @Override
-    public int getResultMaxRows() {
-        return 1;
-    }
-
-    @Override
-    public int getResultMaxColumns() {
-        return 1;
-    }
-
-    @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(1, 1)
+    public int[][] getForwardMemoryAllocations() {
+        return new int[][]{
+                new int[]{1, 1}
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
+    }
+
+    @Override
+    public void trainingMode() {
+        trainingMode = true;
+    }
+
+    @Override
+    public void fullPassCalculation() {
+        trainingMode = false;
     }
 }

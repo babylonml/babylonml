@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
 import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import org.apache.commons.rng.simple.RandomSource
@@ -21,32 +21,27 @@ class MultiplicationTests {
         val secondMatrixRows = firstMatrixColumns
         val secondMatrixColumns = source.nextInt(100)
 
-        val firstMatrix = FloatMatrix.random(firstMatrixRows, firstMatrixColumns, source)
-        val secondMatrix = FloatMatrix.random(secondMatrixRows, secondMatrixColumns, source)
+        val inputMatrix = FloatMatrix.random(firstMatrixRows, firstMatrixColumns, source)
+        val variableMatrix = FloatMatrix.random(secondMatrixRows, secondMatrixColumns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1, firstMatrixRows)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
 
-        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
-        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
+        val multiplication = Multiplication(inputSource, variable)
 
-        val multiplication = Multiplication(
-            executionContext, firstVariable, secondVariable
-        )
+        val resultCell = ResultMemoryCellCostFunction(multiplication)
+        executionContext.initializeExecution(resultCell)
+        executionContext.executePropagation()
 
-        executionContext.initializeExecution(multiplication)
-        val result = executionContext.executeForwardPropagation()
-
-        val buffer = executionContext.getMemoryBuffer(result)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
-
-        val expectedResult = firstMatrix * secondMatrix
+        val expectedResult = inputMatrix * variableMatrix
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + firstMatrixRows * secondMatrixColumns), 0.001f
+            resultCell.result, 0.001f
         )
     }
 
@@ -63,25 +58,27 @@ class MultiplicationTests {
 
         val firstMatrix = FloatMatrix.random(firstMatrixRows, firstMatrixColumns, source)
         val secondMatrix = FloatMatrix.random(secondMatrixRows, secondMatrixColumns, source)
+        val inputMatrix = FloatMatrix(firstMatrixRows, firstMatrixColumns)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1, firstMatrixRows)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
 
         val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
         val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val add = Add(inputSource, firstVariable)
 
-        val multiplication = Multiplication(executionContext, firstVariable, secondVariable)
+        val multiplication = Multiplication(add, secondVariable)
 
         val gradients = FloatMatrix.random(firstMatrixRows, secondMatrixColumns, source)
         val gradientSource = GradientSource(
-            executionContext, firstMatrixRows, secondMatrixColumns,
+            intArrayOf(firstMatrixRows, secondMatrixColumns),
             gradients.toFlatArray(), multiplication
         )
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(1)
+        executionContext.executePropagation()
 
         val firstMatrixExpectedGradients = gradients * secondMatrix.transpose()
         val secondMatrixExpectedGradients = firstMatrix.transpose() * gradients

@@ -1,6 +1,8 @@
 package com.tornadoml.cpu;
 
 
+import com.babylonml.backend.cpu.MatrixOperations;
+import com.babylonml.backend.cpu.VectorOperations;
 import org.apache.commons.rng.sampling.PermutationSampler;
 import org.apache.commons.rng.simple.RandomSource;
 

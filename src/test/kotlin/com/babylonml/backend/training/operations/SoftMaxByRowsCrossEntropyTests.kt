@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
 import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.crossEntropyByRows
@@ -25,34 +25,29 @@ class SoftMaxByRowsCrossEntropyTests {
             0f, 1f, source
         )
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
-        val learningRate = 0.01f
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(matrix.toArray())
+        val expectedProbabilitiesSource =
+            executionContext.registerAdditionalInputSource(expectedProbabilitiesMatrix.toArray())
 
-        val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val softMax = SoftMaxByRows(
-            executionContext,
-            variable,
-        )
-        val crossEntropy = CrossEntropyByRowsFunction(
-            expectedProbabilitiesMatrix.toConstant(executionContext),
-            executionContext, softMax
+        val softMax = SoftMaxByRows(inputSource)
+        val crossEntropy = CrossEntropyCostFunction(
+            expectedProbabilitiesSource, softMax
         )
 
         executionContext.initializeExecution(crossEntropy)
+        var result = 0.0f
 
-        val result = executionContext.executeForwardPropagation()
-
-        val buffer = executionContext.getMemoryBuffer(result)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
+        executionContext.executePropagation { _, cost ->
+            result = cost
+        }
 
         val expectedResult = crossEntropyByRows(
             matrix.softMaxByRows(),
             expectedProbabilitiesMatrix
         )
 
-        Assertions.assertEquals(expectedResult, buffer[resultOffset], 0.001f)
+        Assertions.assertEquals(expectedResult, result, 0.001f)
     }
 
     @ParameterizedTest
@@ -62,34 +57,33 @@ class SoftMaxByRowsCrossEntropyTests {
 
         val rows = source.nextInt(1, 100)
         val columns = source.nextInt(1, 100)
-
         val matrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix(rows, columns)
+
         val expectedMatrix = FloatMatrix.random(
             rows, columns,
             0f, 1f, source
         )
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val expectedSource = executionContext.registerAdditionalInputSource(expectedMatrix.toArray())
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
+
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val softMax = SoftMaxByRows(
-            executionContext,
-            variable
-        )
-        val crossEntropy = CrossEntropyByRowsFunction(
-            expectedMatrix.toConstant(executionContext),
-            executionContext, softMax
-        )
+        val add = Add(inputSource, variable)
+        val softMax = SoftMaxByRows(add)
+
+        val crossEntropy = CrossEntropyCostFunction(expectedSource, softMax)
 
         executionContext.initializeExecution(crossEntropy)
-        executionContext.executePropagation(1)
+        executionContext.executePropagation()
 
         val expectedGradients = matrix.softMaxByRows() - expectedMatrix
-
         val expectedResult = matrix - expectedGradients * learningRate
+
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
             variable.data,

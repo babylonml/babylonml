@@ -24,5 +24,5 @@ fun crossEntropyByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
 
     val sum = mul.reduceByColumns().sum()
 
-    return -sum / actual.cols
+    return -sum / actual.rows
 }

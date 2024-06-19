@@ -46,7 +46,7 @@ tasks {
 
     register<JavaExec>("mnistBench") {
         group = "application"
-        mainClass = "com.tornadoml.mnist.MNISTBench"
+        mainClass = "com.babylonml.backend.examples.mnist.MNISTBench"
         classpath = sourceSets["main"].runtimeClasspath
         jvmArgs = listOf(
             "-server",
@@ -61,7 +61,7 @@ tasks {
 
     register<JavaExec>("mnistBenchLight") {
         group = "application"
-        mainClass = "com.tornadoml.mnist.MNISTBenchLight"
+        mainClass = "com.babylonml.backend.examples.mnist.MNISTBenchLight"
         classpath = sourceSets["main"].runtimeClasspath
         jvmArgs = listOf(
             "-server",

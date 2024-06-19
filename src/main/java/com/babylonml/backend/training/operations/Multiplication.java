@@ -1,8 +1,11 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import com.tornadoml.cpu.MatrixOperations;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.cpu.MatrixOperations;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
 
 public final class Multiplication extends AbstractOperation {
     private final int leftMatrixMaxRows;
@@ -11,161 +14,169 @@ public final class Multiplication extends AbstractOperation {
     private final int rightMatrixMaxRows;
     private final int rightMatrixMaxColumns;
 
-    private long leftOperandResultPointer;
-    private long rightOperandResultPointer;
+    private TensorPointer leftOperandResultPointer;
+    private TensorPointer rightOperandResultPointer;
 
     private final boolean requiresDerivativeChainValue;
 
-    public Multiplication(TrainingExecutionContext executionContext,
-                          Operation leftOperation, Operation rightOperation) {
-        this(null, executionContext, leftOperation, rightOperation);
+    public Multiplication(Operation leftOperation, Operation rightOperation) {
+        this(null, leftOperation, rightOperation);
     }
 
-    public Multiplication(String name, TrainingExecutionContext executionContext,
-                          Operation leftOperation, Operation rightOperation) {
-        super(name, executionContext, leftOperation, rightOperation);
+    public Multiplication(String name, Operation leftOperation, Operation rightOperation) {
+        super(name, leftOperation, rightOperation);
 
-        this.leftMatrixMaxRows = leftOperation.getResultMaxRows();
-        this.leftMatrixMaxColumns = leftOperation.getResultMaxColumns();
+        var leftMaxShape = leftOperation.getMaxResultShape();
+        var rightMaxShape = rightOperation.getMaxResultShape();
 
-        this.rightMatrixMaxRows = rightOperation.getResultMaxRows();
-        this.rightMatrixMaxColumns = rightOperation.getResultMaxColumns();
+        if (leftMaxShape.length != 2 || rightMaxShape.length != 2) {
+            throw new IllegalArgumentException("Multiplication operation can only be performed on matrices");
+        }
+
+        this.leftMatrixMaxRows = leftMaxShape[0];
+        this.leftMatrixMaxColumns = leftMaxShape[1];
+
+        this.rightMatrixMaxRows = rightMaxShape[0];
+        this.rightMatrixMaxColumns = rightMaxShape[1];
 
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue()
                 || rightOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
-    public long forwardPassCalculation() {
-        leftOperandResultPointer = leftOperation.forwardPassCalculation();
-        var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandResultPointer);
-        var leftOperandOffset = TrainingExecutionContext.addressOffset(leftOperandResultPointer);
+    public int @NonNull [] getMaxResultShape() {
+        return new int[]{leftMatrixMaxRows, rightMatrixMaxColumns};
+    }
 
-        var leftOperandRows = TrainingExecutionContext.rows(leftOperandBuffer, leftOperandOffset);
-        var leftOperandColumns = TrainingExecutionContext.columns(leftOperandBuffer, leftOperandOffset);
+    @Override
+    public @NotNull TensorPointer forwardPassCalculation() {
+        leftOperandResultPointer = leftOperation.forwardPassCalculation();
+        var leftOperandBuffer = leftOperandResultPointer.buffer();
+        var leftOperandOffset = leftOperandResultPointer.offset();
 
         rightOperandResultPointer = rightOperation.forwardPassCalculation();
-        var rightOperandBuffer = executionContext.getMemoryBuffer(rightOperandResultPointer);
-        var rightOperandOffset = TrainingExecutionContext.addressOffset(rightOperandResultPointer);
+        var rightOperandBuffer = rightOperandResultPointer.buffer();
+        var rightOperandOffset = rightOperandResultPointer.offset();
 
-        var rightOperationRows = TrainingExecutionContext.rows(rightOperandBuffer, rightOperandOffset);
-        var rightOperationColumns = TrainingExecutionContext.columns(rightOperandBuffer, rightOperandOffset);
+        var leftShape = leftOperandResultPointer.shape();
+        var rightShape = rightOperandResultPointer.shape();
 
-        assert leftOperandColumns == rightOperationRows;
+        if (leftShape.length != 2 || rightShape.length != 2) {
+            throw new IllegalArgumentException("Multiplication operation can only be performed on matrices");
+        }
 
+        if (leftShape[1] != rightShape[0]) {
+            throw new IllegalArgumentException("Matrix multiplication requires left matrix columns to be equal to right matrix rows");
+        }
 
-        var result = executionContext.allocateForwardMemory(leftOperandRows, rightOperationColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var result = executionContext.allocateForwardMemory(leftShape[0], rightShape[1]);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
-        MatrixOperations.matrixToMatrixMultiplication(leftOperandBuffer, leftOperandOffset, leftMatrixMaxRows, leftMatrixMaxColumns,
+        MatrixOperations.matrixToMatrixMultiplication(leftOperandBuffer, leftOperandOffset, leftShape[0], leftShape[1],
                 rightOperandBuffer, rightOperandOffset,
-                leftMatrixMaxColumns, rightMatrixMaxColumns, resultBuffer, resultOffset);
-
-        return result;
-    }
-
-    @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(leftMatrixMaxRows, rightMatrixMaxColumns)
-        };
-    }
-
-    @Override
-    public long leftBackwardDerivativeChainValue() {
-        var rightOperandBuffer = executionContext.getMemoryBuffer(rightOperandResultPointer);
-        var rightOperandOffset = TrainingExecutionContext.addressOffset(rightOperandResultPointer);
-
-        var rightOperandRows = TrainingExecutionContext.rows(rightOperandBuffer, rightOperandOffset);
-        var rightOperandColumns = TrainingExecutionContext.columns(rightOperandBuffer, rightOperandOffset);
-
-        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
-        var derivativeRows = TrainingExecutionContext.rows(derivativeBuffer, derivativeOffset);
-        var derivativeColumns = TrainingExecutionContext.columns(derivativeBuffer, derivativeOffset);
-
-        //right^T
-        var rightTranspose = executionContext.allocateBackwardMemory(rightOperandColumns, rightOperandRows);
-        var rightTransposeOffset = TrainingExecutionContext.addressOffset(rightTranspose);
-        var rightTransposeBuffer = executionContext.getMemoryBuffer(rightTranspose);
-
-        MatrixOperations.transposeMatrix(rightOperandBuffer, rightOperandOffset, rightOperandRows, rightOperandColumns,
-                rightTransposeBuffer, rightTransposeOffset);
-
-        var result = executionContext.allocateBackwardMemory(derivativeRows, rightOperandRows);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        //leftDerivative = derivative * right^T
-        MatrixOperations.matrixToMatrixMultiplication(derivativeBuffer, derivativeOffset, derivativeRows, derivativeColumns,
-                rightTransposeBuffer, rightTransposeOffset, rightOperandColumns, rightOperandRows,
+                rightShape[0], rightShape[1],
                 resultBuffer, resultOffset);
 
         return result;
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
-        var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandResultPointer);
-        var leftOperandOffset = TrainingExecutionContext.addressOffset(leftOperandResultPointer);
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                new int[]{leftMatrixMaxRows, rightMatrixMaxColumns}
+        };
+    }
 
-        var leftOperandRows = TrainingExecutionContext.rows(leftOperandBuffer, leftOperandOffset);
-        var leftOperandColumns = TrainingExecutionContext.columns(leftOperandBuffer, leftOperandOffset);
+    @Override
+    public @NotNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(rightOperandResultPointer);
+        Objects.requireNonNull(derivativeChainPointer);
 
-        //left^T
-        var leftTranspose = executionContext.allocateBackwardMemory(leftOperandColumns, leftOperandRows);
-        var leftTransposeBuffer = executionContext.getMemoryBuffer(leftTranspose);
-        var leftTransposeOffset = TrainingExecutionContext.addressOffset(leftTranspose);
+        var rightOperandBuffer = rightOperandResultPointer.buffer();
+        var rightOperandOffset = rightOperandResultPointer.offset();
 
-        MatrixOperations.transposeMatrix(leftOperandBuffer, leftOperandOffset, leftOperandRows, leftOperandColumns,
-                leftTransposeBuffer, leftTransposeOffset);
+        var derivativeBuffer = derivativeChainPointer.buffer();
+        var derivativeOffset = derivativeChainPointer.offset();
 
-        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
+        var rightShape = rightOperandResultPointer.shape();
 
-        var derivativeRows = TrainingExecutionContext.rows(derivativeBuffer, derivativeOffset);
-        var derivativeColumns = TrainingExecutionContext.columns(derivativeBuffer, derivativeOffset);
+        //right^T
+        var rightTranspose = executionContext.allocateBackwardMemory(rightShape[1], rightShape[0]);
+        var rightTransposeOffset = rightTranspose.offset();
+        var rightTransposeBuffer = rightTranspose.buffer();
 
-        var result = executionContext.allocateBackwardMemory(leftOperandColumns, derivativeColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        MatrixOperations.transposeMatrix(rightOperandBuffer, rightOperandOffset, rightShape[1], rightShape[0],
+                rightTransposeBuffer, rightTransposeOffset);
 
-        //rightDerivative = left^T * derivative
-        MatrixOperations.matrixToMatrixMultiplication(leftTransposeBuffer, leftTransposeOffset, leftOperandColumns, leftOperandRows,
-                derivativeBuffer, derivativeOffset, derivativeRows, derivativeColumns, resultBuffer, resultOffset);
+
+        var derivativeShape = derivativeChainPointer.shape();
+        var result = executionContext.allocateBackwardMemory(derivativeShape[0], rightShape[0]);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
+
+        //leftDerivative = derivative * right^T
+        MatrixOperations.matrixToMatrixMultiplication(derivativeBuffer, derivativeOffset, derivativeShape[0],
+                derivativeShape[1],
+                rightTransposeBuffer, rightTransposeOffset, rightShape[1], rightShape[0],
+                resultBuffer, resultOffset);
 
         return result;
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
+        Objects.requireNonNull(derivativeChainPointer);
+        Objects.requireNonNull(leftOperandResultPointer);
+
+        var leftOperandBuffer = leftOperandResultPointer.buffer();
+        var leftOperandOffset = leftOperandResultPointer.offset();
+
+        var leftShape = leftOperandResultPointer.shape();
+        //left^T
+        var leftTranspose = executionContext.allocateBackwardMemory(leftShape[1], leftShape[0]);
+        var leftTransposeBuffer = leftTranspose.buffer();
+        var leftTransposeOffset = leftTranspose.offset();
+
+        MatrixOperations.transposeMatrix(leftOperandBuffer, leftOperandOffset, leftShape[0], leftShape[1],
+                leftTransposeBuffer, leftTransposeOffset);
+
+        var derivativeBuffer = derivativeChainPointer.buffer();
+        var derivativeOffset = derivativeChainPointer.offset();
+
+
+        var derivativeShape = derivativeChainPointer.shape();
+
+        var result = executionContext.allocateBackwardMemory(leftShape[1], derivativeShape[1]);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
+
+        //rightDerivative = left^T * derivative
+        MatrixOperations.matrixToMatrixMultiplication(leftTransposeBuffer, leftTransposeOffset, leftShape[1], leftShape[0],
+                derivativeBuffer, derivativeOffset, derivativeShape[0], derivativeShape[1],
+                resultBuffer, resultOffset);
+
+        return result;
+    }
+
+    @Override
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[][]{
                 //left
-                new IntIntImmutablePair(leftMatrixMaxRows, leftMatrixMaxColumns),
+                new int[]{leftMatrixMaxRows, leftMatrixMaxColumns},
                 //right^t
-                new IntIntImmutablePair(rightMatrixMaxColumns, rightMatrixMaxRows),
+                new int[]{rightMatrixMaxColumns, rightMatrixMaxRows},
 
 
                 //right
-                new IntIntImmutablePair(rightMatrixMaxRows, rightMatrixMaxColumns),
+                new int[]{rightMatrixMaxRows, rightMatrixMaxColumns},
                 //left^t
-                new IntIntImmutablePair(leftMatrixMaxColumns, leftMatrixMaxRows),
+                new int[]{leftMatrixMaxColumns, leftMatrixMaxRows},
         };
     }
 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
-    }
-
-    @Override
-    public int getResultMaxRows() {
-        return leftMatrixMaxRows;
-    }
-
-    @Override
-    public int getResultMaxColumns() {
-        return rightMatrixMaxColumns;
     }
 }

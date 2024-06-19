@@ -1,10 +1,15 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
 
 public final class GeLUFunction extends AbstractOperation {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
@@ -15,43 +20,39 @@ public final class GeLUFunction extends AbstractOperation {
     private static final float SCALAR_4 = 0.044715f;
     private static final float SCALAR_5 = 3 * SCALAR_4;
 
-    private final int maxRows;
-    private final int maxColumns;
+    private final int[] maxShape;
 
     private final boolean requiresDerivativeChainValue;
 
-    private long leftOperandPointer;
+    private TensorPointer leftOperandPointer;
 
-    public GeLUFunction(TrainingExecutionContext executionContext, Operation leftOperation) {
-        super(executionContext, leftOperation, null);
+    public GeLUFunction(@NonNull Operation leftOperation) {
+        super(leftOperation, null);
 
-        this.maxRows = leftOperation.getResultMaxRows();
-        this.maxColumns = leftOperation.getResultMaxColumns();
-
+        this.maxShape = leftOperation.getMaxResultShape();
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
-    public long forwardPassCalculation() {
+    public int @NonNull [] getMaxResultShape() {
+        return maxShape;
+    }
+
+    @Override
+    public @NonNull TensorPointer forwardPassCalculation() {
         leftOperandPointer = leftOperation.forwardPassCalculation();
 
-        var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandPointer);
-        var leftOperandOffset = TrainingExecutionContext.addressOffset(leftOperandPointer);
+        var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandPointer.pointer());
+        var leftOperandOffset = TrainingExecutionContext.addressOffset(leftOperandPointer.pointer());
 
-        var rows = TrainingExecutionContext.rows(leftOperandBuffer, leftOperandOffset);
-        var columns = TrainingExecutionContext.columns(leftOperandBuffer, leftOperandOffset);
+        var result = executionContext.allocateForwardMemory(leftOperandPointer.shape());
 
-        assert maxColumns >= columns;
-        assert maxRows >= rows;
+        var resultBuffer = executionContext.getMemoryBuffer(result.pointer());
+        var resultOffset = TrainingExecutionContext.addressOffset(result.pointer());
 
-        var result = executionContext.allocateForwardMemory(rows, columns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var stride = TensorOperations.stride(leftOperandPointer.shape());
 
-        var size = rows * columns;
-
-
-        var loopBound = SPECIES.loopBound(size);
+        var loopBound = SPECIES.loopBound(stride);
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
             var va = FloatVector.fromArray(SPECIES, leftOperandBuffer, leftOperandOffset + i);
             // GeLU(x) = 0.5 * x * (1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x^3)))
@@ -73,7 +74,7 @@ public final class GeLUFunction extends AbstractOperation {
         }
 
 
-        for (int i = loopBound; i < size; i++) {
+        for (int i = loopBound; i < stride; i++) {
             var leftValue = leftOperandBuffer[leftOperandOffset + i];
             // GeLU(x) = 0.5 * x * (1 + tanh(sqrt(2 / PI) * (x + 0.044715 * x^3)))
             resultBuffer[i + resultOffset] =
@@ -86,30 +87,21 @@ public final class GeLUFunction extends AbstractOperation {
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
-        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(derivativeChainPointer);
 
-        var rows = TrainingExecutionContext.rows(derivativeBuffer, derivativeOffset);
-        var columns = TrainingExecutionContext.columns(derivativeBuffer, derivativeOffset);
+        var result = executionContext.allocateBackwardMemory(derivativeChainPointer.shape());
 
-        assert maxColumns >= columns;
-        assert maxRows >= rows;
+        var derivativeBuffer = derivativeChainPointer.buffer();
+        var derivativeOffset = derivativeChainPointer.offset();
 
-        var result = executionContext.allocateBackwardMemory(rows, columns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var leftBuffer = leftOperandPointer.buffer();
+        var leftOffset = leftOperandPointer.offset();
 
-        var leftBuffer = executionContext.getMemoryBuffer(leftOperandPointer);
-        var leftOffset = TrainingExecutionContext.addressOffset(leftOperandPointer);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
-        var leftRows = TrainingExecutionContext.rows(leftBuffer, leftOffset);
-        var leftColumns = TrainingExecutionContext.columns(leftBuffer, leftOffset);
-
-        assert leftColumns == columns;
-        assert leftRows == rows;
-
-        var size = rows * columns;
+        var size = TensorOperations.stride(leftOperandPointer.shape());
 
         var loopBound = SPECIES.loopBound(size);
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
@@ -163,36 +155,27 @@ public final class GeLUFunction extends AbstractOperation {
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
+    @NotNull
     @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
-    }
-
-    @Override
-    public int getResultMaxRows() {
-        return maxRows;
-    }
-
-    @Override
-    public int getResultMaxColumns() {
-        return maxColumns;
     }
 }

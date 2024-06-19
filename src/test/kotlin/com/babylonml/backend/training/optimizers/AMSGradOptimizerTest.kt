@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.optimizers
 
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Add
 import com.babylonml.backend.training.operations.RandomGradientSource
 import com.babylonml.backend.training.optimizer.AMSGradOptimizer
@@ -24,18 +24,18 @@ class AMSGradOptimizerTest {
         val epochs = source.nextInt(1, 50)
 
         var variableMatrix = FloatMatrix.random(rows, columns, source)
-        val constantMatrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val constant = constantMatrix.toConstant(executionContext)
-        val optimizer = AMSGradOptimizer(constant)
+        val executionContext = TrainingExecutionContext(1)
+        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val optimizer = AMSGradOptimizer(input)
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val add = Add(executionContext, variable, constant, false)
-        val gradientSource = RandomGradientSource(executionContext, rows, columns, source, add)
+        val add = Add(variable, input)
+        val gradientSource = RandomGradientSource(executionContext, intArrayOf(rows, columns), source, add)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(epochs)
+        executionContext.executePropagation()
 
         var matrixM = FloatMatrix(rows, columns)
         var matrixV = FloatMatrix(rows, columns)

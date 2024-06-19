@@ -1,11 +1,12 @@
 package com.babylonml.backend.training.optimizer;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import com.babylonml.backend.training.operations.InputSource;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import com.babylonml.backend.training.execution.InputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
-import com.tornadoml.cpu.VectorOperations;
+import com.babylonml.backend.cpu.VectorOperations;
 
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import org.jspecify.annotations.NonNull;
 
 public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
     public static final float DEFAULT_BETA1 = 0.9f;
@@ -41,31 +42,32 @@ public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
 
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
-                         int rows, int columns, float[] gradient, int gradientOffset, float learningRate) {
-        final int size = rows * columns;
+                         int[] shape, float[] gradient, int gradientOffset, float learningRate) {
+        final int stride = TensorOperations.stride(shape);
 
-        var calculationBufferPointer = executionContext.allocateBackwardMemory(rows, columns);
-        var calculationBuffer = executionContext.getMemoryBuffer(calculationBufferPointer);
-        var calculationBufferOffset = TrainingExecutionContext.addressOffset(calculationBufferPointer);
+        var calculationBufferPointer = executionContext.allocateBackwardMemory(shape);
+        var calculationBuffer = executionContext.getMemoryBuffer(calculationBufferPointer.pointer());
+        var calculationBufferOffset = TrainingExecutionContext.addressOffset(calculationBufferPointer.pointer());
 
         AdamOptimizer.updateAvgMovement(gradient, gradientOffset, avgMovement, avgMovementSqr, calculationBuffer,
-                calculationBufferOffset, size, beta1, beta2, scaleValue);
+                calculationBufferOffset, stride, beta1, beta2, scaleValue);
         correctAvgMovementSqr(avgMovementSqr, 0, correctedAvgMovementSqr,
-                0, size);
+                0, stride);
         calculateCorrections(avgMovement, 0, correctedAvgMovementSqr, 0,
-                calculationBuffer, calculationBufferOffset, size, learningRate, epsilon);
+                calculationBuffer, calculationBufferOffset, stride, learningRate, epsilon);
         VectorOperations.addVectorToVector(matrix, 0, calculationBuffer, calculationBufferOffset, matrix, 0,
-                size);
+                stride);
     }
 
     @Override
-    public IntIntImmutablePair[] calculateRequiredMemoryAllocations(int rows, int columns) {
-        avgMovement = new float[rows * columns];
-        avgMovementSqr = new float[rows * columns];
-        correctedAvgMovementSqr = new float[rows * columns];
+    public int @NonNull [][] calculateRequiredMemoryAllocations(int[] shape) {
+        var stride = TensorOperations.stride(shape);
+        avgMovement = new float[stride];
+        avgMovementSqr = new float[stride];
+        correctedAvgMovementSqr = new float[stride];
 
-        return new IntIntImmutablePair[] {
-                new IntIntImmutablePair(rows, columns),
+        return new int[][]{
+                shape
         };
     }
 

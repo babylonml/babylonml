@@ -1,38 +1,50 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.training.TrainingExecutionContext
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair
-
+import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.training.execution.TensorPointer
 
 class GradientSource(
-    executionContext: TrainingExecutionContext, private val rows: Int, private val columns: Int,
+    private val shape: IntArray,
     private val gradients: FloatArray, leftOperation: AbstractOperation
-) : AbstractOperation(executionContext, leftOperation, null) {
-    override fun getResultMaxRows() = rows
+) : AbstractOperation(leftOperation, null), CostFunction {
+    override fun getMaxResultShape(): IntArray = shape
 
-    override fun getResultMaxColumns() = columns
-
-    override fun forwardPassCalculation(): Long {
-        leftOperation.forwardPassCalculation()
-        return TrainingExecutionContext.NULL
+    override fun forwardPassCalculation(): TensorPointer {
+        return leftOperation.forwardPassCalculation()
     }
 
-    override fun leftBackwardDerivativeChainValue(): Long {
-        val result = executionContext.allocateBackwardMemory(rows, columns)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
-        val resultBuffer = executionContext.getMemoryBuffer(result)
+    override fun leftBackwardDerivativeChainValue(): TensorPointer {
+        val result = executionContext.allocateBackwardMemory(*shape)
+        val resultOffset = result.offset()
+        val resultBuffer = result.buffer()
 
-        System.arraycopy(gradients, 0, resultBuffer, resultOffset, rows * columns)
+        System.arraycopy(gradients, 0, resultBuffer, resultOffset, TensorOperations.stride(shape))
 
         return result
     }
 
-    override fun rightBackwardDerivativeChainValue(): Long = TrainingExecutionContext.NULL
+    override fun rightBackwardDerivativeChainValue(): TensorPointer {
+        val result = executionContext.allocateBackwardMemory(*shape)
+        val resultOffset = result.offset()
+        val resultBuffer = result.buffer()
 
-    override fun getForwardMemoryAllocations(): Array<IntIntImmutablePair> = emptyArray()
+        System.arraycopy(gradients, 0, resultBuffer, resultOffset, TensorOperations.stride(shape))
 
-    override fun getBackwardMemoryAllocations(): Array<IntIntImmutablePair> =
-        arrayOf(IntIntImmutablePair(rows, columns))
+        return result
+    }
+
+    override fun getForwardMemoryAllocations(): Array<IntArray> = emptyArray()
+
+    override fun getBackwardMemoryAllocations(): Array<IntArray> =
+        arrayOf(shape)
 
     override fun requiresBackwardDerivativeChainValue(): Boolean = true
+
+    override fun trainingMode() {
+        //No-op
+    }
+
+    override fun fullPassCalculation() {
+        //No-op
+    }
 }

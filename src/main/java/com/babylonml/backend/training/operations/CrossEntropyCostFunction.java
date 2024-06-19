@@ -1,15 +1,28 @@
 package com.babylonml.backend.training.operations;
 
+import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
-public class SoftMaxByRows extends AbstractOperation {
-    private final int @NonNull [] maxShape;
+public class CrossEntropyCostFunction extends AbstractOperation implements CostFunction {
 
-    public SoftMaxByRows(Operation leftOperation) {
-        super(leftOperation, null);
+    private final int[] shape;
 
-        this.maxShape = leftOperation.getMaxResultShape();
+    public CrossEntropyCostFunction(@NonNull Operation expectedValues, @NonNull Operation leftOperation) {
+        super(leftOperation, expectedValues);
+
+        this.shape = TensorOperations.calculateMaxShape(expectedValues.getMaxResultShape(),
+                leftOperation.getMaxResultShape());
+    }
+
+    @Override
+    public int @NonNull [] getMaxResultShape() {
+        return shape;
+    }
+
+    public Operation getExpectedValues() {
+        return rightOperation;
     }
 
     @Override
@@ -30,11 +43,7 @@ public class SoftMaxByRows extends AbstractOperation {
                 " and softmax. It should not be used in backward pass");
     }
 
-    @Override
-    public int @NonNull [] getMaxResultShape() {
-        return maxShape;
-    }
-
+    @NotNull
     @Override
     public int @NonNull [][] getForwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
@@ -50,5 +59,17 @@ public class SoftMaxByRows extends AbstractOperation {
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return false;
+    }
+
+    @Override
+    public void trainingMode() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in backward pass");
+    }
+
+    @Override
+    public void fullPassCalculation() {
+        throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
+                " and softmax. It should not be used in forward pass");
     }
 }

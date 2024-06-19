@@ -1,4 +1,4 @@
-package com.tornadoml.mnist;
+package com.babylonml.backend.examples.mnist;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -18,12 +18,14 @@ public final class MNISTLoader {
         }
     }
 
+    @SuppressWarnings("unused")
     public static float[][] loadMNISTTestImages() throws IOException {
         try (var stream = MNISTLoader.class.getClassLoader().getResourceAsStream("mnist/t10k-images.idx3-ubyte")) {
             return loadImages(stream);
         }
     }
 
+    @SuppressWarnings("unused")
     public static int[] loadMNISTTestLabels() throws IOException {
         try (var stream = MNISTLoader.class.getClassLoader().getResourceAsStream("mnist/t10k-labels.idx1-ubyte")) {
             return loadLabels(stream);

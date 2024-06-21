@@ -2,13 +2,13 @@ package com.babylonml
 
 import com.babylonml.matrix.FloatMatrix
 
-fun mseCostFunctionByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
+fun mseCostFunction(actual: FloatMatrix, expected: FloatMatrix): Float {
     val diff = expected - actual
     val squared = diff.dotMulCols(diff)
 
     assert(squared.cols == 1)
 
-    return squared.reduceByRows().sum() / squared.rows
+    return squared.reduceByRows().sum()
 }
 
 /**
@@ -24,5 +24,5 @@ fun crossEntropyByRows(actual: FloatMatrix, expected: FloatMatrix): Float {
 
     val sum = mul.reduceByColumns().sum()
 
-    return -sum / actual.cols
+    return -sum / actual.rows
 }

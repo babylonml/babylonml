@@ -1,10 +1,15 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import com.babylonml.backend.training.initializer.Initializer;
 import com.babylonml.backend.training.optimizer.GradientOptimizer;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 public final class Variable extends AbstractOperation implements StartOperation {
     @NonNull
@@ -12,68 +17,72 @@ public final class Variable extends AbstractOperation implements StartOperation 
     private final float learningRate;
 
     private final float @NonNull [] data;
-
-    private final int rows;
-    private final int columns;
+    private final int[] shape;
 
     public Variable(@NonNull TrainingExecutionContext executionContext, @NonNull GradientOptimizer optimizer,
-                    float @NonNull [] data, int rows, int columns, float learningRate) {
-        this(null, executionContext, optimizer, data, rows, columns, learningRate);
+                    float @NonNull [] data, int[] shape, float learningRate) {
+        this(null, executionContext, optimizer, data, shape, learningRate);
     }
 
     public Variable(@Nullable String name, @NonNull TrainingExecutionContext executionContext,
                     @NonNull GradientOptimizer optimizer,
-                    float @NonNull [] data, int rows, int columns, float learningRate) {
+                    int[] shape, float learningRate, Initializer initializer) {
+        this(name, executionContext, optimizer, initData(shape, initializer),
+                shape, learningRate);
+    }
+
+    private static float @NonNull [] initData(int[] shape, Initializer initializer) {
+        var data = new float[TensorOperations.stride(shape)];
+        initializer.initialize(data, 0, shape);
+
+        return data;
+    }
+
+    public Variable(@Nullable String name, @NonNull TrainingExecutionContext executionContext,
+                    @NonNull GradientOptimizer optimizer,
+                    float @NonNull [] data, int[] shape, float learningRate) {
         super(name, executionContext, null, null);
 
         this.optimizer = optimizer;
         this.data = data;
-        this.rows = rows;
-        this.columns = columns;
+        this.shape = shape;
         this.learningRate = learningRate;
     }
 
     @Override
-    public int getResultMaxRows() {
-        return rows;
+    public int @NonNull [] getMaxResultShape() {
+        return shape;
     }
 
     @Override
-    public int getResultMaxColumns() {
-        return columns;
-    }
+    public @NonNull TensorPointer forwardPassCalculation() {
+        var result = executionContext.allocateForwardMemory(this, shape);
+        var resultBuffer = executionContext.getMemoryBuffer(result.pointer());
+        var resultOffset = TrainingExecutionContext.addressOffset(result.pointer());
 
-    @Override
-    public long forwardPassCalculation() {
-        var result = executionContext.allocateForwardMemory(rows, columns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        System.arraycopy(data, 0, resultBuffer, resultOffset, rows * columns);
+        var stride = TensorOperations.stride(shape);
+        System.arraycopy(data, 0, resultBuffer, resultOffset, stride);
         return result;
     }
 
-
     @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(rows, columns)
-        };
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{shape};
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return optimizer.calculateRequiredMemoryAllocations(rows, columns);
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return optimizer.calculateRequiredMemoryAllocations(shape);
     }
 
     @Override
@@ -81,16 +90,18 @@ public final class Variable extends AbstractOperation implements StartOperation 
         return true;
     }
 
-    public float[] getData() {
+    public float @NonNull [] getData() {
         return data;
     }
 
     @Override
     public void calculateGradientUpdate() {
-        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
+        Objects.requireNonNull(derivativeChainPointer);
 
-        optimizer.optimize(executionContext, data, 0, rows, columns, derivativeBuffer,
-                derivativeOffset, learningRate);
+        var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer.pointer());
+        var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer.pointer());
+
+        optimizer.optimize(executionContext, data, 0, shape, derivativeBuffer,
+                derivativeOffset, learningRate, this);
     }
 }

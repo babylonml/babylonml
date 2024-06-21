@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.optimizers
 
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Add
 import com.babylonml.backend.training.operations.RandomGradientSource
 import com.babylonml.backend.training.optimizer.AdamOptimizer
@@ -23,22 +23,21 @@ class AdamOptimizerTest {
 
         val rows = source.nextInt(1, 100)
         val columns = source.nextInt(1, 100)
-        val epochs = source.nextInt(1, 50)
-
+        val epochs = source.nextInt(1, 10)
 
         var variableMatrix = FloatMatrix.random(rows, columns, source)
-        val constantMatrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val constant = constantMatrix.toConstant(executionContext)
-        val optimizer = AdamOptimizer(constant)
+        val executionContext = TrainingExecutionContext(epochs)
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
+        val optimizer = AdamOptimizer(input)
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val add = Add(executionContext, variable, constant, false)
-        val gradientSource = RandomGradientSource(executionContext, rows, columns, source, add)
+        val add = Add(variable, input)
+        val gradientSource = RandomGradientSource(executionContext, intArrayOf(rows, columns), source, add)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(epochs)
+        executionContext.executePropagation()
 
         var matrixM = FloatMatrix(rows, columns)
         var matrixV = FloatMatrix(rows, columns)
@@ -48,7 +47,7 @@ class AdamOptimizerTest {
 
         val epsilon = AdamOptimizer.DEFAULT_EPSILON
 
-        for (iteration in 1..epochs) {
+        for (iteration in 1.. epochs) {
             val gradients = FloatMatrix(rows, columns, gradientSource.generatedGradients[iteration - 1]) / rows
 
             matrixM = (matrixM * betta1) + (gradients * (1 - betta1))

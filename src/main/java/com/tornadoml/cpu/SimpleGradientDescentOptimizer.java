@@ -1,5 +1,7 @@
 package com.tornadoml.cpu;
 
+import com.babylonml.backend.cpu.VectorOperations;
+
 public class SimpleGradientDescentOptimizer implements WeightsOptimizer {
     private static final ThreadLocal<float[]> calculationBuffer = new ThreadLocal<>();
 

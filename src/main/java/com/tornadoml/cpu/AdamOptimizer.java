@@ -1,5 +1,7 @@
 package com.tornadoml.cpu;
 
+import com.babylonml.backend.cpu.VectorOperations;
+
 public final class AdamOptimizer implements WeightsOptimizer {
     private static final ThreadLocal<float[]> avgWeightsMovementBuffer = new ThreadLocal<>();
     private static final ThreadLocal<float[]> avgBiasesMovementBuffer = new ThreadLocal<>();

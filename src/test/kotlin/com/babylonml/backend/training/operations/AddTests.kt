@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
 import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import org.apache.commons.rng.simple.RandomSource
@@ -15,67 +15,91 @@ class AddTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
-        val firstMatrix = FloatMatrix.random(rows, columns, source)
-        val secondMatrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix.random(rows, columns, source)
+        val variableMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1, true)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
 
-        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
-        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val expectedResult = inputMatrix + variableMatrix
 
-        val add = Add(executionContext, firstVariable, secondVariable, false)
+        val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
+        val add = Add(inputSource, variable)
 
-        executionContext.initializeExecution(add)
-        val result = executionContext.executeForwardPropagation()
-
-        val buffer = executionContext.getMemoryBuffer(result)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
-
-        val expectedResult = firstMatrix + secondMatrix
+        val resultCell = ResultMemoryCellCostFunction(add)
+        executionContext.initializeExecution(resultCell)
+        executionContext.executePropagation()
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+            resultCell.result, 0.001f
         )
     }
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
-    fun differentiationTest(seed: Long) {
+    fun leftDifferentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
-        val firstMatrix = FloatMatrix.random(rows, columns, source)
-        val secondMatrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix.random(rows, columns, source)
+        val variableMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
+
         val learningRate = 0.01f
 
-        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
-        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
-        val add = Add(executionContext, firstVariable, secondVariable, false)
+        val add = Add(variable, inputSource)
+        val gradientsMatrix = FloatMatrix.random(rows, columns, source)
+        val gradients = GradientSource(intArrayOf(rows, columns), gradientsMatrix.toFlatArray(), add)
+
+        executionContext.initializeExecution(gradients)
+        executionContext.executePropagation()
+
+        val expectedResult = variableMatrix - gradientsMatrix * learningRate
+
+        Assertions.assertArrayEquals(expectedResult.toFlatArray(), variable.data, 0.001f)
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun rightDifferentiationTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
+
+        val inputMatrix = FloatMatrix.random(rows, columns, source)
+        val variableMatrix = FloatMatrix.random(rows, columns, source)
+
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
+
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
+
+        val learningRate = 0.01f
+        val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
+
+        val add = Add(inputSource, variable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
-        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), add)
+        val gradientsSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), add)
+        val expectedResult = variableMatrix - gradients * learningRate
 
-        executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(1)
+        executionContext.initializeExecution(gradientsSource)
+        executionContext.executePropagation()
 
-        val firstExpectedResult = firstMatrix - gradients * learningRate
-        val secondExpectedResult = secondMatrix - gradients * learningRate
-
-        Assertions.assertArrayEquals(firstExpectedResult.toFlatArray(), firstVariable.data, 0.001f)
-        Assertions.assertArrayEquals(secondExpectedResult.toFlatArray(), secondVariable.data, 0.001f)
+        Assertions.assertArrayEquals(expectedResult.toFlatArray(), variable.data, 0.001f)
     }
 }

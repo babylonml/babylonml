@@ -1,5 +1,8 @@
 package com.tornadoml.cpu;
 
+import com.babylonml.backend.cpu.MatrixOperations;
+import com.babylonml.backend.cpu.VectorOperations;
+
 public final class SoftMaxLayer implements NonTrainableLayer {
 
     private final int inputSize;

@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
 import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.geLU
@@ -17,31 +17,26 @@ class GeLUTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
-        val learningRate = 0.01f
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(matrix.toTensor())
 
-        val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val geLU = GeLUFunction(executionContext, variable)
+        val geLU = GeLUFunction(inputSource)
 
-        executionContext.initializeExecution(geLU)
+        val memoryCell = ResultMemoryCellCostFunction(geLU)
+        executionContext.initializeExecution(memoryCell)
 
-        val result = executionContext.executeForwardPropagation()
-
-        val buffer = executionContext.getMemoryBuffer(result)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
+        executionContext.executePropagation()
 
         val expectedResult = geLU(matrix)
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+            memoryCell.result, 0.001f
         )
     }
 
@@ -50,28 +45,31 @@ class GeLUTests {
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix(rows, columns)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val executionContext = TrainingExecutionContext(1)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
+
         val learningRate = 0.01f
-
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val geLU = GeLUFunction(executionContext, variable)
+
+        val add = Add(inputSource, variable)
+        val geLU = GeLUFunction(add)
 
         val gradients = FloatMatrix.random(rows, columns, source)
-        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), geLU)
+        val gradientSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), geLU)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(1)
+        executionContext.executePropagation()
 
         val expectedGradients = geLUDerivative(matrix).hadamardMul(gradients)
 
-        val expectedResult = matrix - expectedGradients * learningRate
+        val expectedResult = matrix - expectedGradients * learningRate / rows
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(), variable.data, 0.001f

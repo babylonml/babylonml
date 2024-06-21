@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
 import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
-import com.babylonml.backend.training.TrainingExecutionContext
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.leakyLeRU
@@ -17,33 +17,27 @@ class LeakyLeRUTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
-        val learningRate = 0.01f
-
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(matrix.toTensor(3))
         val leakyLeRUSlope = 0.01f
 
-        val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, executionContext, variable)
+        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, inputSource)
 
-        executionContext.initializeExecution(leakyLeRU)
+        val resultCell = ResultMemoryCellCostFunction(leakyLeRU)
+        executionContext.initializeExecution(resultCell)
 
-        val result = executionContext.executeForwardPropagation()
-
-        val buffer = executionContext.getMemoryBuffer(result)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
+        executionContext.executePropagation()
 
         val expectedResult = leakyLeRU(matrix, leakyLeRUSlope)
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            buffer.copyOfRange(resultOffset, resultOffset + rows * columns), 0.001f
+            resultCell.result, 0.001f
         )
     }
 
@@ -52,26 +46,28 @@ class LeakyLeRUTests {
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
+        val inputMatrix = FloatMatrix(rows, columns)
+        val executionContext = TrainingExecutionContext(1, rows)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
 
-        val executionContext = TrainingExecutionContext()
-        val optimizer =
-            SimpleGradientDescentOptimizer(NullDataSource())
+        val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
         val leakyLeRUSlope = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
-        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, executionContext, variable)
+        val add = Add(inputSource, variable)
+        val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, add)
 
         val gradients = FloatMatrix.random(rows, columns, source)
-        val gradientSource = GradientSource(executionContext, rows, columns, gradients.toFlatArray(), leakyLeRU)
+        val gradientSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), leakyLeRU)
 
         executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation(1)
+        executionContext.executePropagation()
 
         val resultGradient = leakyLeRUDerivative(matrix, leakyLeRUSlope).hadamardMul(gradients)
         val expectedResult = matrix - resultGradient * learningRate

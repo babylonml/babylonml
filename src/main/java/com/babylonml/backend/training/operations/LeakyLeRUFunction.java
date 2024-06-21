@@ -1,56 +1,57 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
 
 public final class LeakyLeRUFunction extends AbstractOperation {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int maxRows;
-    private final int maxColumns;
+    private final int @NonNull [] maxShape;
 
     private final boolean requiresDerivativeChainValue;
     private final float leakyLeRUASlope;
 
-    private long leftResultPointer;
+    private TensorPointer leftOperandResult;
 
-    public LeakyLeRUFunction(float leakyLeRUASlope, TrainingExecutionContext executionContext,
-                             Operation leftOperation) {
-        this(null, leakyLeRUASlope, executionContext, leftOperation);
+    public LeakyLeRUFunction(float leakyLeRUASlope, Operation leftOperation) {
+        this(null, leakyLeRUASlope, leftOperation);
     }
 
-    public LeakyLeRUFunction(String name, float leakyLeRUASlope, TrainingExecutionContext executionContext,
+    public LeakyLeRUFunction(String name, float leakyLeRUASlope,
                              Operation leftOperation) {
-        super(name, executionContext, leftOperation, null);
+        super(name, leftOperation, null);
         this.leakyLeRUASlope = leakyLeRUASlope;
 
-        this.maxRows = leftOperation.getResultMaxRows();
-        this.maxColumns = leftOperation.getResultMaxColumns();
+        this.maxShape = TensorOperations.calculateMaxShape(leftOperation.getMaxResultShape(),
+                leftOperation.getMaxResultShape());
 
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue();
     }
 
     @Override
-    public long forwardPassCalculation() {
-        leftResultPointer = leftOperation.forwardPassCalculation();
+    public int @NonNull [] getMaxResultShape() {
+        return maxShape;
+    }
 
-        var leftResultBuffer = executionContext.getMemoryBuffer(leftResultPointer);
-        var leftResultOffset = TrainingExecutionContext.addressOffset(leftResultPointer);
+    @Override
+    public @NonNull TensorPointer forwardPassCalculation() {
+        leftOperandResult = leftOperation.forwardPassCalculation();
+        var result = executionContext.allocateForwardMemory(this, leftOperandResult.shape());
 
-        var rows = TrainingExecutionContext.rows(leftResultBuffer, leftResultOffset);
-        var columns = TrainingExecutionContext.columns(leftResultBuffer, leftResultOffset);
+        var leftResultBuffer = leftOperandResult.buffer();
+        var leftResultOffset = leftOperandResult.offset();
 
-        assert maxColumns >= columns;
-        assert maxRows >= rows;
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
-        var result = executionContext.allocateForwardMemory(rows, columns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
-
-        var size = rows * columns;
+        var size = TensorOperations.stride(leftOperandResult.shape());
         var loopBound = SPECIES.loopBound(size);
         var zero = FloatVector.zero(SPECIES);
 
@@ -70,35 +71,29 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
-        var leftResultBuffer = executionContext.getMemoryBuffer(leftResultPointer);
-        var leftResultOffset = TrainingExecutionContext.addressOffset(leftResultPointer);
-        var leftRows = TrainingExecutionContext.rows(leftResultBuffer, leftResultOffset);
-        var leftColumns = TrainingExecutionContext.columns(leftResultBuffer, leftResultOffset);
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(derivativeChainPointer);
 
-        var derivativeChainBuffer = executionContext.getMemoryBuffer(derivativeChainPointer);
-        var derivativeChainOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer);
-        var derivativeRows = TrainingExecutionContext.rows(derivativeChainBuffer, derivativeChainOffset);
-        var derivativeColumns = TrainingExecutionContext.columns(derivativeChainBuffer, derivativeChainOffset);
+        var leftOperandBuffer = leftOperandResult.buffer();
+        var leftOperandOffset = leftOperandResult.offset();
 
-        assert leftRows == derivativeRows;
-        assert leftColumns == derivativeColumns;
+        var derivativeChainBuffer = derivativeChainPointer.buffer();
+        var derivativeChainOffset = derivativeChainPointer.offset();
 
-        assert maxRows >= leftRows;
-        assert maxColumns >= leftColumns;
+        var result = executionContext.allocateBackwardMemory(this, leftOperandResult.shape());
 
-        var result = executionContext.allocateBackwardMemory(leftRows, leftColumns);
-        var resultBuffer = executionContext.getMemoryBuffer(result);
-        var resultOffset = TrainingExecutionContext.addressOffset(result);
+        var resultBuffer = result.buffer();
+        var resultOffset = result.offset();
 
-        var size = leftRows * leftColumns;
+        var size = TensorOperations.stride(leftOperandResult.shape());
+
         var loopBound = SPECIES.loopBound(size);
         var zero = FloatVector.zero(SPECIES);
         var slope = FloatVector.broadcast(SPECIES, leakyLeRUASlope);
         var one = FloatVector.broadcast(SPECIES, 1.0f);
 
         for (int i = 0; i < loopBound; i += SPECIES.length()) {
-            var va = FloatVector.fromArray(SPECIES, leftResultBuffer, leftResultOffset + i);
+            var va = FloatVector.fromArray(SPECIES, leftOperandBuffer, leftOperandOffset + i);
             var mask = va.compare(VectorOperators.LT, zero);
             var vc = one.mul(slope, mask);
 
@@ -109,7 +104,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
         }
 
         for (int i = loopBound; i < size; i++) {
-            resultBuffer[i + resultOffset] = (leftResultBuffer[i + leftResultOffset] > 0 ? 1.0f : leakyLeRUASlope) *
+            resultBuffer[i + resultOffset] = (leftOperandBuffer[i + leftOperandOffset] > 0 ? 1.0f : leakyLeRUASlope) *
                     derivativeChainBuffer[i + derivativeChainOffset];
         }
 
@@ -117,7 +112,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         return TrainingExecutionContext.NULL;
     }
 
@@ -126,27 +121,18 @@ public final class LeakyLeRUFunction extends AbstractOperation {
         return requiresDerivativeChainValue;
     }
 
-    @Override
-    public int getResultMaxRows() {
-        return maxRows;
-    }
 
     @Override
-    public int getResultMaxColumns() {
-        return maxColumns;
-    }
-
-    @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public int @NonNull [][] getForwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(maxRows, maxColumns)
+    public int @NonNull [][] getBackwardMemoryAllocations() {
+        return new int[][]{
+                maxShape
         };
     }
 }

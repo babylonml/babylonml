@@ -1,51 +1,58 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.training.TrainingExecutionContext
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair
+import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.training.execution.TensorPointer
+import com.babylonml.backend.training.execution.TrainingExecutionContext
 import org.apache.commons.rng.UniformRandomProvider
 
 class RandomGradientSource(
-    executionContext: TrainingExecutionContext, private val rows: Int, private val columns: Int,
+    executionContext: TrainingExecutionContext, private val shape: IntArray,
     private val source: UniformRandomProvider,
     leftOperation: AbstractOperation
 ) : AbstractOperation(
     executionContext, leftOperation,
     null
-) {
+), CostFunction {
     val generatedGradients = mutableListOf<FloatArray>()
 
-    override fun getResultMaxRows() = rows
+    override fun getMaxResultShape(): IntArray = shape
 
-    override fun getResultMaxColumns() = columns
-
-    override fun forwardPassCalculation(): Long {
-        leftOperation.forwardPassCalculation()
-        return TrainingExecutionContext.NULL
+    override fun forwardPassCalculation(): TensorPointer {
+        return leftOperation.forwardPassCalculation()
     }
 
-    override fun leftBackwardDerivativeChainValue(): Long {
-        val result = executionContext.allocateBackwardMemory(rows, columns)
-        val resultOffset = TrainingExecutionContext.addressOffset(result)
-        val resultBuffer = executionContext.getMemoryBuffer(result)
+    override fun leftBackwardDerivativeChainValue(): TensorPointer {
+        val result = executionContext.allocateBackwardMemory(this, *shape)
+        val resultOffset = result.offset()
+        val resultBuffer = result.buffer()
 
-        val gradients = FloatArray(rows * columns)
-        for (i in 0 until rows * columns) {
+        val stride = TensorOperations.stride(shape)
+        val gradients = FloatArray(stride)
+        for (i in 0 until stride) {
             gradients[i] = source.nextFloat(-1.0f, 1.0f)
         }
 
-        System.arraycopy(gradients, 0, resultBuffer, resultOffset, rows * columns)
+        System.arraycopy(gradients, 0, resultBuffer, resultOffset, stride)
         generatedGradients.add(gradients)
 
         return result
     }
 
-    override fun rightBackwardDerivativeChainValue(): Long = TrainingExecutionContext.NULL
+    override fun rightBackwardDerivativeChainValue(): TensorPointer = TrainingExecutionContext.NULL
 
-    override fun getForwardMemoryAllocations(): Array<IntIntImmutablePair> = emptyArray()
+    override fun getForwardMemoryAllocations(): Array<IntArray> = emptyArray()
 
-    override fun getBackwardMemoryAllocations(): Array<IntIntImmutablePair> =
-        arrayOf(IntIntImmutablePair(rows, columns))
+    override fun getBackwardMemoryAllocations(): Array<IntArray> =
+        arrayOf(shape)
 
     override fun requiresBackwardDerivativeChainValue(): Boolean = true
+
+    override fun trainingMode() {
+        //No-op
+    }
+
+    override fun fullPassCalculationMode() {
+        //No-op
+    }
 
 }

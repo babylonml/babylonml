@@ -1,5 +1,8 @@
 package com.tornadoml.cpu;
 
+import com.babylonml.backend.cpu.MatrixOperations;
+import com.babylonml.backend.cpu.VectorOperations;
+
 public final class DenseLayer implements TrainableLayer {
     private static final ThreadLocal<float[]> outputXBatchSizeBuffer = new ThreadLocal<>();
     private static final ThreadLocal<float[]> firstInputXBatchSizeBuffer = new ThreadLocal<>();
@@ -248,10 +251,6 @@ public final class DenseLayer implements TrainableLayer {
 
     public float[] getWeights() {
         return weights;
-    }
-
-    public float[] getBiases() {
-        return biases;
     }
 
     private static float[] getOutputXBatchSizeBuffer(int size) {

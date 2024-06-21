@@ -1,55 +1,48 @@
 package com.babylonml.backend.training.operations;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.training.execution.TensorPointer;
+import org.jspecify.annotations.NonNull;
 
-public class SoftMaxByRows extends AbstractOperation {
-    private final int maxRows;
-    private final int maxColumns;
+public class SoftMax extends AbstractOperation {
+    private final int @NonNull [] maxShape;
 
-    public SoftMaxByRows(TrainingExecutionContext executionContext, Operation leftOperation) {
-        super(executionContext, leftOperation, null);
+    public SoftMax(Operation leftOperation) {
+        super(leftOperation, null);
 
-        this.maxRows = leftOperation.getResultMaxRows();
-        this.maxColumns = leftOperation.getResultMaxColumns();
+        this.maxShape = leftOperation.getMaxResultShape();
     }
 
     @Override
-    public long forwardPassCalculation() {
+    public @NonNull TensorPointer forwardPassCalculation() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in forward pass");
     }
 
     @Override
-    public long leftBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in backward pass");
     }
 
     @Override
-    public long rightBackwardDerivativeChainValue() {
+    public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in backward pass");
     }
 
     @Override
-    public int getResultMaxRows() {
-        return maxRows;
+    public int @NonNull [] getMaxResultShape() {
+        return maxShape;
     }
 
     @Override
-    public int getResultMaxColumns() {
-        return maxColumns;
-    }
-
-    @Override
-    public IntIntImmutablePair[] getForwardMemoryAllocations() {
+    public int @NonNull [][] getForwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in forward pass");
     }
 
     @Override
-    public IntIntImmutablePair[] getBackwardMemoryAllocations() {
+    public int @NonNull [][] getBackwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in backward pass");
     }

@@ -1,10 +1,13 @@
 package com.babylonml.backend.training.optimizer;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import com.babylonml.backend.training.operations.InputSource;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
-import com.tornadoml.cpu.VectorOperations;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.VectorOperations;
+
+import com.babylonml.backend.training.operations.Operation;
+import org.jspecify.annotations.NonNull;
 
 public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     public static final float DEFAULT_BETA1 = 0.9f;
@@ -22,11 +25,11 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     private long batchIndex;
     private int scaleValue = 1;
 
-    public AdamOptimizer(InputSource inputSource) {
+    public AdamOptimizer(ContextInputSource inputSource) {
         this(DEFAULT_BETA1, DEFAULT_BETA2, DEFAULT_EPSILON, inputSource);
     }
 
-    public AdamOptimizer(float beta1, float beta2, float epsilon, InputSource inputSource) {
+    public AdamOptimizer(float beta1, float beta2, float epsilon, ContextInputSource inputSource) {
         this.beta1 = beta1;
         this.beta2 = beta2;
         this.epsilon = epsilon;
@@ -36,40 +39,40 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
 
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
-                         int rows, int columns, float[] gradient, int gradientOffset, float learningRate) {
-        int size = rows * columns;
+                         int[] shape, float[] gradient, int gradientOffset, float learningRate, @NonNull Operation operation) {
+        int stride = TensorOperations.stride(shape);
 
-        var avgMovementPointer = executionContext.allocateBackwardMemory(rows, columns);
-        var avgMovementBuffer = executionContext.getMemoryBuffer(avgMovementPointer);
-        var avgMovementBufferOffset = TrainingExecutionContext.addressOffset(avgMovementPointer);
+        var avgMovementPointer = executionContext.allocateBackwardMemory(operation, shape);
+        var avgMovementBuffer = executionContext.getMemoryBuffer(avgMovementPointer.pointer());
+        var avgMovementBufferOffset = TrainingExecutionContext.addressOffset(avgMovementPointer.pointer());
 
 
-        var avgMovementSqrPointer = executionContext.allocateBackwardMemory(rows, columns);
-        var avgMovementSqrBuffer = executionContext.getMemoryBuffer(avgMovementSqrPointer);
-        var avgMovementSqrBufferOffset = TrainingExecutionContext.addressOffset(avgMovementSqrPointer);
+        var avgMovementSqrPointer = executionContext.allocateBackwardMemory(operation, shape);
+        var avgMovementSqrBuffer = executionContext.getMemoryBuffer(avgMovementSqrPointer.pointer());
+        var avgMovementSqrBufferOffset = TrainingExecutionContext.addressOffset(avgMovementSqrPointer.pointer());
 
         updateAvgMovement(gradient, gradientOffset, avgMovement, avgMovementSqr,
-                avgMovementBuffer, avgMovementBufferOffset, size, beta1, beta2, scaleValue);
+                avgMovementBuffer, avgMovementBufferOffset, stride, beta1, beta2, scaleValue);
         movingAverageBiasCorrection(avgMovement, beta1, batchIndex, avgMovementBuffer, avgMovementBufferOffset,
-                size);
+                stride);
         movingAverageBiasCorrection(avgMovementSqr, beta2, batchIndex, avgMovementSqrBuffer, avgMovementSqrBufferOffset,
-                size);
+                stride);
 
         calculateCorrections(avgMovementBuffer, avgMovementBufferOffset, avgMovementSqrBuffer,
-                avgMovementSqrBufferOffset, size, learningRate, epsilon);
+                avgMovementSqrBufferOffset, stride, learningRate, epsilon);
         VectorOperations.addVectorToVector(matrix, matrixOffset, avgMovementBuffer, avgMovementBufferOffset, matrix,
-                matrixOffset, size);
+                matrixOffset, stride);
 
     }
 
     @Override
-    public IntIntImmutablePair[] calculateRequiredMemoryAllocations(int rows, int columns) {
-        this.avgMovement = new float[rows * columns];
-        this.avgMovementSqr = new float[rows * columns];
+    public int @NonNull [][] calculateRequiredMemoryAllocations(int[] shape) {
+        var stride = TensorOperations.stride(shape);
+        this.avgMovement = new float[stride];
+        this.avgMovementSqr = new float[stride];
 
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(rows, columns),
-                new IntIntImmutablePair(rows, columns)
+        return new int[][]{
+                shape, shape
         };
     }
 
@@ -106,9 +109,9 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     }
 
     public static void calculateCorrections(float[] correctedMovingAverage, int correctedMovingAverageOffset,
-                                             float[] correctedMovingAverageSqr, int correctedMovingAverageSqrOffset,
-                                             int size,
-                                             float learningRate, float epsilon) {
+                                            float[] correctedMovingAverageSqr, int correctedMovingAverageSqrOffset,
+                                            int size,
+                                            float learningRate, float epsilon) {
         VectorOperations.vectorElementsSqrt(correctedMovingAverageSqr, correctedMovingAverageSqrOffset,
                 correctedMovingAverageSqr, correctedMovingAverageSqrOffset,
                 size);
@@ -127,6 +130,7 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     @Override
     public void onMiniBatchStart(long miniBatchIndex, int miniBatchSize) {
         assert miniBatchSize > 0;
+
         batchIndex = miniBatchIndex;
         scaleValue = miniBatchSize;
     }

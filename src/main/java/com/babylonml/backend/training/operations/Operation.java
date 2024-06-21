@@ -1,41 +1,51 @@
 package com.babylonml.backend.training.operations;
 
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.training.execution.TensorPointer;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public interface Operation {
-    int getResultMaxRows();
+    int @NonNull [] getMaxResultShape();
 
-    int getResultMaxColumns();
+    @NonNull
+    TensorPointer forwardPassCalculation();
 
-    int getLayerIndex();
+    @NonNull
+    TensorPointer leftBackwardDerivativeChainValue();
 
-    void setLayerIndex(int layerIndex);
+    @NonNull
+    TensorPointer rightBackwardDerivativeChainValue();
 
-    long forwardPassCalculation();
+    int @NonNull [][] getForwardMemoryAllocations();
 
-    long leftBackwardDerivativeChainValue();
+    int @NonNull [][] getBackwardMemoryAllocations();
 
-    long rightBackwardDerivativeChainValue();
-
-    IntIntImmutablePair[] getForwardMemoryAllocations();
-
-    IntIntImmutablePair[] getBackwardMemoryAllocations();
-
+    @Nullable
     Operation getLeftPreviousOperation();
 
+    @Nullable
     Operation getRightPreviousOperation();
 
-    void setLeftPreviousOperation(Operation leftPreviousOperation);
+    void setLeftPreviousOperation(@NonNull Operation leftPreviousOperation);
 
-    void setRightPreviousOperation(Operation rightPreviousOperation);
+    void setRightPreviousOperation(@NonNull Operation rightPreviousOperation);
 
+    @Nullable
     Operation getNextOperation();
 
-    void setNextOperation(Operation nextOperation);
+    void setNextOperation(@NonNull Operation nextOperation);
 
-    void updateBackwardDerivativeChainValue(long backwardDerivativeChainValue);
+    void clearNextOperation();
+
+    void updateBackwardDerivativeChainValue(@NonNull TensorPointer backwardDerivativeChainValue);
 
     boolean requiresBackwardDerivativeChainValue();
 
     void prepareForNextPropagation();
+
+    void startEpochExecution();
+
+    @NonNull
+    TrainingExecutionContext getExecutionContext();
 }

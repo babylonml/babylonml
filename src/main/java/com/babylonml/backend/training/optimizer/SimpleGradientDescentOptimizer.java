@@ -1,37 +1,39 @@
 package com.babylonml.backend.training.optimizer;
 
-import com.babylonml.backend.training.TrainingExecutionContext;
-import com.babylonml.backend.training.operations.InputSource;
+import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
-import com.tornadoml.cpu.VectorOperations;
-import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import com.babylonml.backend.cpu.VectorOperations;
+import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
 
 public class SimpleGradientDescentOptimizer implements GradientOptimizer, MiniBatchListener {
     private int scaleValue = 1;
 
-    public SimpleGradientDescentOptimizer(@NonNull InputSource inputSource) {
+    public SimpleGradientDescentOptimizer(@NonNull ContextInputSource inputSource) {
         inputSource.addMiniBatchListener(this);
     }
 
     @Override
     public void optimize(@NonNull TrainingExecutionContext executionContext, float @NonNull [] matrix, int matrixOffset,
-                         int rows, int columns, float @NonNull [] gradient, int gradientOffset, float learningRate) {
-        var address = executionContext.allocateBackwardMemory(rows, columns);
-        var buffer = executionContext.getMemoryBuffer(address);
-        var bufferOffset = TrainingExecutionContext.addressOffset(address);
+                         int[] shape, float @NonNull [] gradient, int gradientOffset, float learningRate, Operation operation) {
+        var pointer = executionContext.allocateBackwardMemory(operation, shape);
+        var buffer = pointer.buffer();
+        var bufferOffset = pointer.offset();
 
+        var stride = TensorOperations.stride(shape);
         VectorOperations.multiplyVectorToScalar(gradient, gradientOffset,
                 -learningRate / scaleValue, buffer, bufferOffset,
-                rows * columns);
+                stride);
         VectorOperations.addVectorToVector(matrix, matrixOffset, buffer, bufferOffset, matrix, matrixOffset,
-                rows * columns);
+                stride);
     }
 
     @Override
-    public IntIntImmutablePair[] calculateRequiredMemoryAllocations(int rows, int columns) {
-        return new IntIntImmutablePair[]{
-                new IntIntImmutablePair(rows, columns)
+    public int @NonNull [][] calculateRequiredMemoryAllocations(int[] shape) {
+        return new int[][]{
+                shape
         };
     }
 

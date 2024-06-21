@@ -4,7 +4,7 @@ import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import com.babylonml.backend.training.initializer.Initializer;
 import com.babylonml.backend.training.operations.*;
-import com.babylonml.backend.training.optimizer.AMSGradOptimizer;
+import com.babylonml.backend.training.optimizer.AdamOptimizer;
 
 public abstract class MNISTBase {
     @SuppressWarnings("SameParameterValue")
@@ -15,7 +15,7 @@ public abstract class MNISTBase {
         var miniBatchSize = 1024;
         var learningRate = 0.001f;
 
-        var trainingExecutionContext = new TrainingExecutionContext(10, miniBatchSize);
+        var trainingExecutionContext = new TrainingExecutionContext(100, miniBatchSize);
         var trainingImages = MNISTLoader.loadMNISTImages();
         var trainingLabels = MNISTLoader.loadMNISTLabels();
 
@@ -30,7 +30,8 @@ public abstract class MNISTBase {
         var expectedValuesSource = trainingExecutionContext.registerAdditionalInputSource(
                 Tensor.fromMatrix(trainingLabelProbabilities));
 
-        trainingExecutionContext.initializeExecution(new CrossEntropyCostFunction(expectedValuesSource, fnnOutput));
+        trainingExecutionContext.initializeExecution(new CrossEntropyCostFunction(expectedValuesSource,
+                new SoftMax(fnnOutput)));
 
         trainingExecutionContext.executePropagation(((epochIndex, result) ->
                 System.out.println("Epoch: " + epochIndex + ", loss: " + result)));
@@ -58,10 +59,10 @@ public abstract class MNISTBase {
                                         TrainingExecutionContext executionContext, int layerIndex,
                                         float learningRate) {
         var weights = new Variable("weights" + layerIndex, executionContext,
-                new AMSGradOptimizer(inputSource), new int[]{inputSize, outputSize},
+                new AdamOptimizer(inputSource), new int[]{inputSize, outputSize},
                 learningRate, Initializer.he());
         var biases = new Variable("biases" + layerIndex, executionContext,
-                new AMSGradOptimizer(inputSource), new int[]{1, outputSize},
+                new AdamOptimizer(inputSource), new int[]{1, outputSize},
                 learningRate, Initializer.he());
 
         var linear = new Add(new Multiplication(input, weights), biases);

@@ -45,7 +45,6 @@ public final class MatrixOperations {
 
     public static void transposeMatrix(float[] matrix, int matrixOffset,
                                        int rows, int columns, float[] result, int resultOffset) {
-        assert matrix != result;
         final int blockSize = Math.max(SPECIES.length(), 8);
 
         for (int i = 0; i < rows; i += blockSize) {

@@ -3,10 +3,10 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import org.jspecify.annotations.NonNull;
 
-public class SoftMaxByRows extends AbstractOperation {
+public class SoftMax extends AbstractOperation {
     private final int @NonNull [] maxShape;
 
-    public SoftMaxByRows(Operation leftOperation) {
+    public SoftMax(Operation leftOperation) {
         super(leftOperation, null);
 
         this.maxShape = leftOperation.getMaxResultShape();

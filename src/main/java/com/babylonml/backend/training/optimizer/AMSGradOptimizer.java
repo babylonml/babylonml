@@ -2,10 +2,11 @@ package com.babylonml.backend.training.optimizer;
 
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
-import com.babylonml.backend.training.execution.InputSource;
+import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.babylonml.backend.cpu.VectorOperations;
 
+import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
 
 public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
@@ -23,11 +24,11 @@ public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
 
     private int scaleValue = 1;
 
-    public AMSGradOptimizer(InputSource inputSource) {
+    public AMSGradOptimizer(ContextInputSource inputSource) {
         this(DEFAULT_BETA1, DEFAULT_BETA2, DEFAULT_EPSILON, inputSource);
     }
 
-    public AMSGradOptimizer(float beta1, float beta2, float epsilon, InputSource inputSource) {
+    public AMSGradOptimizer(float beta1, float beta2, float epsilon, ContextInputSource inputSource) {
         this.beta1 = beta1;
         this.beta2 = beta2;
         this.epsilon = epsilon;
@@ -42,10 +43,10 @@ public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
 
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
-                         int[] shape, float[] gradient, int gradientOffset, float learningRate) {
+                         int[] shape, float[] gradient, int gradientOffset, float learningRate, Operation operation) {
         final int stride = TensorOperations.stride(shape);
 
-        var calculationBufferPointer = executionContext.allocateBackwardMemory(shape);
+        var calculationBufferPointer = executionContext.allocateBackwardMemory(operation, shape);
         var calculationBuffer = executionContext.getMemoryBuffer(calculationBufferPointer.pointer());
         var calculationBufferOffset = TrainingExecutionContext.addressOffset(calculationBufferPointer.pointer());
 

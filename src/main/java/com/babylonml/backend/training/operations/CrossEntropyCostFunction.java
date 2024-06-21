@@ -68,7 +68,7 @@ public class CrossEntropyCostFunction extends AbstractOperation implements CostF
     }
 
     @Override
-    public void fullPassCalculation() {
+    public void fullPassCalculationMode() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in forward pass");
     }

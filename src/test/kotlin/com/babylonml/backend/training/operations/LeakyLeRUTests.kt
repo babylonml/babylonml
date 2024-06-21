@@ -17,13 +17,13 @@ class LeakyLeRUTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(matrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(matrix.toTensor(3))
         val leakyLeRUSlope = 0.01f
 
         val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, inputSource)
@@ -46,13 +46,13 @@ class LeakyLeRUTests {
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
         val inputMatrix = FloatMatrix(rows, columns)
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
 
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 

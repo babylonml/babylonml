@@ -22,7 +22,7 @@ class HadamardProductTests {
         val variableMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
@@ -36,10 +36,7 @@ class HadamardProductTests {
 
         val expectedResult = inputMatrix.hadamardMul(variableMatrix)
 
-        Assertions.assertArrayEquals(
-            expectedResult.toFlatArray(),
-            resultCell.result, 0.001f
-        )
+        Assertions.assertArrayEquals(expectedResult.toFlatArray(),resultCell.result, 0.001f)
     }
 
     @ParameterizedTest
@@ -55,28 +52,28 @@ class HadamardProductTests {
         val secondMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
 
-        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
-        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val firstVariable = firstMatrix.toVariable("first", executionContext, optimizer, learningRate)
+        val secondVariable = secondMatrix.toVariable("second", executionContext, optimizer, learningRate)
 
-        val add = Add(inputSource, secondVariable)
+        val add = Add(inputSource, firstVariable)
         val hadamard = HadamardProduct(add, secondVariable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
         val gradientSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), hadamard)
-
-        executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
 
         val firstGradient = gradients.hadamardMul(secondMatrix)
         val secondGradient = gradients.hadamardMul(firstMatrix)
 
         val expectedFirstResult = firstMatrix - firstGradient * learningRate
         val expectedSecondResult = secondMatrix - secondGradient * learningRate
+
+        executionContext.initializeExecution(gradientSource)
+        executionContext.executePropagation()
 
         Assertions.assertArrayEquals(
             expectedFirstResult.toFlatArray(),

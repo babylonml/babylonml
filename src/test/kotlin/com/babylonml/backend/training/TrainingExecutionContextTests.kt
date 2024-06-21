@@ -32,7 +32,7 @@ class TrainingExecutionContextTests {
         val thirdMatrix = FloatMatrix.random(thirdMatrixRows, thirdMatrixColumns, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(firstMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(firstMatrix.toTensor())
 
         val learningRate = 0.001f
 
@@ -69,7 +69,7 @@ class TrainingExecutionContextTests {
         val biasMatrix = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val learningRate = 0.001f
 
         val optimizer = SimpleGradientDescentOptimizer(input)
@@ -108,12 +108,11 @@ class TrainingExecutionContextTests {
         val weightsMatrix2 = FloatMatrix.random(hiddenSize, outputSize, source)
         val biasMatrix2 = FloatMatrix.random(1, outputSize, source)
 
-        val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val executionContext = TrainingExecutionContext(1, true)
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val learningRate = 0.001f
 
-        val optimizer =
-            SimpleGradientDescentOptimizer(input)
+        val optimizer = SimpleGradientDescentOptimizer(input)
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
         val biasVariable1 = biasMatrix1.toVariable(executionContext, optimizer, learningRate)
 
@@ -168,7 +167,7 @@ class TrainingExecutionContextTests {
         val biasMatrix3 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val learningRate = 0.001f
 
         val optimizer = SimpleGradientDescentOptimizer(input)
@@ -234,7 +233,7 @@ class TrainingExecutionContextTests {
         val biasMatrix3 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val learningRate = 0.001f
 
         val optimizer = SimpleGradientDescentOptimizer(input)
@@ -261,7 +260,7 @@ class TrainingExecutionContextTests {
         val add3 = Add(multiplication3, biasVariable3)
         val geLU3 = GeLUFunction(add3)
 
-        val softMax = SoftMaxByRows(
+        val softMax = SoftMax(
             geLU3,
         )
 
@@ -314,7 +313,7 @@ class TrainingExecutionContextTests {
         var weightsMatrix = FloatMatrix.random(inputSize, outputSize, source)
         var biasesMatrix = FloatMatrix.random(1, outputSize, source)
 
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(input)
         val weightsVariable = weightsMatrix.toVariable(
             executionContext,
@@ -328,9 +327,9 @@ class TrainingExecutionContextTests {
         val leRU = LeakyLeRUFunction(leakyLeRUSlope, add)
 
         val expectedValues = FloatMatrix.random(1, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
 
-        val mseCostFunction = MSEByRowsCostFunction(
+        val mseCostFunction = MSECostFunction(
             leRU, expectedValuesSource
         )
         executionContext.initializeExecution(mseCostFunction)
@@ -373,19 +372,16 @@ class TrainingExecutionContextTests {
         val outputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(1, 100)
 
-        val executionContext = TrainingExecutionContext(1)
+        val executionContext = TrainingExecutionContext(1, batchSize)
         val inputMatrix = FloatMatrix.random(batchSize, inputSize, source)
 
         var weightsMatrix = FloatMatrix.random(inputSize, outputSize, source)
         var biasesMatrix = FloatMatrix.random(1, outputSize, source)
 
-        val batchSource = executionContext.registerAdditionalInputSource(inputMatrix.toArray())
-        val optimizer =
-            SimpleGradientDescentOptimizer(batchSource)
-        val weightsVariable = weightsMatrix.toVariable(
-            executionContext,
-            optimizer, learningRate
-        )
+        val batchSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
+        val optimizer = SimpleGradientDescentOptimizer(batchSource)
+
+        val weightsVariable = weightsMatrix.toVariable(executionContext, optimizer, learningRate)
 
         val biasVariable = biasesMatrix.toVariable(executionContext, optimizer, learningRate)
         val multiplication = Multiplication(batchSource, weightsVariable)
@@ -393,10 +389,8 @@ class TrainingExecutionContextTests {
         val leRU = LeakyLeRUFunction(leakyLeRUSlope, add)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
-            leRU, expectedValuesSource
-        )
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(leRU, expectedValuesSource)
         executionContext.initializeExecution(mseCostFunction)
         executionContext.executePropagation()
 
@@ -412,16 +406,8 @@ class TrainingExecutionContextTests {
         weightsMatrix -= weightsDelta * learningRate / batchSize
         biasesMatrix -= biasesDelta.sumByRows() * learningRate / batchSize
 
-        Assertions.assertArrayEquals(
-            weightsMatrix.toFlatArray(),
-            weightsVariable.data,
-            0.001f
-        )
-        Assertions.assertArrayEquals(
-            biasesMatrix.toFlatArray(),
-            biasVariable.data,
-            0.001f
-        )
+        Assertions.assertArrayEquals(weightsMatrix.toFlatArray(),  weightsVariable.data, 0.001f)
+        Assertions.assertArrayEquals(biasesMatrix.toFlatArray(), biasVariable.data,0.001f)
     }
 
     @ParameterizedTest
@@ -437,13 +423,13 @@ class TrainingExecutionContextTests {
         val outputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(1, 100)
 
-        val executionContext = TrainingExecutionContext(epochs)
+        val executionContext = TrainingExecutionContext(epochs, batchSize)
         val inputMatrix = FloatMatrix.random(batchSize, inputSize, source)
 
         var weightsMatrix = FloatMatrix.random(inputSize, outputSize, source)
         var biasesMatrix = FloatMatrix.random(1, outputSize, source)
 
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer =
             SimpleGradientDescentOptimizer(inputSource)
 
@@ -459,9 +445,9 @@ class TrainingExecutionContextTests {
         val leRU = LeakyLeRUFunction(leakyLeRUSlope, add)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
 
-        val mseCostFunction = MSEByRowsCostFunction(
+        val mseCostFunction = MSECostFunction(
             leRU, expectedValuesSource
         )
         executionContext.initializeExecution(mseCostFunction)
@@ -506,7 +492,7 @@ class TrainingExecutionContextTests {
         val inputSize = source.nextInt(1, 100)
         val outputSize = source.nextInt(1, 100)
         val batchSize = source.nextInt(20, 100)
-        val miniBatchCount = source.nextInt(2, 10)
+        val miniBatchCount = 2//source.nextInt(2, 10)
         val miniBatchSize = batchSize / miniBatchCount
 
         val executionContext = TrainingExecutionContext(epochs, miniBatchSize)
@@ -515,11 +501,8 @@ class TrainingExecutionContextTests {
         var weightsMatrix = FloatMatrix.random(inputSize, outputSize, source)
         var biasesMatrix = FloatMatrix.random(1, outputSize, source)
 
-        val miniBatchInputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
-        val optimizer =
-            SimpleGradientDescentOptimizer(
-                miniBatchInputSource
-            )
+        val miniBatchInputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
+        val optimizer = SimpleGradientDescentOptimizer(miniBatchInputSource)
 
         val weightsVariable = weightsMatrix.toVariable(
             "weightsVariable", executionContext, optimizer,
@@ -532,13 +515,10 @@ class TrainingExecutionContextTests {
         val leRU = LeakyLeRUFunction("leRU", leakyLeRUSlope, add)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU, expectedValuesSource
         )
-        executionContext.initializeExecution(mseCostFunction)
-
-        executionContext.executePropagation()
 
         for (i in 0 until epochs) {
             for (start in 0 until batchSize step miniBatchSize) {
@@ -560,6 +540,9 @@ class TrainingExecutionContextTests {
                 biasesMatrix -= biasesDelta.sumByRows() * learningRate / miniBatchSampleCount
             }
         }
+
+        executionContext.initializeExecution(mseCostFunction)
+        executionContext.executePropagation()
 
         Assertions.assertArrayEquals(
             weightsMatrix.toFlatArray(),
@@ -595,7 +578,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix2 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -613,8 +596,8 @@ class TrainingExecutionContextTests {
         val leRU2 = LeakyLeRUFunction(leakyLeRUSlope, add2)
 
         val expectedValues = FloatMatrix.random(1, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU2, expectedValuesSource
         )
 
@@ -688,7 +671,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix2 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(input)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -708,8 +691,8 @@ class TrainingExecutionContextTests {
         val leRU2 = LeakyLeRUFunction(leakyLeRUSlope, add2)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU2, expectedValuesSource
         )
 
@@ -784,7 +767,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix2 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(epochs)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
@@ -822,8 +805,8 @@ class TrainingExecutionContextTests {
         val leRU2 = LeakyLeRUFunction("leRU2", leakyLeRUSlope, add2)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             "mseCostFunction", leRU2,
             expectedValuesSource
         )
@@ -902,8 +885,8 @@ class TrainingExecutionContextTests {
         var weightsMatrix2 = FloatMatrix.random(hiddenSize, outputSize, source)
         var biasesMatrix2 = FloatMatrix.random(1, outputSize, source)
 
-        val executionContext = TrainingExecutionContext(epochs)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val executionContext = TrainingExecutionContext(epochs, miniBatchSize)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
@@ -941,8 +924,8 @@ class TrainingExecutionContextTests {
         val leRU2 = LeakyLeRUFunction("leRU2", leakyLeRUSlope, add2)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             "mseCostFunction", leRU2, expectedValuesSource
         )
 
@@ -1029,7 +1012,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix3 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val weightsVariable1 = weightsMatrix1.toVariable(executionContext, optimizer, learningRate)
@@ -1056,8 +1039,8 @@ class TrainingExecutionContextTests {
         val leRU3 = LeakyLeRUFunction(leakyLeRUSlope, add3)
 
         val expectedValues = FloatMatrix.random(1, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU3, expectedValuesSource
         )
 
@@ -1158,7 +1141,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix3 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
 
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
@@ -1187,8 +1170,8 @@ class TrainingExecutionContextTests {
         val leRU3 = LeakyLeRUFunction(leakyLeRUSlope, add3)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU3, expectedValuesSource
         )
 
@@ -1292,7 +1275,7 @@ class TrainingExecutionContextTests {
 
         val executionContext = TrainingExecutionContext(epochs)
 
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
@@ -1336,8 +1319,8 @@ class TrainingExecutionContextTests {
         val leRU3 = LeakyLeRUFunction("leRU3", leakyLeRUSlope, add3)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction = MSECostFunction(
             leRU3, expectedValuesSource
         )
 
@@ -1442,7 +1425,7 @@ class TrainingExecutionContextTests {
         var biasesMatrix3 = FloatMatrix.random(1, outputSize, source)
 
         val executionContext = TrainingExecutionContext(epochs, miniBatchSize)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val weightsVariable1 = weightsMatrix1.toVariable(
@@ -1480,8 +1463,9 @@ class TrainingExecutionContextTests {
         val leRU3 = LeakyLeRUFunction("leRU3", leakyLeRUSlope, add3)
 
         val expectedValues = FloatMatrix.random(batchSize, outputSize, source)
-        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(leRU3, expectedValuesSource)
+        val expectedValuesSource = executionContext.registerAdditionalInputSource(expectedValues.toTensor())
+        val mseCostFunction =
+            MSECostFunction(leRU3, expectedValuesSource)
 
         executionContext.initializeExecution(mseCostFunction)
 

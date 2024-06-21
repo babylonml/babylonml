@@ -21,10 +21,12 @@ class AddTests {
         val inputMatrix = FloatMatrix.random(rows, columns, source)
         val variableMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext(1, inputMatrix.rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val executionContext = TrainingExecutionContext(1, true)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
+
+        val expectedResult = inputMatrix + variableMatrix
 
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
         val add = Add(inputSource, variable)
@@ -32,8 +34,6 @@ class AddTests {
         val resultCell = ResultMemoryCellCostFunction(add)
         executionContext.initializeExecution(resultCell)
         executionContext.executePropagation()
-
-        val expectedResult = inputMatrix + variableMatrix
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
@@ -53,7 +53,7 @@ class AddTests {
         val variableMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
@@ -77,29 +77,28 @@ class AddTests {
     fun rightDifferentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val inputMatrix = FloatMatrix.random(rows, columns, source)
         val variableMatrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
+
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
-
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
         val add = Add(inputSource, variable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
-        val resultCell = ResultMemoryCellCostFunction(add)
-
-        executionContext.initializeExecution(resultCell)
-        executionContext.executePropagation()
-
+        val gradientsSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), add)
         val expectedResult = variableMatrix - gradients * learningRate
+
+        executionContext.initializeExecution(gradientsSource)
+        executionContext.executePropagation()
 
         Assertions.assertArrayEquals(expectedResult.toFlatArray(), variable.data, 0.001f)
     }

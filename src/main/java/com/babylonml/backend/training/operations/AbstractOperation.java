@@ -7,8 +7,13 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.BiFunction;
 
 public abstract class AbstractOperation implements Operation {
+    protected final BiFunction<Operation, int[], TensorPointer> forwardMemoryAllocator;
+    protected final BiFunction<Operation, int[], TensorPointer> backwardMemoryAllocator;
+
     protected Operation leftOperation;
     protected Operation rightOperation;
 
@@ -45,10 +50,18 @@ public abstract class AbstractOperation implements Operation {
         this.rightOperation = rightOperation;
 
         if (leftOperation != null) {
+            if (leftOperation.getNextOperation() != null) {
+                throw new IllegalArgumentException("Left operation already has a next operation");
+            }
+
             leftOperation.setNextOperation(this);
         }
 
         if (rightOperation != null) {
+            if (rightOperation.getNextOperation() != null) {
+                throw new IllegalArgumentException("Right operation already has a next operation");
+            }
+
             rightOperation.setNextOperation(this);
         }
 
@@ -63,6 +76,13 @@ public abstract class AbstractOperation implements Operation {
         } else {
             this.executionContext = executionContext;
         }
+
+        Objects.requireNonNull(this.executionContext);
+
+        var ex = this.executionContext;
+
+        forwardMemoryAllocator = ex::allocateForwardMemory;
+        backwardMemoryAllocator = ex::allocateBackwardMemory;
     }
 
     public final void updateBackwardDerivativeChainValue(@NonNull TensorPointer backwardDerivativeChainValue) {
@@ -100,6 +120,11 @@ public abstract class AbstractOperation implements Operation {
     }
 
     @Override
+    public void clearNextOperation() {
+        this.nextOperation = null;
+    }
+
+    @Override
     public void prepareForNextPropagation() {
         if (leftOperation != null) {
             leftOperation.prepareForNextPropagation();
@@ -126,8 +151,11 @@ public abstract class AbstractOperation implements Operation {
         return executionContext;
     }
 
+
     protected TensorPointer broadcastIfNeeded(TensorPointer firstTensor,
-                                              TensorPointer secondTensor, BiKernelFunction function) {
+                                              TensorPointer secondTensor,
+                                              BiFunction<Operation, int[], TensorPointer> allocator,
+                                              BiKernelFunction function) {
         var firstTensorShape = firstTensor.shape();
         var secondTensorShape = secondTensor.shape();
 
@@ -138,32 +166,31 @@ public abstract class AbstractOperation implements Operation {
         }
 
         if (broadcastCandidate == 0) {
-            var result = executionContext.allocateForwardMemory(firstTensorShape);
+            var result = allocator.apply(this, firstTensorShape);
             function.apply(firstTensor, secondTensor, result);
             return result;
         }
 
         if (broadcastCandidate == 1) {
-            var temp = firstTensor;
-
-            firstTensor = secondTensor;
-            secondTensor = temp;
-        }
-
-        var broadcastTensor = executionContext.allocateForwardMemory(secondTensorShape);
-        TensorOperations.broadcast(firstTensor.buffer(), firstTensor.offset(), firstTensorShape,
-                broadcastTensor.buffer(), broadcastTensor.offset(), secondTensor.shape());
-
-        if (broadcastCandidate == 1) {
-            function.apply(secondTensor, broadcastTensor, broadcastTensor);
+            var broadcastTensor = allocator.apply(this, secondTensorShape);
+            TensorOperations.broadcast(firstTensor.buffer(), firstTensor.offset(), firstTensor.shape(),
+                    broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape());
+            function.apply(broadcastTensor, secondTensor, broadcastTensor);
             return broadcastTensor;
         }
 
-        function.apply(broadcastTensor, secondTensor, broadcastTensor);
+        var broadcastTensor = allocator.apply(this, firstTensorShape);
+        TensorOperations.broadcast(secondTensor.buffer(), secondTensor.offset(), secondTensor.shape(),
+                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape());
+
+        function.apply(firstTensor, broadcastTensor, broadcastTensor);
+
         return broadcastTensor;
     }
 
-    protected TensorPointer reduceIfNeeded(TensorPointer firstTensor, TensorPointer secondTensor, BiKernelFunction function) {
+    protected TensorPointer reduceIfNeeded(TensorPointer firstTensor, TensorPointer secondTensor,
+                                           BiFunction<Operation, int[], TensorPointer> allocator,
+                                           BiKernelFunction function) {
         var firstTensorShape = firstTensor.shape();
         var secondTensorShape = secondTensor.shape();
 
@@ -174,28 +201,26 @@ public abstract class AbstractOperation implements Operation {
         }
 
         if (broadcastCandidate == 0) {
-            var result = executionContext.allocateForwardMemory(firstTensorShape);
+            var result = allocator.apply(this, firstTensorShape);
             function.apply(firstTensor, secondTensor, result);
+
             return result;
         }
 
         if (broadcastCandidate == 1) {
-            var temp = secondTensor;
+            var reducedTensor = allocator.apply(this, firstTensorShape);
+            TensorOperations.reduce(secondTensor.buffer(), secondTensor.offset(), secondTensor.shape(),
+                    reducedTensor.buffer(), reducedTensor.offset(), reducedTensor.shape());
+            function.apply(firstTensor, reducedTensor, reducedTensor);
 
-            secondTensor = firstTensor;
-            firstTensor = temp;
-        }
-
-        var reducedTensor = executionContext.allocateForwardMemory(secondTensorShape);
-        TensorOperations.reduce(firstTensor.buffer(), firstTensor.offset(), firstTensor.shape(),
-                reducedTensor.buffer(), reducedTensor.offset(), secondTensor.shape());
-
-        if (broadcastCandidate == 1) {
-            function.apply(secondTensor, reducedTensor, reducedTensor);
             return reducedTensor;
         }
 
+        var reducedTensor = allocator.apply(this, secondTensorShape);
+        TensorOperations.reduce(firstTensor.buffer(), firstTensor.offset(), firstTensor.shape(),
+                reducedTensor.buffer(), reducedTensor.offset(), reducedTensor.shape());
         function.apply(reducedTensor, secondTensor, reducedTensor);
+
         return reducedTensor;
     }
 

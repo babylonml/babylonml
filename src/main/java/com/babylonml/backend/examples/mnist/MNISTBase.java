@@ -1,6 +1,6 @@
 package com.babylonml.backend.examples.mnist;
 
-import com.babylonml.backend.training.execution.InputSource;
+import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import com.babylonml.backend.training.initializer.Initializer;
 import com.babylonml.backend.training.operations.*;
@@ -24,10 +24,12 @@ public abstract class MNISTBase {
             trainingLabelProbabilities[i][trainingLabels[i]] = 1.0f;
         }
 
-        var inputSource = trainingExecutionContext.registerMainInputSource(trainingImages);
+        var inputSource = trainingExecutionContext.registerMainInputSource(Tensor.fromMatrix(trainingImages));
         var fnnOutput = createFNN(neuronsCount, inputSize, inputSource, trainingExecutionContext, learningRate, outputSize);
 
-        var expectedValuesSource = trainingExecutionContext.registerAdditionalInputSource(trainingLabelProbabilities);
+        var expectedValuesSource = trainingExecutionContext.registerAdditionalInputSource(
+                Tensor.fromMatrix(trainingLabelProbabilities));
+
         trainingExecutionContext.initializeExecution(new CrossEntropyCostFunction(expectedValuesSource, fnnOutput));
 
         trainingExecutionContext.executePropagation(((epochIndex, result) ->
@@ -37,7 +39,7 @@ public abstract class MNISTBase {
 //        System.out.println("Training accuracy: " + trainingAccuracy);
     }
 
-    private static Operation createFNN(int[] neuronsCount, int inputSize, InputSource inputSource,
+    private static Operation createFNN(int[] neuronsCount, int inputSize, ContextInputSource inputSource,
                                        TrainingExecutionContext trainingExecutionContext,
                                        float learningRate, int outputSize) {
         var layer = denseLayer(inputSize, neuronsCount[0], inputSource, inputSource,
@@ -51,7 +53,7 @@ public abstract class MNISTBase {
                 layer, trainingExecutionContext, neuronsCount.length, learningRate);
     }
 
-    private static Operation denseLayer(int inputSize, int outputSize, InputSource inputSource,
+    private static Operation denseLayer(int inputSize, int outputSize, ContextInputSource inputSource,
                                         Operation input,
                                         TrainingExecutionContext executionContext, int layerIndex,
                                         float learningRate) {

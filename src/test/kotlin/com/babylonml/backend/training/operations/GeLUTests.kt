@@ -17,13 +17,13 @@ class GeLUTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val rows = source.nextInt(100)
-        val columns = source.nextInt(100)
+        val rows = source.nextInt(1, 100)
+        val columns = source.nextInt(1, 100)
 
         val matrix = FloatMatrix.random(rows, columns, source)
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(matrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(matrix.toTensor())
 
         val geLU = GeLUFunction(inputSource)
 
@@ -52,7 +52,7 @@ class GeLUTests {
         val inputMatrix = FloatMatrix(rows, columns)
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
 
         val learningRate = 0.01f
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
@@ -69,7 +69,7 @@ class GeLUTests {
 
         val expectedGradients = geLUDerivative(matrix).hadamardMul(gradients)
 
-        val expectedResult = matrix - expectedGradients * learningRate
+        val expectedResult = matrix - expectedGradients * learningRate / rows
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(), variable.data, 0.001f

@@ -36,6 +36,8 @@ public interface Operation {
 
     void setNextOperation(@NonNull Operation nextOperation);
 
+    void clearNextOperation();
+
     void updateBackwardDerivativeChainValue(@NonNull TensorPointer backwardDerivativeChainValue);
 
     boolean requiresBackwardDerivativeChainValue();

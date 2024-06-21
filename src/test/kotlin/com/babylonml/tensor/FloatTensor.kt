@@ -396,4 +396,3 @@ operator fun Float.div(other: FloatTensor): FloatTensor {
 
     return result
 }
-

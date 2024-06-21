@@ -4,6 +4,7 @@ import com.babylonml.backend.training.optimizer.GradientOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Variable
 import com.babylonml.FloatVector
+import com.babylonml.backend.training.operations.Tensor
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt
 
@@ -148,6 +149,21 @@ class FloatMatrix(val rows: Int, val cols: Int) {
         learningRate: Float
     ): Variable {
         return Variable(name, exec, optimizer, toFlatArray(), intArrayOf(rows, cols), learningRate)
+    }
+
+    fun toTensor(dimensions: Int = 2): Tensor {
+        if (dimensions < 2) {
+            throw IllegalArgumentException("Tensor dimensions must be at least 2")
+        }
+
+        val shape = IntArray(dimensions) {
+            1
+        }
+
+        shape[shape.size - 2] = rows
+        shape[shape.size - 1] = cols
+
+        return Tensor(toFlatArray(), shape)
     }
 
     operator fun times(float: Float): FloatMatrix {
@@ -418,8 +434,6 @@ class FloatMatrix(val rows: Int, val cols: Int) {
 
         return result
     }
-
-    fun toArray() = data.clone()
 
     operator fun set(i: Int, j: Int, value: Float) {
         data[i][j] = value

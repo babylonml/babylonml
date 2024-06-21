@@ -31,7 +31,7 @@ public final class Constant extends AbstractOperation implements StartOperation 
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
-        var result = executionContext.allocateForwardMemory(shape);
+        var result = executionContext.allocateForwardMemory(this, shape);
 
         var stride = TensorOperations.stride(shape);
         System.arraycopy(constant, 0, result.buffer(), result.offset(), stride);

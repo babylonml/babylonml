@@ -10,7 +10,6 @@ import org.jspecify.annotations.NonNull;
 import java.util.Objects;
 
 public final class HadamardProduct extends AbstractOperation {
-
     private TensorPointer leftOperandPointer;
     private TensorPointer rightOperandPointer;
 
@@ -37,23 +36,25 @@ public final class HadamardProduct extends AbstractOperation {
         leftOperandPointer = leftOperation.forwardPassCalculation();
         rightOperandPointer = rightOperation.forwardPassCalculation();
 
-        return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, ((firstTensor, secondTensor, result) ->
-                VectorOperations.vectorToVectorElementWiseMultiplication(firstTensor.buffer(), firstTensor.offset(),
-                        secondTensor.buffer(), secondTensor.offset(), result.buffer(), result.offset(),
-                        TensorOperations.stride(result.shape()))
-        ));
+        return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, forwardMemoryAllocator,
+                ((firstTensor, secondTensor, result) ->
+                        VectorOperations.vectorToVectorElementWiseMultiplication(firstTensor.buffer(), firstTensor.offset(),
+                                secondTensor.buffer(), secondTensor.offset(), result.buffer(), result.offset(),
+                                TensorOperations.stride(result.shape()))
+                ));
     }
 
     @Override
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
 
-        return reduceIfNeeded(derivativeChainPointer, rightOperandPointer, ((derivativeTensor, rightTensor, result) ->
+        return reduceIfNeeded(derivativeChainPointer, rightOperandPointer, backwardMemoryAllocator,
+                ((derivativeTensor, rightTensor, resultTensor) ->
                         VectorOperations.vectorToVectorElementWiseMultiplication(
-                                result.buffer(), result.offset(),
-                                rightTensor.buffer(), rightTensor.offset(), derivativeTensor.buffer(),
-                                derivativeTensor.offset(),
-                                TensorOperations.stride(derivativeTensor.shape()))
+                                derivativeTensor.buffer(), derivativeTensor.offset(),
+                                rightTensor.buffer(), rightTensor.offset(),
+                                resultTensor.buffer(), resultTensor.offset(),
+                                TensorOperations.stride(resultTensor.shape()))
                 )
         );
     }
@@ -62,12 +63,13 @@ public final class HadamardProduct extends AbstractOperation {
     public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
 
-        return reduceIfNeeded(derivativeChainPointer, leftOperandPointer, ((derivativeTensor, leftTensor, result) ->
+        return reduceIfNeeded(derivativeChainPointer, leftOperandPointer, backwardMemoryAllocator,
+                ((derivativeTensor, leftTensor, resultTensor) ->
                         VectorOperations.vectorToVectorElementWiseMultiplication(
-                                result.buffer(), result.offset(),
-                                leftTensor.buffer(), leftTensor.offset(), derivativeTensor.buffer(),
-                                derivativeTensor.offset(),
-                                TensorOperations.stride(derivativeTensor.shape()))
+                                derivativeTensor.buffer(), derivativeTensor.offset(),
+                                leftTensor.buffer(), leftTensor.offset(),
+                                resultTensor.buffer(), resultTensor.offset(),
+                                TensorOperations.stride(resultTensor.shape()))
                 )
         );
     }

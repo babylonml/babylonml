@@ -11,7 +11,7 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
 
-public final class MSEByRowsCostFunction extends AbstractOperation implements CostFunction {
+public final class MSECostFunction extends AbstractOperation implements CostFunction {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
     private final int @NonNull [] maxShape;
@@ -23,14 +23,14 @@ public final class MSEByRowsCostFunction extends AbstractOperation implements Co
 
     private boolean trainingMode;
 
-    public MSEByRowsCostFunction(Operation predictionOperation,
-                                 Operation expectedValuesOperation) {
+    public MSECostFunction(Operation predictionOperation,
+                           Operation expectedValuesOperation) {
         this(null, predictionOperation, expectedValuesOperation);
     }
 
-    public MSEByRowsCostFunction(String name,
-                                 Operation predictionOperation,
-                                 Operation expectedValuesOperation) {
+    public MSECostFunction(String name,
+                           Operation predictionOperation,
+                           Operation expectedValuesOperation) {
         super(name, predictionOperation, expectedValuesOperation);
 
         this.maxShape = TensorOperations.calculateMaxShape(predictionOperation.getMaxResultShape(),
@@ -59,7 +59,7 @@ public final class MSEByRowsCostFunction extends AbstractOperation implements Co
         var expectedValuesBuffer = expectedValuesPointer.buffer();
         var expectedValuesOffset = expectedValuesPointer.offset();
 
-        var result = executionContext.allocateForwardMemory(1, 1);
+        var result = executionContext.allocateForwardMemory(this, 1, 1);
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
@@ -98,7 +98,7 @@ public final class MSEByRowsCostFunction extends AbstractOperation implements Co
         var expectedValuesBuffer = expectedValuesPointer.buffer();
         var expectedValuesOffset = expectedValuesPointer.offset();
 
-        var result = executionContext.allocateBackwardMemory(predictionOperandPointer.shape());
+        var result = executionContext.allocateBackwardMemory(this, predictionOperandPointer.shape());
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
@@ -152,7 +152,7 @@ public final class MSEByRowsCostFunction extends AbstractOperation implements Co
     }
 
     @Override
-    public void fullPassCalculation() {
+    public void fullPassCalculationMode() {
         trainingMode = false;
     }
 }

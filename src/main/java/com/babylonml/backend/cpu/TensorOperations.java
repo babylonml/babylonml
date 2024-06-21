@@ -5,13 +5,27 @@ import org.jspecify.annotations.NonNull;
 
 import java.util.Arrays;
 
-public final class TensorOperations {
-
+public abstract class TensorOperations {
     public static int stride(int @NonNull [] shape) {
         int stride = 1;
         for (int dim : shape) {
             stride *= dim;
         }
+        return stride;
+    }
+
+    public static int stride(@NonNull Object data) {
+        int stride = 1;
+
+        if (data instanceof Object[] objects) {
+            stride *= objects.length;
+            stride *= stride(objects[0]);
+        } else if (data instanceof float[] floats) {
+            stride *= floats.length;
+        } else {
+            throw new IllegalArgumentException("Unsupported data type: " + data.getClass());
+        }
+
         return stride;
     }
 
@@ -59,9 +73,13 @@ public final class TensorOperations {
             candidate = 2;
         }
 
-        var size = Math.min(firstShape.length, secondShape.length);
+        if (candidate == 1) {
+            firstShape = broadcastShape(firstShape, secondShape);
+        } else if (candidate == 2) {
+            secondShape = broadcastShape(secondShape, firstShape);
+        }
 
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < firstShape.length; i++) {
             if (firstShape[i] != secondShape[i]) {
                 if (firstShape[i] == 1) {
                     if (candidate == 2) {
@@ -184,18 +202,21 @@ public final class TensorOperations {
         }
     }
 
-    public static int @NonNull [] broadcastShape(int @NonNull [] inputShape, int @NonNull [] outputShape) {
-        if (outputShape.length > inputShape.length) {
-            var newInputShape = new int[outputShape.length];
+    public static int @NonNull [] broadcastShape(int @NonNull [] shapeToBroadcast, int @NonNull [] templateShape) {
+        if (templateShape.length > shapeToBroadcast.length) {
+            var newInputShape = new int[templateShape.length];
 
-            for (int i = 0; i < outputShape.length - inputShape.length; i++) {
+            for (int i = 0; i < templateShape.length - shapeToBroadcast.length; i++) {
                 newInputShape[i] = 1;
             }
-            System.arraycopy(inputShape, 0, newInputShape, outputShape.length - inputShape.length,
-                    inputShape.length);
-            inputShape = newInputShape;
+
+            System.arraycopy(shapeToBroadcast, 0, newInputShape, templateShape.length - shapeToBroadcast.length,
+                    shapeToBroadcast.length);
+
+            shapeToBroadcast = newInputShape;
         }
-        return inputShape;
+
+        return shapeToBroadcast;
     }
 
 
@@ -329,5 +350,171 @@ public final class TensorOperations {
                 }
             }
         }
+    }
+
+    public static void bmm(float @NonNull [] first, int firstOffset, int @NonNull [] firstShape,
+                           float @NonNull [] second, int secondOffset,
+                           int @NonNull [] secondShape, float @NonNull [] result, int resultOffset,
+                           int @NonNull [] resultShape) {
+        validateBMMShapesValidity(firstShape, secondShape);
+
+        var diff = firstShape.length - 2;
+        for (int i = 0; i < diff; i++) {
+            if (firstShape[i] != resultShape[i]) {
+                throw new IllegalArgumentException("Input and result shapes must have the" +
+                        " same dimensions for the first " + diff + " dimensions");
+            }
+        }
+
+        if (resultShape.length != firstShape.length) {
+            throw new IllegalArgumentException("Result shape must have the same rank as first and second shapes");
+        }
+        if (resultShape[diff] != firstShape[diff]) {
+            throw new IllegalArgumentException("Result shape must have the same second to last dimension as the first shape");
+        }
+        if (resultShape[diff + 1] != secondShape[diff + 1]) {
+            throw new IllegalArgumentException("Result shape must have the same last dimension as the second shape");
+        }
+
+
+        var firstWidth = 1;
+        for (int i = diff; i < firstShape.length; i++) {
+            firstWidth *= firstShape[i];
+        }
+
+        var secondWidth = 1;
+        for (int i = diff; i < secondShape.length; i++) {
+            secondWidth *= secondShape[i];
+        }
+
+        var resultWidth = 1;
+        for (int i = diff; i < resultShape.length; i++) {
+            resultWidth *= resultShape[i];
+        }
+
+        var matrices = 1;
+        for (int i = 0; i < diff; i++) {
+            matrices *= firstShape[i];
+        }
+
+        for (int i = 0; i < matrices; i++) {
+            var firstIndex = firstOffset + i * firstWidth;
+            var secondIndex = secondOffset + i * secondWidth;
+            var resultIndex = resultOffset + i * resultWidth;
+
+            MatrixOperations.matrixToMatrixMultiplication(first, firstIndex, firstShape[diff], firstShape[diff + 1],
+                    second, secondIndex, secondShape[diff], secondShape[diff + 1],
+                    result, resultIndex);
+        }
+    }
+
+    private static void validateBMMShapesValidity(int @NonNull [] firstShape, int @NonNull [] secondShape) {
+        if (firstShape.length < 2) {
+            throw new IllegalArgumentException("First and second shapes must have at least 2 dimensions");
+        }
+        if (firstShape.length != secondShape.length) {
+            throw new IllegalArgumentException("First and second shapes must have the same rank. First shape: "
+                    + Arrays.toString(firstShape) +
+                    ", second shape: " + Arrays.toString(secondShape) + ".");
+        }
+
+        var diff = firstShape.length - 2;
+        for (int i = 0; i < diff; i++) {
+            if (firstShape[i] != secondShape[i]) {
+                throw new IllegalArgumentException("First and second shapes must have the" +
+                        " same dimensions for the first " + diff + " dimensions. " +
+                        "First shape: " + Arrays.toString(firstShape) +
+                        ", second shape: " + Arrays.toString(secondShape) + ".");
+            }
+
+        }
+        if (firstShape[diff + 1] != secondShape[diff]) {
+            throw new IllegalArgumentException("Second to last dimension of first shape must be equal to" +
+                    " the last dimension of the second shape. First shape: " + Arrays.toString(firstShape) +
+                    ", second shape: " + Arrays.toString(secondShape) + ".");
+        }
+    }
+
+    public static int[] calculateBMMShape(int[] firstShape, int[] secondShape) {
+        validateBMMShapesValidity(firstShape, secondShape);
+
+        var resultShape = new int[firstShape.length];
+        System.arraycopy(firstShape, 0, resultShape, 0, firstShape.length - 2);
+
+        resultShape[firstShape.length - 2] = firstShape[firstShape.length - 2];
+        resultShape[firstShape.length - 1] = secondShape[secondShape.length - 1];
+
+        return resultShape;
+    }
+
+    public static void bmt(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
+                           float @NonNull [] result, int resultOffset, int @NonNull [] resultShape) {
+        if (inputShape.length < 2) {
+            throw new IllegalArgumentException("Input shape must have at least 2 dimensions");
+        }
+
+        if (resultShape.length != inputShape.length) {
+            throw new IllegalArgumentException("Result shape must have the same rank as input shape.");
+        }
+
+        var diff = inputShape.length - 2;
+        for (int i = 0; i < diff; i++) {
+            if (inputShape[i] != resultShape[i]) {
+                throw new IllegalArgumentException("Input and result shapes must have the" +
+                        " same dimensions for the first " + diff + " dimensions");
+            }
+        }
+
+        if (resultShape[diff + 1] != inputShape[diff]) {
+            throw new IllegalArgumentException("Second to last dimension of input shape must be equal to" +
+                    " the last dimension of the result shape. Input shape: " + Arrays.toString(inputShape) +
+                    ", result shape: " + Arrays.toString(resultShape) + ".");
+        }
+        if (resultShape[diff] != inputShape[diff + 1]) {
+            throw new IllegalArgumentException("Result shape must have the same second to last dimension as " +
+                    "the last dimension of input shape. " +
+                    "Input shape: " + Arrays.toString(inputShape) +
+                    ", result shape: " + Arrays.toString(resultShape) + ".");
+        }
+
+        var inputWidth = 1;
+        for (int i = diff; i < inputShape.length; i++) {
+            inputWidth *= inputShape[i];
+        }
+
+
+        var resultWidth = 1;
+        for (int i = diff; i < resultShape.length; i++) {
+            resultWidth *= resultShape[i];
+        }
+
+        var matrices = 1;
+        for (int i = 0; i < diff; i++) {
+            matrices *= inputShape[i];
+        }
+
+        for (int i = 0; i < matrices; i++) {
+            var inputIndex = inputOffset + i * inputWidth;
+            var resultIndex = resultOffset + i * resultWidth;
+
+            MatrixOperations.transposeMatrix(input, inputIndex, inputShape[diff], inputShape[diff + 1],
+                    result, resultIndex);
+        }
+    }
+
+    public static int[] calculateBMTShape(int @NonNull [] shape) {
+
+        if (shape.length < 2) {
+            throw new IllegalArgumentException("Shape must have at least 2 dimensions. Shape : " +
+                    Arrays.toString(shape));
+        }
+
+        var resultShape = new int[shape.length];
+
+        System.arraycopy(shape, 0, resultShape, 0, shape.length - 2);
+        resultShape[shape.length - 2] = shape[shape.length - 1];
+        resultShape[shape.length - 1] = shape[shape.length - 2];
+
+        return resultShape;
     }
 }

@@ -45,12 +45,8 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
         var predictedOperandOffset = predictedOperandResultPointer.offset();
 
 
-        softMaxResultPointer = executionContext.allocateForwardMemory(predictedOperandResultPointer.shape());
+        softMaxResultPointer = executionContext.allocateForwardMemory(this, predictedOperandResultPointer.shape());
         expectedProbabilityPointer = rightOperation.forwardPassCalculation();
-
-        if (trainingMode) {
-            return TrainingExecutionContext.NULL;
-        }
 
         var softMaxBuffer = softMaxResultPointer.buffer();
         var softMaxOffset = softMaxResultPointer.offset();
@@ -65,6 +61,10 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
 
         MatrixOperations.softMaxByRows(predictedOperandBuffer, predictedOperandOffset, shape[0], shape[1],
                 softMaxBuffer, softMaxOffset);
+
+        if (trainingMode) {
+            return TrainingExecutionContext.NULL;
+        }
 
         var stride = TensorOperations.stride(predictedOperandResultPointer.shape());
         var loopBound = SPECIES.loopBound(stride);
@@ -81,7 +81,7 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
             sum += (float) Math.log(softMaxBuffer[softMaxOffset + i]) * expectedProbability[i + expectedProbabilityOffset];
         }
 
-        var result = executionContext.allocateForwardMemory(1, 1);
+        var result = executionContext.allocateForwardMemory(this, 1, 1);
 
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
@@ -99,7 +99,7 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
         var expectedProbability = expectedProbabilityPointer.buffer();
         var expectedProbabilityOffset = expectedProbabilityPointer.offset();
 
-        var result = executionContext.allocateBackwardMemory(softMaxResultPointer.shape());
+        var result = executionContext.allocateBackwardMemory(this, softMaxResultPointer.shape());
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
@@ -142,7 +142,7 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
     }
 
     @Override
-    public void fullPassCalculation() {
+    public void fullPassCalculationMode() {
         trainingMode = false;
     }
 }

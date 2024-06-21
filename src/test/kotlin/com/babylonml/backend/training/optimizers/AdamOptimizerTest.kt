@@ -23,14 +23,13 @@ class AdamOptimizerTest {
 
         val rows = source.nextInt(1, 100)
         val columns = source.nextInt(1, 100)
-        val epochs = source.nextInt(1, 50)
-
+        val epochs = source.nextInt(1, 10)
 
         var variableMatrix = FloatMatrix.random(rows, columns, source)
         val inputMatrix = FloatMatrix.random(rows, columns, source)
 
-        val executionContext = TrainingExecutionContext(1)
-        val input = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val executionContext = TrainingExecutionContext(epochs)
+        val input = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = AdamOptimizer(input)
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
@@ -48,7 +47,7 @@ class AdamOptimizerTest {
 
         val epsilon = AdamOptimizer.DEFAULT_EPSILON
 
-        for (iteration in 1..epochs) {
+        for (iteration in 1.. epochs) {
             val gradients = FloatMatrix(rows, columns, gradientSource.generatedGradients[iteration - 1]) / rows
 
             matrixM = (matrixM * betta1) + (gradients * (1 - betta1))

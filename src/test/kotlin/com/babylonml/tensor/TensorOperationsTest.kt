@@ -20,15 +20,22 @@ class TensorOperationsTest {
         val matrixRows = source.nextInt(1, 100)
         val matrix = vector.broadcast(matrixRows, vectorSize)
 
-        val actualResultArray = FloatArray(matrixRows * vectorSize)
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(vector.size + inputOffset)
+        vector.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(matrixRows * vectorSize + outputOffset)
+
         TensorOperations.broadcast(
-            vector.toFlatArray(), 0, intArrayOf(vectorSize),
-            actualResultArray, 0, intArrayOf(matrixRows, vectorSize)
+            inputArray, inputOffset, intArrayOf(vectorSize),
+            outputArray, outputOffset, intArrayOf(matrixRows, vectorSize)
         )
 
         Assertions.assertArrayEquals(
             matrix.toFlatArray(),
-            actualResultArray, 0.001f
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
         )
     }
 
@@ -43,14 +50,24 @@ class TensorOperationsTest {
         val matrixColumns = source.nextInt(1, 100)
         val expectedResultMatrix = initialMatrix.broadcast(matrixRows, matrixColumns)
 
-        val actualResultArray = FloatArray(matrixColumns * matrixRows)
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(initialMatrix.size + inputOffset)
+        initialMatrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(expectedResultMatrix.size + outputOffset)
 
         TensorOperations.broadcast(
-            initialMatrix.toFlatArray(), 0, intArrayOf(matrixRows, 1),
-            actualResultArray, 0, intArrayOf(matrixRows, matrixColumns)
+            inputArray, inputOffset, intArrayOf(matrixRows, 1),
+            outputArray, outputOffset, intArrayOf(matrixRows, matrixColumns)
         )
 
-        Assertions.assertArrayEquals(expectedResultMatrix.toFlatArray(), actualResultArray, 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResultMatrix.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size),
+            0.001f
+        )
     }
 
     @ParameterizedTest
@@ -64,14 +81,23 @@ class TensorOperationsTest {
         val matrixColumns = source.nextInt(1, 100)
         val expectedResultMatrix = initialMatrix.broadcast(matrixRows, matrixColumns)
 
-        val actualResultArray = FloatArray(matrixColumns * matrixRows)
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(initialMatrix.size + inputOffset)
+        initialMatrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(matrixColumns * matrixRows + outputOffset)
 
         TensorOperations.broadcast(
-            initialMatrix.toFlatArray(), 0, intArrayOf(1, 1),
-            actualResultArray, 0, intArrayOf(matrixRows, matrixColumns)
+            inputArray, inputOffset, intArrayOf(1, 1),
+            outputArray, outputOffset, intArrayOf(matrixRows, matrixColumns)
         )
 
-        Assertions.assertArrayEquals(expectedResultMatrix.toFlatArray(), actualResultArray, 0.001f)
+        Assertions.assertArrayEquals(
+            expectedResultMatrix.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
     }
 
     @ParameterizedTest
@@ -79,7 +105,7 @@ class TensorOperationsTest {
     fun multipleDimensionsBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val tensorDimensions = source.nextInt(3, 10)
+        val tensorDimensions = source.nextInt(3, 7)
         val newShape = IntArray(tensorDimensions) { source.nextInt(2, 10) }
 
         val broadcastDimensionsCount = source.nextInt(1, tensorDimensions)
@@ -93,14 +119,65 @@ class TensorOperationsTest {
 
         val tensor = FloatTensor.random(source, *shape)
         val broadcastTensor = tensor.broadcast(*newShape)
-        val actualResultArray = FloatArray(broadcastTensor.size)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(broadcastTensor.size + outputOffset)
 
         TensorOperations.broadcast(
-            tensor.toFlatArray(), 0, shape,
-            actualResultArray, 0, newShape
+            inputArray, inputOffset, shape,
+            outputArray, outputOffset, newShape
         )
 
-        Assertions.assertArrayEquals(broadcastTensor.toFlatArray(), actualResultArray, 0.001f)
+        Assertions.assertArrayEquals(
+            broadcastTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun multipleDimensionsCountBroadcastTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val tensorDimensions = source.nextInt(3, 7)
+        val newTensorDimensions = source.nextInt(tensorDimensions, tensorDimensions + 4)
+
+        val newShape = IntArray(newTensorDimensions) { source.nextInt(2, 7) }
+        val shape = IntArray(tensorDimensions) { newShape[newTensorDimensions - tensorDimensions + it] }
+
+        val broadcastDimensionsCount = source.nextInt(1, tensorDimensions)
+        val permutation = PermutationSampler.natural(tensorDimensions)
+        PermutationSampler.shuffle(source, permutation)
+
+        for (i in 0 until broadcastDimensionsCount) {
+            shape[permutation[i]] = 1
+        }
+
+        val tensor = FloatTensor.random(source, *shape)
+        val broadcastTensor = tensor.broadcast(*newShape)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(broadcastTensor.size + outputOffset)
+
+        TensorOperations.broadcast(
+            inputArray, inputOffset, shape,
+            outputArray, outputOffset, newShape
+        )
+
+        Assertions.assertArrayEquals(
+            broadcastTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
     }
 
     @ParameterizedTest
@@ -114,16 +191,23 @@ class TensorOperationsTest {
         val matrix = FloatTensor.random(source, vectorSize, matrixColumns)
 
         val vector = matrix.reduce(matrixColumns)
-        val actualResultArray = FloatArray(matrixColumns)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(vectorSize * matrixColumns + inputOffset)
+        matrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(matrixColumns + outputOffset)
 
         TensorOperations.reduce(
-            matrix.toFlatArray(), 0, intArrayOf(vectorSize, matrixColumns),
-            actualResultArray, 0, intArrayOf(matrixColumns)
+            inputArray, inputOffset, intArrayOf(vectorSize, matrixColumns),
+            outputArray, outputOffset, intArrayOf(matrixColumns)
         )
 
         Assertions.assertArrayEquals(
             vector.toFlatArray(),
-            actualResultArray, 0.001f
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
         )
     }
 
@@ -138,14 +222,24 @@ class TensorOperationsTest {
         val matrix = FloatTensor.random(source, matrixRows, matrixColumns)
 
         val vector = matrix.reduce(matrixRows, 1)
-        val actualResultArray = FloatArray(matrixRows)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(matrixRows * matrixColumns + inputOffset)
+        matrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(matrixRows + outputOffset)
 
         TensorOperations.reduce(
-            matrix.toFlatArray(), 0, intArrayOf(matrixRows, matrixColumns),
-            actualResultArray, 0, intArrayOf(matrixRows, 1)
+            inputArray, inputOffset, intArrayOf(matrixRows, matrixColumns),
+            outputArray, outputOffset, intArrayOf(matrixRows, 1)
         )
 
-        Assertions.assertArrayEquals(vector.toFlatArray(), actualResultArray, 0.001f)
+        Assertions.assertArrayEquals(
+            vector.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
     }
 
     @ParameterizedTest
@@ -159,14 +253,20 @@ class TensorOperationsTest {
         val initialMatrix = FloatTensor.random(source, matrixRows, matrixColumns)
         val scalar = initialMatrix.reduce(1)
 
-        val actualResultArray = FloatArray(1)
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(matrixRows * matrixColumns + inputOffset)
+        initialMatrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(1 + outputOffset)
 
         TensorOperations.reduce(
-            initialMatrix.toFlatArray(), 0, intArrayOf(matrixRows, matrixColumns),
-            actualResultArray, 0, intArrayOf(1)
+            inputArray, inputOffset, intArrayOf(matrixRows, matrixColumns),
+            outputArray, outputOffset, intArrayOf(1)
         )
 
-        Assertions.assertEquals(scalar.toFlatArray()[0], actualResultArray[0], 0.001f)
+        Assertions.assertEquals(scalar.toFlatArray()[0], outputArray[outputOffset], 0.001f)
     }
 
     @ParameterizedTest
@@ -180,20 +280,71 @@ class TensorOperationsTest {
         val permutation = PermutationSampler.natural(tensorDimensions)
         PermutationSampler.shuffle(source, permutation)
 
-       val newShape = shape.copyOf()
+        val newShape = shape.copyOf()
         for (i in 0 until reduceDimensionsCount) {
             newShape[permutation[i]] = 1
         }
 
         val tensor = FloatTensor.random(source, *shape)
         val reducedTensor = tensor.reduce(*newShape)
-        val actualResultArray = FloatArray(reducedTensor.size)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(reducedTensor.size + outputOffset)
 
         TensorOperations.reduce(
-            tensor.toFlatArray(), 0, shape,
-            actualResultArray, 0, newShape
+            inputArray, inputOffset, shape,
+            outputArray, outputOffset, newShape
         )
 
-        Assertions.assertArrayEquals(reducedTensor.toFlatArray(), actualResultArray, 0.001f)
+        Assertions.assertArrayEquals(
+            reducedTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun multipleDimensionsCountReduceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val tensorDimensions = source.nextInt(4, 7)
+        val shape = IntArray(tensorDimensions) { source.nextInt(2, 7) }
+
+        val newDimensionsCount = source.nextInt(tensorDimensions - 2, tensorDimensions + 1)
+        val newShape = IntArray(newDimensionsCount) { shape[tensorDimensions - newDimensionsCount + it] }
+
+        val reduceDimensionsCount = source.nextInt(1, newDimensionsCount)
+        val permutation = PermutationSampler.natural(newDimensionsCount)
+        PermutationSampler.shuffle(source, permutation)
+
+        for (i in 0 until reduceDimensionsCount) {
+            newShape[permutation[i]] = 1
+        }
+
+        val tensor = FloatTensor.random(source, *shape)
+        val reducedTensor = tensor.reduce(*newShape)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(reducedTensor.size + outputOffset)
+
+        TensorOperations.reduce(
+            inputArray, inputOffset, shape,
+            outputArray, outputOffset, newShape
+        )
+
+        Assertions.assertArrayEquals(
+            reducedTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
     }
 }

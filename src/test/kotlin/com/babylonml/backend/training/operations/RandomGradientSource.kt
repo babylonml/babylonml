@@ -22,7 +22,7 @@ class RandomGradientSource(
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(*shape)
+        val result = executionContext.allocateBackwardMemory(this, *shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
@@ -51,7 +51,7 @@ class RandomGradientSource(
         //No-op
     }
 
-    override fun fullPassCalculation() {
+    override fun fullPassCalculationMode() {
         //No-op
     }
 

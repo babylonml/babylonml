@@ -4,13 +4,13 @@ import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
-import com.babylonml.mseCostFunctionByRows
+import com.babylonml.mseCostFunction
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
-class MSEByRowsCostFunctionTests {
+class MSECostFunctionTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
@@ -25,30 +25,21 @@ class MSEByRowsCostFunctionTests {
         )
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(predictedValuesMatrix.toArray())
-        val optimizer = SimpleGradientDescentOptimizer(inputSource)
-        val learningRate = 0.01f
+        val inputSource = executionContext.registerMainInputSource(predictedValuesMatrix.toTensor())
 
-        val predictedValuesVariable = predictedValuesMatrix.toVariable(
-            executionContext, optimizer, learningRate
-        )
         val expectedValuesConst = Constant(
             executionContext, expectedValuesMatrix.toFlatArray(), intArrayOf(rows, columns)
         )
-        val mseCostFunction = MSEByRowsCostFunction(
-            predictedValuesVariable, expectedValuesConst
-        )
+        val mseCostFunction = MSECostFunction(inputSource, expectedValuesConst)
 
         executionContext.initializeExecution(mseCostFunction)
 
         var result = 0.0f
-        executionContext.executePropagation() { _, cost ->
+        executionContext.executePropagation { _, cost ->
             result = cost
         }
-        val expectedResult = mseCostFunctionByRows(
-            predictedValuesMatrix, expectedValuesMatrix
-        )
 
+        val expectedResult = mseCostFunction(predictedValuesMatrix, expectedValuesMatrix) / rows
         Assertions.assertEquals(expectedResult, result, 0.001f)
     }
 
@@ -67,22 +58,22 @@ class MSEByRowsCostFunctionTests {
         )
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
 
         val predictedValuesVariable = predictedValuesMatrix.toVariable(
             executionContext, optimizer, learningRate
         )
+
         val add = Add(inputSource, predictedValuesVariable)
-        val expectedValues = executionContext.registerAdditionalInputSource(expectedValuesMatrix.toArray())
-        val mseCostFunction = MSEByRowsCostFunction(add, expectedValues)
+        val expectedValues = executionContext.registerAdditionalInputSource(expectedValuesMatrix.toTensor(3))
+        val mseCostFunction = MSECostFunction(add, expectedValues)
 
         executionContext.initializeExecution(mseCostFunction)
         executionContext.executePropagation()
 
         val expectedGradients = predictedValuesMatrix - expectedValuesMatrix
-
 
         val expectedResult = predictedValuesMatrix - expectedGradients * learningRate
         Assertions.assertArrayEquals(

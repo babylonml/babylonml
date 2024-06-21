@@ -15,6 +15,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
 
     override fun forwardPassCalculation(): TensorPointer {
         val resultPointer = leftOperation.forwardPassCalculation()
+
         val resultOffset = resultPointer.offset()
         val resultBuffer = resultPointer.buffer()
 
@@ -24,11 +25,13 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
 
         result = FloatArray(size)
         System.arraycopy(resultBuffer, resultOffset, result, 0, size)
+
         return resultPointer
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
-        val diffResult = executionContext.allocateBackwardMemory(*shape)
+        val diffResult = executionContext.allocateBackwardMemory(this, *shape)
+
         val diffResultOffset = diffResult.offset()
         val diffResultBuffer = diffResult.buffer()
 
@@ -41,10 +44,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
 
     override fun getForwardMemoryAllocations(): Array<IntArray> = emptyArray()
 
-    override fun getBackwardMemoryAllocations(): Array<IntArray> = arrayOf(
-        shape,
-        shape,
-    )
+    override fun getBackwardMemoryAllocations(): Array<IntArray> = arrayOf(maxShape)
 
     override fun requiresBackwardDerivativeChainValue(): Boolean = false
 
@@ -52,7 +52,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
         //No-op
     }
 
-    override fun fullPassCalculation() {
+    override fun fullPassCalculationMode() {
         //No-op
     }
 }

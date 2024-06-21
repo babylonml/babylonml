@@ -4,8 +4,9 @@ import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
 
-public interface InputSource extends Operation {
+public interface ContextInputSource extends Operation {
     void addMiniBatchListener(@NonNull MiniBatchListener listener);
-
-    int getDataSize();
+    int getSamplesCount();
+    int gitLocalMiniBatchIndex();
+    int getMiniBatchSize();
 }

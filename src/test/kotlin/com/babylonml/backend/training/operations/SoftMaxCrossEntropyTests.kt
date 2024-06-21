@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
-class SoftMaxByRowsCrossEntropyTests {
+class SoftMaxCrossEntropyTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
@@ -26,11 +26,11 @@ class SoftMaxByRowsCrossEntropyTests {
         )
 
         val executionContext = TrainingExecutionContext(1, rows)
-        val inputSource = executionContext.registerMainInputSource(matrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(matrix.toTensor())
         val expectedProbabilitiesSource =
-            executionContext.registerAdditionalInputSource(expectedProbabilitiesMatrix.toArray())
+            executionContext.registerAdditionalInputSource(expectedProbabilitiesMatrix.toTensor())
 
-        val softMax = SoftMaxByRows(inputSource)
+        val softMax = SoftMax(inputSource)
         val crossEntropy = CrossEntropyCostFunction(
             expectedProbabilitiesSource, softMax
         )
@@ -66,23 +66,24 @@ class SoftMaxByRowsCrossEntropyTests {
         )
 
         val executionContext = TrainingExecutionContext(1)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
-        val expectedSource = executionContext.registerAdditionalInputSource(expectedMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
+        val expectedSource = executionContext.registerAdditionalInputSource(expectedMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
         val learningRate = 0.01f
 
         val variable = matrix.toVariable(executionContext, optimizer, learningRate)
         val add = Add(inputSource, variable)
-        val softMax = SoftMaxByRows(add)
 
+        val softMax = SoftMax(add)
         val crossEntropy = CrossEntropyCostFunction(expectedSource, softMax)
+
+
+        val expectedGradients = matrix.softMaxByRows() - expectedMatrix
+        val expectedResult = matrix - expectedGradients * learningRate / rows
 
         executionContext.initializeExecution(crossEntropy)
         executionContext.executePropagation()
-
-        val expectedGradients = matrix.softMaxByRows() - expectedMatrix
-        val expectedResult = matrix - expectedGradients * learningRate
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),

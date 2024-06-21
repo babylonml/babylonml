@@ -39,10 +39,11 @@ public final class Add extends AbstractOperation {
         leftOperandPointer = leftOperation.forwardPassCalculation();
         rightOperandPointer = rightOperation.forwardPassCalculation();
 
-        return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, ((firstTensor, secondTensor, result) ->
-                VectorOperations.addVectorToVector(firstTensor.buffer(), firstTensor.offset(), secondTensor.buffer(),
-                secondTensor.offset(),
-                result.buffer(), result.offset(), TensorOperations.stride(result.shape()))));
+        return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, forwardMemoryAllocator,
+                ((firstTensor, secondTensor, result) ->
+                        VectorOperations.addVectorToVector(firstTensor.buffer(), firstTensor.offset(), secondTensor.buffer(),
+                                secondTensor.offset(),  result.buffer(),
+                                result.offset(), TensorOperations.stride(result.shape()))));
     }
 
     @NotNull
@@ -59,10 +60,11 @@ public final class Add extends AbstractOperation {
     private @NonNull TensorPointer calculateDerivative(@NonNull TensorPointer operandPointer) {
         Objects.requireNonNull(derivativeChainPointer);
 
-        return reduceIfNeeded(operandPointer, derivativeChainPointer, ((operand, derivativeChain, result) ->
-                System.arraycopy(derivativeChainPointer.buffer(), derivativeChain.offset(),
-                result.buffer(), result.offset(),
-                TensorOperations.stride(result.shape()))));
+        return reduceIfNeeded(operandPointer, derivativeChainPointer, backwardMemoryAllocator,
+                ((operand, derivativeChain, result) -> System.arraycopy(derivativeChain.buffer(),
+                        derivativeChain.offset(),
+                        result.buffer(), result.offset(),
+                        TensorOperations.stride(result.shape()))));
 
     }
 

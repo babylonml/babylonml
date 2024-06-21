@@ -14,7 +14,7 @@ class GradientSource(
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(*shape)
+        val result = executionContext.allocateBackwardMemory(this, *shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
@@ -24,7 +24,7 @@ class GradientSource(
     }
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(*shape)
+        val result = executionContext.allocateBackwardMemory(this, *shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
@@ -44,7 +44,7 @@ class GradientSource(
         //No-op
     }
 
-    override fun fullPassCalculation() {
+    override fun fullPassCalculationMode() {
         //No-op
     }
 }

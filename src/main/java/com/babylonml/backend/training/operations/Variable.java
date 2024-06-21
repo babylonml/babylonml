@@ -56,7 +56,7 @@ public final class Variable extends AbstractOperation implements StartOperation 
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
-        var result = executionContext.allocateForwardMemory(shape);
+        var result = executionContext.allocateForwardMemory(this, shape);
         var resultBuffer = executionContext.getMemoryBuffer(result.pointer());
         var resultOffset = TrainingExecutionContext.addressOffset(result.pointer());
 
@@ -102,6 +102,6 @@ public final class Variable extends AbstractOperation implements StartOperation 
         var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer.pointer());
 
         optimizer.optimize(executionContext, data, 0, shape, derivativeBuffer,
-                derivativeOffset, learningRate);
+                derivativeOffset, learningRate, this);
     }
 }

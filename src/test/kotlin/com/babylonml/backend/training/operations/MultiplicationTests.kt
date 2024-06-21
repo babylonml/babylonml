@@ -15,17 +15,17 @@ class MultiplicationTests {
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val firstMatrixRows = source.nextInt(100)
-        val firstMatrixColumns = source.nextInt(100)
+        val firstMatrixRows = source.nextInt(1, 100)
+        val firstMatrixColumns = source.nextInt(1, 100)
 
         val secondMatrixRows = firstMatrixColumns
-        val secondMatrixColumns = source.nextInt(100)
+        val secondMatrixColumns = source.nextInt(1, 100)
 
         val inputMatrix = FloatMatrix.random(firstMatrixRows, firstMatrixColumns, source)
         val variableMatrix = FloatMatrix.random(secondMatrixRows, secondMatrixColumns, source)
 
         val executionContext = TrainingExecutionContext(1, firstMatrixRows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
 
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
@@ -50,23 +50,24 @@ class MultiplicationTests {
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
-        val firstMatrixRows = source.nextInt(100)
-        val firstMatrixColumns = source.nextInt(100)
+        val firstMatrixRows = source.nextInt(1, 100)
+        val firstMatrixColumns = source.nextInt(1, 100)
 
         val secondMatrixRows = firstMatrixColumns
-        val secondMatrixColumns = source.nextInt(100)
+        val secondMatrixColumns = source.nextInt(1, 100)
 
         val firstMatrix = FloatMatrix.random(firstMatrixRows, firstMatrixColumns, source)
         val secondMatrix = FloatMatrix.random(secondMatrixRows, secondMatrixColumns, source)
         val inputMatrix = FloatMatrix(firstMatrixRows, firstMatrixColumns)
 
-        val executionContext = TrainingExecutionContext(1, firstMatrixRows)
-        val inputSource = executionContext.registerMainInputSource(inputMatrix.toArray())
+        val executionContext = TrainingExecutionContext(1)
+        val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor(3))
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
         val learningRate = 0.01f
 
-        val firstVariable = firstMatrix.toVariable(executionContext, optimizer, learningRate)
-        val secondVariable = secondMatrix.toVariable(executionContext, optimizer, learningRate)
+        val firstVariable = firstMatrix.toVariable("first", executionContext, optimizer, learningRate)
+        val secondVariable = secondMatrix.toVariable("second", executionContext, optimizer, learningRate)
+
         val add = Add(inputSource, firstVariable)
 
         val multiplication = Multiplication(add, secondVariable)
@@ -77,14 +78,14 @@ class MultiplicationTests {
             gradients.toFlatArray(), multiplication
         )
 
-        executionContext.initializeExecution(gradientSource)
-        executionContext.executePropagation()
-
         val firstMatrixExpectedGradients = gradients * secondMatrix.transpose()
         val secondMatrixExpectedGradients = firstMatrix.transpose() * gradients
 
         val firstMatrixExpectedResult = firstMatrix - firstMatrixExpectedGradients * learningRate
         val secondMatrixExpectedResult = secondMatrix - secondMatrixExpectedGradients * learningRate
+
+        executionContext.initializeExecution(gradientSource)
+        executionContext.executePropagation()
 
         Assertions.assertArrayEquals(
             firstMatrixExpectedResult.toFlatArray(),

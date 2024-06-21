@@ -1,10 +1,12 @@
 package com.babylonml.backend.training.operations;
 
+import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
-import com.babylonml.backend.cpu.MatrixOperations;
+import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 public final class Multiplication extends AbstractOperation {
@@ -19,6 +21,8 @@ public final class Multiplication extends AbstractOperation {
 
     private final boolean requiresDerivativeChainValue;
 
+    private final int[] maxOperandShape;
+
     public Multiplication(Operation leftOperation, Operation rightOperation) {
         this(null, leftOperation, rightOperation);
     }
@@ -29,15 +33,18 @@ public final class Multiplication extends AbstractOperation {
         var leftMaxShape = leftOperation.getMaxResultShape();
         var rightMaxShape = rightOperation.getMaxResultShape();
 
-        if (leftMaxShape.length != 2 || rightMaxShape.length != 2) {
-            throw new IllegalArgumentException("Multiplication operation can only be performed on matrices");
-        }
+        var reduceShapes = reduceShapes(leftMaxShape, rightMaxShape);
+
+        leftMaxShape = reduceShapes.left();
+        rightMaxShape = reduceShapes.right();
 
         this.leftMatrixMaxRows = leftMaxShape[0];
         this.leftMatrixMaxColumns = leftMaxShape[1];
 
         this.rightMatrixMaxRows = rightMaxShape[0];
         this.rightMatrixMaxColumns = rightMaxShape[1];
+
+        this.maxOperandShape = TensorOperations.calculateBMMShape(leftMaxShape, rightMaxShape);
 
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue()
                 || rightOperation.requiresBackwardDerivativeChainValue();
@@ -51,32 +58,26 @@ public final class Multiplication extends AbstractOperation {
     @Override
     public @NotNull TensorPointer forwardPassCalculation() {
         leftOperandResultPointer = leftOperation.forwardPassCalculation();
-        var leftOperandBuffer = leftOperandResultPointer.buffer();
-        var leftOperandOffset = leftOperandResultPointer.offset();
-
         rightOperandResultPointer = rightOperation.forwardPassCalculation();
-        var rightOperandBuffer = rightOperandResultPointer.buffer();
-        var rightOperandOffset = rightOperandResultPointer.offset();
 
-        var leftShape = leftOperandResultPointer.shape();
-        var rightShape = rightOperandResultPointer.shape();
+        var leftOperandShape = leftOperandResultPointer.shape();
+        var rightOperandShape = rightOperandResultPointer.shape();
 
-        if (leftShape.length != 2 || rightShape.length != 2) {
-            throw new IllegalArgumentException("Multiplication operation can only be performed on matrices");
-        }
+        var reducedShapes = reduceShapes(leftOperandShape, rightOperandShape);
 
-        if (leftShape[1] != rightShape[0]) {
-            throw new IllegalArgumentException("Matrix multiplication requires left matrix columns to be equal to right matrix rows");
-        }
+        int[] leftShape = reducedShapes.left();
+        int[] rightShape = reducedShapes.right();
 
-        var result = executionContext.allocateForwardMemory(leftShape[0], rightShape[1]);
+        var resultShape = TensorOperations.calculateBMMShape(leftShape, rightShape);
+
+        var result = executionContext.allocateForwardMemory(this, resultShape);
+
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
-        MatrixOperations.matrixToMatrixMultiplication(leftOperandBuffer, leftOperandOffset, leftShape[0], leftShape[1],
-                rightOperandBuffer, rightOperandOffset,
-                rightShape[0], rightShape[1],
-                resultBuffer, resultOffset);
+        TensorOperations.bmm(leftOperandResultPointer.buffer(), leftOperandResultPointer.offset(), leftShape,
+                rightOperandResultPointer.buffer(), rightOperandResultPointer.offset(), rightShape,
+                resultBuffer, resultOffset, resultShape);
 
         return result;
     }
@@ -84,7 +85,8 @@ public final class Multiplication extends AbstractOperation {
     @Override
     public int @NonNull [][] getForwardMemoryAllocations() {
         return new int[][]{
-                new int[]{leftMatrixMaxRows, rightMatrixMaxColumns}
+                new int[]{leftMatrixMaxRows, rightMatrixMaxColumns},
+                maxOperandShape,
         };
     }
 
@@ -93,33 +95,40 @@ public final class Multiplication extends AbstractOperation {
         Objects.requireNonNull(rightOperandResultPointer);
         Objects.requireNonNull(derivativeChainPointer);
 
-        var rightOperandBuffer = rightOperandResultPointer.buffer();
-        var rightOperandOffset = rightOperandResultPointer.offset();
+        var rightShape = rightOperandResultPointer.shape();
+        var derivativeShape = derivativeChainPointer.shape();
+
+        var rightBuffer = rightOperandResultPointer.buffer();
+        var rightOffset = rightOperandResultPointer.offset();
 
         var derivativeBuffer = derivativeChainPointer.buffer();
         var derivativeOffset = derivativeChainPointer.offset();
 
-        var rightShape = rightOperandResultPointer.shape();
+        var reducedShapes = reduceShapes(derivativeShape, rightShape);
+
+        derivativeShape = reducedShapes.left();
+        rightShape = reducedShapes.right();
+
+        var rightTransposeShape = TensorOperations.calculateBMTShape(rightShape);
 
         //right^T
-        var rightTranspose = executionContext.allocateBackwardMemory(rightShape[1], rightShape[0]);
+        var rightTranspose = executionContext.allocateBackwardMemory(this, rightTransposeShape);
         var rightTransposeOffset = rightTranspose.offset();
         var rightTransposeBuffer = rightTranspose.buffer();
 
-        MatrixOperations.transposeMatrix(rightOperandBuffer, rightOperandOffset, rightShape[1], rightShape[0],
-                rightTransposeBuffer, rightTransposeOffset);
+        TensorOperations.bmt(rightBuffer, rightOffset, rightShape, rightTransposeBuffer, rightTransposeOffset,
+                rightTransposeShape);
 
+        var resultShape = TensorOperations.calculateBMMShape(derivativeShape, rightTransposeShape);
+        var result = executionContext.allocateBackwardMemory(this, resultShape);
 
-        var derivativeShape = derivativeChainPointer.shape();
-        var result = executionContext.allocateBackwardMemory(derivativeShape[0], rightShape[0]);
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
         //leftDerivative = derivative * right^T
-        MatrixOperations.matrixToMatrixMultiplication(derivativeBuffer, derivativeOffset, derivativeShape[0],
-                derivativeShape[1],
-                rightTransposeBuffer, rightTransposeOffset, rightShape[1], rightShape[0],
-                resultBuffer, resultOffset);
+        TensorOperations.bmm(derivativeBuffer, derivativeOffset, derivativeShape,
+                rightTransposeBuffer, rightTransposeOffset, rightTransposeShape,
+                resultBuffer, resultOffset, resultShape);
 
         return result;
     }
@@ -129,32 +138,40 @@ public final class Multiplication extends AbstractOperation {
         Objects.requireNonNull(derivativeChainPointer);
         Objects.requireNonNull(leftOperandResultPointer);
 
-        var leftOperandBuffer = leftOperandResultPointer.buffer();
-        var leftOperandOffset = leftOperandResultPointer.offset();
-
         var leftShape = leftOperandResultPointer.shape();
+
+        var derivativeShape = derivativeChainPointer.shape();
+        var reducedShapes = reduceShapes(leftShape, derivativeShape);
+
+        leftShape = reducedShapes.left();
+        derivativeShape = reducedShapes.right();
+
+        var leftTransposeShape = TensorOperations.calculateBMTShape(leftShape);
+
         //left^T
-        var leftTranspose = executionContext.allocateBackwardMemory(leftShape[1], leftShape[0]);
+        var leftTranspose = executionContext.allocateBackwardMemory(this, leftTransposeShape);
         var leftTransposeBuffer = leftTranspose.buffer();
         var leftTransposeOffset = leftTranspose.offset();
 
-        MatrixOperations.transposeMatrix(leftOperandBuffer, leftOperandOffset, leftShape[0], leftShape[1],
-                leftTransposeBuffer, leftTransposeOffset);
+        var leftBuffer = leftOperandResultPointer.buffer();
+        var leftOffset = leftOperandResultPointer.offset();
+
+        TensorOperations.bmt(leftBuffer, leftOffset, leftShape,
+                leftTransposeBuffer, leftTransposeOffset, leftTransposeShape);
 
         var derivativeBuffer = derivativeChainPointer.buffer();
         var derivativeOffset = derivativeChainPointer.offset();
 
+        var resultShape = TensorOperations.calculateBMMShape(leftTransposeShape, derivativeShape);
 
-        var derivativeShape = derivativeChainPointer.shape();
-
-        var result = executionContext.allocateBackwardMemory(leftShape[1], derivativeShape[1]);
+        var result = executionContext.allocateBackwardMemory(this, resultShape);
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
         //rightDerivative = left^T * derivative
-        MatrixOperations.matrixToMatrixMultiplication(leftTransposeBuffer, leftTransposeOffset, leftShape[1], leftShape[0],
-                derivativeBuffer, derivativeOffset, derivativeShape[0], derivativeShape[1],
-                resultBuffer, resultOffset);
+        TensorOperations.bmm(leftTransposeBuffer, leftTransposeOffset, leftTransposeShape,
+                derivativeBuffer, derivativeOffset, derivativeShape,
+                resultBuffer, resultOffset, resultShape);
 
         return result;
     }
@@ -178,5 +195,33 @@ public final class Multiplication extends AbstractOperation {
     @Override
     public boolean requiresBackwardDerivativeChainValue() {
         return requiresDerivativeChainValue;
+    }
+
+    private static ObjectObjectImmutablePair<int[], int[]> reduceShapes(int[] firstShape, int[] secondShape) {
+        if (firstShape.length == 1 && secondShape.length == 1) {
+            return new ObjectObjectImmutablePair<>(firstShape, secondShape);
+        } else if (firstShape.length < secondShape.length) {
+            int diff = secondShape.length - firstShape.length;
+            for (int i = 0; i < diff; i++) {
+                if (secondShape[i] != 1) {
+                    throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
+                            Arrays.toString(firstShape) + ", second shape: " + Arrays.toString(secondShape) + ".");
+                }
+            }
+            var result = new int[firstShape.length];
+            System.arraycopy(secondShape, diff, result, 0, firstShape.length);
+            return new ObjectObjectImmutablePair<>(firstShape, result);
+        } else {
+            int diff = firstShape.length - secondShape.length;
+            for (int i = 0; i < diff; i++) {
+                if (firstShape[i] != 1) {
+                    throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
+                            Arrays.toString(firstShape) + ", second shape: " + Arrays.toString(secondShape) + ".");
+                }
+            }
+            var result = new int[secondShape.length];
+            System.arraycopy(firstShape, diff, result, 0, secondShape.length);
+            return new ObjectObjectImmutablePair<>(result, secondShape);
+        }
     }
 }

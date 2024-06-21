@@ -2,10 +2,11 @@ package com.babylonml.backend.training.optimizer;
 
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
-import com.babylonml.backend.training.execution.InputSource;
+import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.babylonml.backend.cpu.VectorOperations;
 
+import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
 
 public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
@@ -24,11 +25,11 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     private long batchIndex;
     private int scaleValue = 1;
 
-    public AdamOptimizer(InputSource inputSource) {
+    public AdamOptimizer(ContextInputSource inputSource) {
         this(DEFAULT_BETA1, DEFAULT_BETA2, DEFAULT_EPSILON, inputSource);
     }
 
-    public AdamOptimizer(float beta1, float beta2, float epsilon, InputSource inputSource) {
+    public AdamOptimizer(float beta1, float beta2, float epsilon, ContextInputSource inputSource) {
         this.beta1 = beta1;
         this.beta2 = beta2;
         this.epsilon = epsilon;
@@ -38,15 +39,15 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
 
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
-                         int[] shape, float[] gradient, int gradientOffset, float learningRate) {
+                         int[] shape, float[] gradient, int gradientOffset, float learningRate, @NonNull Operation operation) {
         int stride = TensorOperations.stride(shape);
 
-        var avgMovementPointer = executionContext.allocateBackwardMemory(shape);
+        var avgMovementPointer = executionContext.allocateBackwardMemory(operation, shape);
         var avgMovementBuffer = executionContext.getMemoryBuffer(avgMovementPointer.pointer());
         var avgMovementBufferOffset = TrainingExecutionContext.addressOffset(avgMovementPointer.pointer());
 
 
-        var avgMovementSqrPointer = executionContext.allocateBackwardMemory(shape);
+        var avgMovementSqrPointer = executionContext.allocateBackwardMemory(operation, shape);
         var avgMovementSqrBuffer = executionContext.getMemoryBuffer(avgMovementSqrPointer.pointer());
         var avgMovementSqrBufferOffset = TrainingExecutionContext.addressOffset(avgMovementSqrPointer.pointer());
 

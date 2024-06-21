@@ -1,5 +1,6 @@
 package com.babylonml.backend.training.execution;
 
+import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.operations.*;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -7,7 +8,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.function.ToIntFunction;
+import java.util.IdentityHashMap;
 
 public final class TrainingExecutionContext {
     public static final TensorPointer NULL = new TensorPointer(0, new int[0], null);
@@ -32,48 +33,98 @@ public final class TrainingExecutionContext {
     private final int epochs;
     private final int miniBatchSize;
 
-    private InputSource inputSource;
+    private ContextInputSource inputSource;
 
+    private final boolean trackMemoryAllocation;
+
+    private final IdentityHashMap<Operation, long[]> consumedBackwardMemory = new IdentityHashMap<>();
+    private final IdentityHashMap<Operation, long[]> consumedForwardMemory = new IdentityHashMap<>();
+
+    /**
+     * Create a new training execution context.
+     *
+     * @param epochs        Number of epochs to train.
+     * @param miniBatchSize Size of the mini-batch. If set to -1,
+     *                      the mini-batch size will be equal to the number of samples.
+     */
     public TrainingExecutionContext(int epochs, int miniBatchSize) {
         this.epochs = epochs;
         this.miniBatchSize = miniBatchSize;
+        this.trackMemoryAllocation = false;
     }
 
+    /**
+     * Create a new training execution context.
+     *
+     * @param epochs                Number of epochs to train.
+     * @param miniBatchSize         Size of the mini-batch.
+     *                              If set to -1, the mini-batch size will be equal to the number of samples.
+     * @param trackMemoryAllocation If set to true, the memory allocation of each operation will be tracked.
+     */
+    public TrainingExecutionContext(int epochs, int miniBatchSize, boolean trackMemoryAllocation) {
+        this.epochs = epochs;
+        this.miniBatchSize = miniBatchSize;
+        this.trackMemoryAllocation = trackMemoryAllocation;
+    }
+
+    /**
+     * Create a new training execution context.
+     * The mini-batch size will be equal to the number of samples.
+     *
+     * @param epochs Number of epochs to train.
+     */
     public TrainingExecutionContext(int epochs) {
         this.epochs = epochs;
         this.miniBatchSize = -1;
+        this.trackMemoryAllocation = false;
     }
 
-    public InputSource registerMainInputSource(float[][] data) {
+    /**
+     * Create a new training execution context.
+     * The mini-batch size will be equal to the number of samples.
+     *
+     * @param epochs                Number of epochs to train.
+     * @param trackMemoryAllocation If set to true, the memory allocation of each operation will be tracked.
+     */
+    public TrainingExecutionContext(int epochs, boolean trackMemoryAllocation) {
+        this.epochs = epochs;
+        this.miniBatchSize = -1;
+        this.trackMemoryAllocation = trackMemoryAllocation;
+    }
+
+    public ContextInputSource registerMainInputSource(Tensor data) {
         if (inputSource != null) {
             throw new IllegalStateException("Input source is already registered");
         }
 
-        this.inputSource = new MiniBatchVectorInputSource(data, data[0].length,
-                calculateMiniBatchSize(data), this);
+        this.inputSource =
+                new MiniBatchTensorInputDataSource(data).convertToContextInputSource(calculateMiniBatchSize(data),
+                        this);
 
         return inputSource;
     }
 
-    public InputSource registerAdditionalInputSource(float[][] data) {
+    public ContextInputSource registerAdditionalInputSource(Tensor data) {
         if (inputSource == null) {
             throw new IllegalStateException("Main input source is not registered");
         }
-        if (data.length != inputSource.getDataSize()) {
-            throw new IllegalArgumentException("Data size does not match the main input source");
+
+        if (data.getShape()[0] != inputSource.getSamplesCount()) {
+            throw new IllegalArgumentException("Samples count do not match the main input source");
         }
 
-        return new MiniBatchVectorInputSource(data, data[0].length,
-                calculateMiniBatchSize(data), this);
+        return new MiniBatchTensorInputDataSource(data).convertToContextInputSource(calculateMiniBatchSize(data),
+                this);
     }
 
-    private int calculateMiniBatchSize(float[][] data) {
+    private int calculateMiniBatchSize(Tensor data) {
         int batchSize;
         if (miniBatchSize == -1) {
-            batchSize = data.length;
+            batchSize = data.getShape()[0];
         } else {
             batchSize = miniBatchSize;
         }
+
         return batchSize;
     }
 
@@ -140,7 +191,8 @@ public final class TrainingExecutionContext {
 
     public void executePropagation(@Nullable EpochCompletionCallback callback) {
         if (callback != null) {
-            terminalOperation.fullPassCalculation();
+            terminalOperation.fullPassCalculationMode();
+
             var cost = calculateFullCost();
             callback.onEpochCompleted(0, cost);
         }
@@ -149,27 +201,27 @@ public final class TrainingExecutionContext {
             throw new IllegalStateException("Input source is not registered");
         }
 
-        var dataSize = inputSource.getDataSize();
-        int miniBatchCount;
+        var dataSize = inputSource.getSamplesCount();
+        var miniBatchSize = inputSource.getMiniBatchSize();
+        int miniBatchCount = (dataSize + miniBatchSize - 1) / miniBatchSize;
 
-        if (miniBatchSize == -1) {
-            miniBatchCount = dataSize;
-        } else {
-            miniBatchCount = (dataSize + miniBatchSize - 1) / miniBatchSize;
-        }
 
-        terminalOperation.startEpochExecution();
+        terminalOperation.trainingMode();
         for (int epoch = 0; epoch < epochs; epoch++) {
-            terminalOperation.trainingMode();
+            terminalOperation.startEpochExecution();
+
             for (int j = 0; j < miniBatchCount; j++) {
                 prepareNextPropagationStep();
+
+                assert inputSource == null || inputSource.gitLocalMiniBatchIndex() == j;
 
                 executeForwardPropagation();
                 executeBackwardPropagation();
             }
 
             if (callback != null) {
-                terminalOperation.fullPassCalculation();
+                terminalOperation.fullPassCalculationMode();
+
                 var cost = calculateFullCost();
                 callback.onEpochCompleted(epoch + 1, cost);
             }
@@ -177,7 +229,7 @@ public final class TrainingExecutionContext {
     }
 
     private float calculateFullCost() {
-        var dataSize = inputSource.getDataSize();
+        var dataSize = inputSource.getSamplesCount();
         var miniBatchCount = (dataSize + miniBatchSize - 1) / miniBatchSize;
 
         terminalOperation.startEpochExecution();
@@ -187,12 +239,11 @@ public final class TrainingExecutionContext {
             prepareNextPropagationStep();
 
             var result = executeForwardPropagation();
-            var resultBuffer = getMemoryBuffer(result.pointer());
+            var resultBuffer = result.buffer();
 
-            assert result.shape().length == 1;
-            assert result.shape()[0] == 1;
+            assert TensorOperations.stride(result.shape()) == 1;
 
-            sum += resultBuffer[0];
+            sum += resultBuffer[result.offset()];
         }
 
         return sum / dataSize;
@@ -203,17 +254,30 @@ public final class TrainingExecutionContext {
         forwardMemoryIndex = 0;
         backwardMemoryIndex = 0;
 
+        consumedForwardMemory.clear();
+        consumedBackwardMemory.clear();
+
         terminalOperation.prepareForNextPropagation();
     }
 
 
-    public TensorPointer allocateForwardMemory(int... dimensions) {
+    public TensorPointer allocateForwardMemory(Operation operation, int... dimensions) {
         var length = 1;
         for (var dimension : dimensions) {
             length *= dimension;
         }
 
-        length += 1;
+        if (trackMemoryAllocation) {
+            var allocationsSize = allocationsSize(operation.getForwardMemoryAllocations());
+            var allocated = consumedForwardMemory.computeIfAbsent(operation, (k) -> new long[1]);
+
+            if (length + allocated[0] > allocationsSize) {
+                throw new IllegalStateException("Memory allocation exceeded the required memory size for operation "
+                        + operation);
+            }
+
+            allocated[0] += length;
+        }
 
         assert forwardMemoryIndex + length <= forwardMemoryBuffer.length;
 
@@ -223,21 +287,32 @@ public final class TrainingExecutionContext {
         return new TensorPointer(address, dimensions, this);
     }
 
-    public @NonNull TensorPointer allocateBackwardMemory(int... dimensions) {
+    public @NonNull TensorPointer allocateBackwardMemory(@NonNull Operation operation, int... dimensions) {
         var length = 1;
         for (var dimension : dimensions) {
             length *= dimension;
         }
 
-        length += 1;
+        if (trackMemoryAllocation) {
+            var allocationsSize = allocationsSize(operation.getBackwardMemoryAllocations());
+
+            var allocated = consumedBackwardMemory.computeIfAbsent(operation, (k) -> new long[1]);
+            if (length + allocated[0] > allocationsSize) {
+                throw new IllegalStateException("Memory allocation exceeded the required memory size for operation "
+                        + operation);
+            }
+
+            allocated[0] += length;
+        }
 
         assert backwardMemoryIndex + length <= currentStepBackwardMemoryBuffer.length;
-        var address = address(FORWARD_MEMORY_TYPE, backwardMemoryIndex, length);
+        var address = address(currentBackwardMemoryBufferFlag, backwardMemoryIndex, length);
 
         backwardMemoryIndex += length;
 
         return new TensorPointer(address, dimensions, this);
     }
+
 
     private TensorPointer executeForwardPropagation() {
         return terminalOperation.forwardPassCalculation();
@@ -247,16 +322,33 @@ public final class TrainingExecutionContext {
         var startOperations = new HashSet<StartOperation>();
         var visitedOperations = new HashSet<Operation>();
 
-        for (var operations : layers) {
-            for (var operation : operations) {
-                if (operation instanceof StartOperation startOperation) {
-                    startOperations.add(startOperation);
-                }
-            }
-        }
+        traverseExecutionGraphBackward(terminalOperation, startOperations, visitedOperations);
+
+        visitedOperations.clear();
 
         for (var startOperation : startOperations) {
             collapseSoftMaxCrossEntropy(startOperation, visitedOperations);
+        }
+    }
+
+    private void traverseExecutionGraphBackward(Operation operation, HashSet<StartOperation> startOperations,
+                                                HashSet<Operation> visitedOperations) {
+        if (!visitedOperations.add(operation)) {
+            return;
+        }
+
+        if (operation instanceof StartOperation startOperation) {
+            startOperations.add(startOperation);
+        }
+
+        var leftOperation = operation.getLeftPreviousOperation();
+        if (leftOperation != null) {
+            traverseExecutionGraphBackward(leftOperation, startOperations, visitedOperations);
+        }
+
+        var rightOperation = operation.getRightPreviousOperation();
+        if (rightOperation != null) {
+            traverseExecutionGraphBackward(rightOperation, startOperations, visitedOperations);
         }
     }
 
@@ -268,16 +360,18 @@ public final class TrainingExecutionContext {
 
         var nextTestedOperation = operation.getNextOperation();
 
-        if (operation instanceof SoftMaxByRows) {
+        if (operation instanceof SoftMax) {
             if (nextTestedOperation instanceof CrossEntropyCostFunction crossEntropyFunction) {
                 var previousOperation = operation.getLeftPreviousOperation();
 
                 var nextOperation = crossEntropyFunction.getNextOperation();
                 nextTestedOperation = nextOperation;
 
-                var softMaxCrossEntropy = new SoftMaxCrossEntropyCostFunction(
-                        crossEntropyFunction.getExpectedValues(),
-                        previousOperation);
+                previousOperation.clearNextOperation();
+                var expectedValues = crossEntropyFunction.getExpectedValues();
+                expectedValues.clearNextOperation();
+
+                var softMaxCrossEntropy = new SoftMaxCrossEntropyCostFunction(expectedValues, previousOperation);
 
                 if (nextOperation != null) {
                     var previousLeftNextOperation = nextOperation.getLeftPreviousOperation();
@@ -346,24 +440,19 @@ public final class TrainingExecutionContext {
         var forwardBufferLength = 0;
         var backwardBufferLength = 0;
 
-        var visitedOperationsForward = new HashSet<Operation>();
-        var visitedOperationsBackward = new HashSet<Operation>();
 
         for (var operations : layers) {
+            var singleLayerBackwardBufferLength = 0;
+
             for (var operation : operations) {
-                forwardBufferLength += calculateSingleLayerMemoryRequirements(operation,
-                        visitedOperationsForward, op -> {
-                            var allocations = op.getForwardMemoryAllocations();
-                            return allocationsSize(allocations);
-                        });
-                backwardBufferLength =
-                        Math.max(backwardBufferLength,
-                                calculateSingleLayerMemoryRequirements(operation, visitedOperationsBackward,
-                                        op -> {
-                                            var allocations = op.getBackwardMemoryAllocations();
-                                            return allocationsSize(allocations);
-                                        }));
+                var allocations = operation.getForwardMemoryAllocations();
+                forwardBufferLength += allocationsSize(allocations);
+
+                allocations = operation.getBackwardMemoryAllocations();
+                singleLayerBackwardBufferLength += allocationsSize(allocations);
             }
+
+            backwardBufferLength = Math.max(singleLayerBackwardBufferLength, backwardBufferLength);
         }
 
         forwardMemoryBuffer = new float[forwardBufferLength];
@@ -380,27 +469,16 @@ public final class TrainingExecutionContext {
 
         for (var allocation : allocations) {
             var size = 1;
+
             for (int j : allocation) {
                 size *= j;
             }
 
-            sum += size + allocations.length + 1;
+            sum += size;
         }
 
         return sum;
     }
-
-    private int calculateSingleLayerMemoryRequirements(Operation operation,
-                                                       HashSet<Operation> visitedOperations,
-                                                       ToIntFunction<Operation> memoryCalculator) {
-        if (visitedOperations.contains(operation)) {
-            return 0;
-        }
-
-        visitedOperations.add(operation);
-        return memoryCalculator.applyAsInt(operation);
-    }
-
 
     public static boolean isNull(long address) {
         return address == 0;

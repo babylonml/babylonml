@@ -45,7 +45,7 @@ public final class GeLUFunction extends AbstractOperation {
         var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandPointer.pointer());
         var leftOperandOffset = TrainingExecutionContext.addressOffset(leftOperandPointer.pointer());
 
-        var result = executionContext.allocateForwardMemory(leftOperandPointer.shape());
+        var result = executionContext.allocateForwardMemory(this, leftOperandPointer.shape());
 
         var resultBuffer = executionContext.getMemoryBuffer(result.pointer());
         var resultOffset = TrainingExecutionContext.addressOffset(result.pointer());
@@ -90,7 +90,7 @@ public final class GeLUFunction extends AbstractOperation {
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
 
-        var result = executionContext.allocateBackwardMemory(derivativeChainPointer.shape());
+        var result = executionContext.allocateBackwardMemory(this, derivativeChainPointer.shape());
 
         var derivativeBuffer = derivativeChainPointer.buffer();
         var derivativeOffset = derivativeChainPointer.offset();

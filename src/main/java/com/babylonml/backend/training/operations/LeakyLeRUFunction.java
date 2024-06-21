@@ -43,7 +43,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
         leftOperandResult = leftOperation.forwardPassCalculation();
-        var result = executionContext.allocateForwardMemory(leftOperandResult.shape());
+        var result = executionContext.allocateForwardMemory(this, leftOperandResult.shape());
 
         var leftResultBuffer = leftOperandResult.buffer();
         var leftResultOffset = leftOperandResult.offset();
@@ -80,7 +80,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
         var derivativeChainBuffer = derivativeChainPointer.buffer();
         var derivativeChainOffset = derivativeChainPointer.offset();
 
-        var result = executionContext.allocateBackwardMemory(leftOperandResult.shape());
+        var result = executionContext.allocateBackwardMemory(this, leftOperandResult.shape());
 
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();

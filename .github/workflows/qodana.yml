@@ -7,9 +7,6 @@ on:
       - main # The 'main' branch
       - 'releases/*' # The release branches
 
-version: 1.0
-profile:
-  path: .qodana/babylonml.xml
 jobs:
   qodana:
     runs-on: ubuntu-latest
@@ -20,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          args: --profile-name,qodana/babylonml.xml
           ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
           fetch-depth: 0  # a full history is required for pull request analysis
           java-version: '21'

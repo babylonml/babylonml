@@ -6,6 +6,7 @@ import com.babylonml.backend.training.execution.TrainingExecutionContext;
 
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 
 @SuppressWarnings("unused")
@@ -14,11 +15,11 @@ public final class Constant extends AbstractOperation implements StartOperation 
     private final int[] shape;
 
 
-    public Constant(TrainingExecutionContext executionContext, float[] constant, int[] shape) {
+    public Constant(@NonNull TrainingExecutionContext executionContext, float[] constant, int[] shape) {
         this(null, executionContext, constant, shape);
     }
 
-    public Constant(String name, TrainingExecutionContext executionContext, float[] constant, int[] shape) {
+    public Constant(@Nullable String name, @NonNull TrainingExecutionContext executionContext, float[] constant, int[] shape) {
         super(name, executionContext, null, null);
         this.constant = constant;
         this.shape = shape;

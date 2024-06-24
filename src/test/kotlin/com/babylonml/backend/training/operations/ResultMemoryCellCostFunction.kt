@@ -14,7 +14,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
     override fun getMaxResultShape(): IntArray = maxShape
 
     override fun forwardPassCalculation(): TensorPointer {
-        val resultPointer = leftOperation.forwardPassCalculation()
+        val resultPointer = leftOperation!!.forwardPassCalculation()
 
         val resultOffset = resultPointer.offset()
         val resultBuffer = resultPointer.buffer()

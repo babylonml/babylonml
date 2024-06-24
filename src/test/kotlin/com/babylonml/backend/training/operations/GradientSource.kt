@@ -10,7 +10,7 @@ class GradientSource(
     override fun getMaxResultShape(): IntArray = shape
 
     override fun forwardPassCalculation(): TensorPointer {
-        return leftOperation.forwardPassCalculation()
+        return leftOperation!!.forwardPassCalculation()
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {

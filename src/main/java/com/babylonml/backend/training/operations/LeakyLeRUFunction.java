@@ -7,6 +7,7 @@ import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -18,13 +19,14 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     private final boolean requiresDerivativeChainValue;
     private final float leakyLeRUASlope;
 
+    @Nullable
     private TensorPointer leftOperandResult;
 
     public LeakyLeRUFunction(float leakyLeRUASlope, Operation leftOperation) {
         this(null, leakyLeRUASlope, leftOperation);
     }
 
-    public LeakyLeRUFunction(String name, float leakyLeRUASlope,
+    public LeakyLeRUFunction(@Nullable String name, float leakyLeRUASlope,
                              Operation leftOperation) {
         super(name, leftOperation, null);
         this.leakyLeRUASlope = leakyLeRUASlope;
@@ -42,6 +44,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
         leftOperandResult = leftOperation.forwardPassCalculation();
         var result = executionContext.allocateForwardMemory(this, leftOperandResult.shape());
 
@@ -73,6 +76,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     @Override
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
+        Objects.requireNonNull(leftOperandResult);
 
         var leftOperandBuffer = leftOperandResult.buffer();
         var leftOperandOffset = leftOperandResult.offset();

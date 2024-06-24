@@ -33,8 +33,8 @@ public abstract class MNISTBase {
         trainingExecutionContext.initializeExecution(new CrossEntropyCostFunction(expectedValuesSource,
                 new SoftMax(fnnOutput)));
 
-        trainingExecutionContext.executePropagation(((epochIndex, result) ->
-                System.out.println("Epoch: " + epochIndex + ", loss: " + result)));
+        trainingExecutionContext.executePropagation((epochIndex, result) ->
+                System.out.println("Epoch: " + epochIndex + ", loss: " + result));
 
 //        var trainingAccuracy = network.test(trainingImages, trainingLabelProbabilities);
 //        System.out.println("Training accuracy: " + trainingAccuracy);

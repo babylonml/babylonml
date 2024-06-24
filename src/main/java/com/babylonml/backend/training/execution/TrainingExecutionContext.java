@@ -5,35 +5,32 @@ import com.babylonml.backend.training.operations.*;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
+import java.util.*;
 
 public final class TrainingExecutionContext {
     public static final TensorPointer NULL = new TensorPointer(0, new int[0], null);
 
     private static final int FORWARD_MEMORY_TYPE = 1;
 
-    private float[] forwardMemoryBuffer;
+    private float @Nullable [] forwardMemoryBuffer;
     private int forwardMemoryIndex;
 
-    private float[] previousStepBackwardMemoryBuffer;
-    private float[] currentStepBackwardMemoryBuffer;
+    private float @Nullable [] previousStepBackwardMemoryBuffer;
+    private float @Nullable [] currentStepBackwardMemoryBuffer;
 
     private int previousBackwardMemoryBufferFlag = 3;
     private int currentBackwardMemoryBufferFlag = 2;
 
     private int backwardMemoryIndex;
 
-    private final ArrayList<ArrayList<Operation>> layers = new ArrayList<>();
+    private final ArrayList<List<Operation>> layers = new ArrayList<>();
 
-    private CostFunction terminalOperation;
+    private @Nullable CostFunction terminalOperation;
 
     private final int epochs;
     private final int miniBatchSize;
 
-    private ContextInputSource inputSource;
+    private @Nullable ContextInputSource inputSource;
 
     private final boolean trackMemoryAllocation;
 
@@ -156,7 +153,7 @@ public final class TrainingExecutionContext {
     /**
      * Split the execution graph into layers starting from the passed operations.
      */
-    private void splitExecutionGraphByLayers(ArrayList<Operation> operations) {
+    private void splitExecutionGraphByLayers(List<Operation> operations) {
         layers.add(operations);
 
         var nextLayerOperations = new ArrayList<Operation>();
@@ -190,6 +187,8 @@ public final class TrainingExecutionContext {
     }
 
     public void executePropagation(@Nullable EpochCompletionCallback callback) {
+        Objects.requireNonNull(terminalOperation, "Terminal operation is not registered");
+
         if (callback != null) {
             terminalOperation.fullPassCalculationMode();
 
@@ -229,6 +228,9 @@ public final class TrainingExecutionContext {
     }
 
     private float calculateFullCost() {
+        Objects.requireNonNull(inputSource, "Input source is not registered");
+        Objects.requireNonNull(terminalOperation, "Terminal operation is not registered");
+
         var dataSize = inputSource.getSamplesCount();
         var miniBatchCount = (dataSize + miniBatchSize - 1) / miniBatchSize;
 
@@ -251,6 +253,8 @@ public final class TrainingExecutionContext {
 
 
     private void prepareNextPropagationStep() {
+        Objects.requireNonNull(terminalOperation, "Terminal operation is not registered");
+
         forwardMemoryIndex = 0;
         backwardMemoryIndex = 0;
 
@@ -262,6 +266,8 @@ public final class TrainingExecutionContext {
 
 
     public TensorPointer allocateForwardMemory(Operation operation, int... dimensions) {
+        Objects.requireNonNull(forwardMemoryBuffer, "Forward memory buffer is not initialized");
+
         var length = 1;
         for (var dimension : dimensions) {
             length *= dimension;
@@ -288,6 +294,8 @@ public final class TrainingExecutionContext {
     }
 
     public @NonNull TensorPointer allocateBackwardMemory(@NonNull Operation operation, int... dimensions) {
+        Objects.requireNonNull(currentStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
+
         var length = 1;
         for (var dimension : dimensions) {
             length *= dimension;
@@ -315,10 +323,14 @@ public final class TrainingExecutionContext {
 
 
     private TensorPointer executeForwardPropagation() {
+        Objects.requireNonNull(terminalOperation, "Terminal operation is not registered");
+
         return terminalOperation.forwardPassCalculation();
     }
 
     private void optimizeExecutionGraph() {
+        Objects.requireNonNull(terminalOperation, "Terminal operation is not registered");
+
         var startOperations = new HashSet<StartOperation>();
         var visitedOperations = new HashSet<Operation>();
 
@@ -331,8 +343,8 @@ public final class TrainingExecutionContext {
         }
     }
 
-    private void traverseExecutionGraphBackward(Operation operation, HashSet<StartOperation> startOperations,
-                                                HashSet<Operation> visitedOperations) {
+    private void traverseExecutionGraphBackward(Operation operation, Set<StartOperation> startOperations,
+                                                Set<Operation> visitedOperations) {
         if (!visitedOperations.add(operation)) {
             return;
         }
@@ -353,7 +365,7 @@ public final class TrainingExecutionContext {
     }
 
     private void collapseSoftMaxCrossEntropy(Operation operation,
-                                             HashSet<Operation> visitedOperations) {
+                                             Set<Operation> visitedOperations) {
         if (!visitedOperations.add(operation)) {
             return;
         }
@@ -363,12 +375,16 @@ public final class TrainingExecutionContext {
         if (operation instanceof SoftMax) {
             if (nextTestedOperation instanceof CrossEntropyCostFunction crossEntropyFunction) {
                 var previousOperation = operation.getLeftPreviousOperation();
+                Objects.requireNonNull(previousOperation,
+                        "SoftMax operation is not connected to the previous operation");
 
                 var nextOperation = crossEntropyFunction.getNextOperation();
                 nextTestedOperation = nextOperation;
 
                 previousOperation.clearNextOperation();
                 var expectedValues = crossEntropyFunction.getExpectedValues();
+                Objects.requireNonNull(expectedValues, "Expected values are not set for the cross entropy function");
+
                 expectedValues.clearNextOperation();
 
                 var softMaxCrossEntropy = new SoftMaxCrossEntropyCostFunction(expectedValues, previousOperation);
@@ -403,6 +419,9 @@ public final class TrainingExecutionContext {
     }
 
     private void swapBackwardMemoryBuffers() {
+        Objects.requireNonNull(previousStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
+        Objects.requireNonNull(currentStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
+
         System.arraycopy(currentStepBackwardMemoryBuffer, 0,
                 previousStepBackwardMemoryBuffer,
                 0, backwardMemoryIndex);
@@ -414,7 +433,7 @@ public final class TrainingExecutionContext {
         backwardMemoryIndex = 0;
     }
 
-    private void backStep(ArrayList<Operation> operations) {
+    private void backStep(List<Operation> operations) {
         for (var operation : operations) {
             if (operation instanceof StartOperation startOperation) {
                 startOperation.calculateGradientUpdate();
@@ -485,6 +504,10 @@ public final class TrainingExecutionContext {
     }
 
     public float @NonNull [] getMemoryBuffer(long address) {
+        Objects.requireNonNull(forwardMemoryBuffer, "Forward memory buffer is not initialized");
+        Objects.requireNonNull(previousStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
+        Objects.requireNonNull(currentStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
+
         var memoryType = memoryType(address);
 
         return switch (memoryType) {

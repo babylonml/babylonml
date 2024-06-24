@@ -7,6 +7,7 @@ import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
@@ -24,6 +25,7 @@ public final class GeLUFunction extends AbstractOperation {
 
     private final boolean requiresDerivativeChainValue;
 
+    @Nullable
     private TensorPointer leftOperandPointer;
 
     public GeLUFunction(@NonNull Operation leftOperation) {
@@ -40,6 +42,7 @@ public final class GeLUFunction extends AbstractOperation {
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
         leftOperandPointer = leftOperation.forwardPassCalculation();
 
         var leftOperandBuffer = executionContext.getMemoryBuffer(leftOperandPointer.pointer());
@@ -95,6 +98,8 @@ public final class GeLUFunction extends AbstractOperation {
         var derivativeBuffer = derivativeChainPointer.buffer();
         var derivativeOffset = derivativeChainPointer.offset();
 
+        Objects.requireNonNull(leftOperandPointer);
+
         var leftBuffer = leftOperandPointer.buffer();
         var leftOffset = leftOperandPointer.offset();
 
@@ -108,11 +113,9 @@ public final class GeLUFunction extends AbstractOperation {
             var value = FloatVector.fromArray(SPECIES, leftBuffer, leftOffset + i);
 
             //h = tanh(sqrt(2 / PI) * (x + 0.044715 * x^3))
-            var h = (
-                    FloatVector.broadcast(SPECIES, SCALAR_3).mul(
-                            value.add(
-                                    value.mul(value).mul(value).mul(FloatVector.broadcast(SPECIES, SCALAR_4))
-                            )
+            var h = FloatVector.broadcast(SPECIES, SCALAR_3).mul(
+                    value.add(
+                            value.mul(value).mul(value).mul(FloatVector.broadcast(SPECIES, SCALAR_4))
                     )
             ).lanewise(VectorOperators.TANH);
             // d(GeLU(x))/dx = 0.5 * (1 + h + x * (1 - h^2) * (sqrt(2 / PI) + 3 * 0.044715 * x^2))

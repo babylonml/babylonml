@@ -10,13 +10,18 @@ import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation implements CostFunction {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
     private final int @NonNull [] maxShape;
 
+    @Nullable
     private TensorPointer softMaxResultPointer;
+    @Nullable
     private TensorPointer expectedProbabilityPointer;
 
     private final boolean requiresDerivativeChainValue;
@@ -40,6 +45,9 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
+        Objects.requireNonNull(rightOperation);
+
         var predictedOperandResultPointer = leftOperation.forwardPassCalculation();
         var predictedOperandBuffer = predictedOperandResultPointer.buffer();
         var predictedOperandOffset = predictedOperandResultPointer.offset();
@@ -93,6 +101,9 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
 
     @Override
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(softMaxResultPointer);
+        Objects.requireNonNull(expectedProbabilityPointer);
+
         var softMaxBuffer = softMaxResultPointer.buffer();
         var softMaxOffset = softMaxResultPointer.offset();
 

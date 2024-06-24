@@ -1,8 +1,12 @@
 package com.babylonml.backend.training.execution;
 
-public record TensorPointer(long pointer, int[] shape, TrainingExecutionContext executionContext) {
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
+
+public record TensorPointer(long pointer, int[] shape, @Nullable TrainingExecutionContext executionContext) {
     public float[] buffer() {
-        assert executionContext != null;
+        Objects.requireNonNull(executionContext, "Execution context is not set");
         return executionContext.getMemoryBuffer(pointer);
     }
 

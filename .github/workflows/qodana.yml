@@ -19,11 +19,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
           fetch-depth: 0  # a full history is required for pull request analysis
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21    
+          distribution: 'temurin'
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2024.1
         with:
           args: --profile-name,qodana/babylonml.xml
-          java-version: '21'
-          distribution: 'temurin'
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}  

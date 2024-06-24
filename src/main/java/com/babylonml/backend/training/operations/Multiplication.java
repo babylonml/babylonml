@@ -5,6 +5,7 @@ import com.babylonml.backend.training.execution.TensorPointer;
 import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -16,7 +17,9 @@ public final class Multiplication extends AbstractOperation {
     private final int rightMatrixMaxRows;
     private final int rightMatrixMaxColumns;
 
+    @Nullable
     private TensorPointer leftOperandResultPointer;
+    @Nullable
     private TensorPointer rightOperandResultPointer;
 
     private final boolean requiresDerivativeChainValue;
@@ -27,7 +30,7 @@ public final class Multiplication extends AbstractOperation {
         this(null, leftOperation, rightOperation);
     }
 
-    public Multiplication(String name, Operation leftOperation, Operation rightOperation) {
+    public Multiplication(@Nullable String name, Operation leftOperation, Operation rightOperation) {
         super(name, leftOperation, rightOperation);
 
         var leftMaxShape = leftOperation.getMaxResultShape();
@@ -57,6 +60,9 @@ public final class Multiplication extends AbstractOperation {
 
     @Override
     public @NotNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
+        Objects.requireNonNull(rightOperation);
+
         leftOperandResultPointer = leftOperation.forwardPassCalculation();
         rightOperandResultPointer = rightOperation.forwardPassCalculation();
 

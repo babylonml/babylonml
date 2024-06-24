@@ -4,6 +4,7 @@ import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public class CrossEntropyCostFunction extends AbstractOperation implements CostFunction {
 
@@ -21,7 +22,7 @@ public class CrossEntropyCostFunction extends AbstractOperation implements CostF
         return shape;
     }
 
-    public Operation getExpectedValues() {
+    public @Nullable Operation getExpectedValues() {
         return rightOperation;
     }
 

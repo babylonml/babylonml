@@ -255,12 +255,8 @@ public final class MatrixOperations {
                 var columnValue = matrix[resultIndex + matrixOffset];
                 var sumDivider = 1.0f / mSum[sumIndex];
 
-                //n = x * log e
-                var nValue = columnValue * LOG_2_E;
-                //rounding to nearest integer value, n = round(x * log e)
-                var nValueBigPositive = (int) (Math.abs(nValue) + 1);
-                nValue = nValue + nValueBigPositive + 0.5f;
-                nValue = (int) nValue;
+                //n = round(x * log e)
+                var nValue = Math.round(columnValue * LOG_2_E);
 
                 //t = x - ln (2) * n
                 var tValue = columnValue - LOG_2 * nValue;

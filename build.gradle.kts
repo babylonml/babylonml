@@ -1,9 +1,13 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     java
     kotlin("jvm") version "2.0.0"
+    id("net.ltgt.errorprone") version "4.0.1"
 }
 
-group = "com.tornadoml"
+group = "com.babylonml"
 version = "1.0-SNAPSHOT"
 
 
@@ -15,6 +19,7 @@ java {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
@@ -30,11 +35,21 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.2"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.junit.jupiter:junit-jupiter")
+
+    errorprone("com.google.errorprone:error_prone_core:2.28.0")
+    errorprone("com.uber.nullaway:nullaway:0.11.0")
 }
 
 tasks.withType<JavaCompile> {
     // Add module for Vector API if available and necessary
     options.compilerArgs.addAll(listOf("--add-modules", "jdk.incubator.vector"))
+
+    if (!name.lowercase().contains("test")) {
+        options.errorprone {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:AnnotatedPackages", "com.babylonml")
+        }
+    }
 }
 
 tasks {

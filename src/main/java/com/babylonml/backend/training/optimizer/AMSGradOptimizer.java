@@ -8,15 +8,18 @@ import com.babylonml.backend.cpu.VectorOperations;
 
 import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
     public static final float DEFAULT_BETA1 = 0.9f;
     public static final float DEFAULT_BETA2 = 0.999f;
     public static final float DEFAULT_EPSILON = 1e-8f;
 
-    private float[] avgMovement;
-    private float[] avgMovementSqr;
-    private float[] correctedAvgMovementSqr;
+    private float @Nullable [] avgMovement;
+    private float @Nullable [] avgMovementSqr;
+    private float @Nullable [] correctedAvgMovementSqr;
 
     private final float beta1;
     private final float beta2;
@@ -44,6 +47,10 @@ public class AMSGradOptimizer implements GradientOptimizer, MiniBatchListener {
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
                          int[] shape, float[] gradient, int gradientOffset, float learningRate, Operation operation) {
+        Objects.requireNonNull(avgMovement);
+        Objects.requireNonNull(avgMovementSqr);
+        Objects.requireNonNull(correctedAvgMovementSqr);
+
         final int stride = TensorOperations.stride(shape);
 
         var calculationBufferPointer = executionContext.allocateBackwardMemory(operation, shape);

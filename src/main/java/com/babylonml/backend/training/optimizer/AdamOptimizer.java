@@ -8,14 +8,17 @@ import com.babylonml.backend.cpu.VectorOperations;
 
 import com.babylonml.backend.training.operations.Operation;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     public static final float DEFAULT_BETA1 = 0.9f;
     public static final float DEFAULT_BETA2 = 0.999f;
     public static final float DEFAULT_EPSILON = 1e-8f;
 
-    private float[] avgMovement;
-    private float[] avgMovementSqr;
+    private float @Nullable [] avgMovement;
+    private float @Nullable [] avgMovementSqr;
 
 
     private final float beta1;
@@ -40,6 +43,9 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
                          int[] shape, float[] gradient, int gradientOffset, float learningRate, @NonNull Operation operation) {
+        Objects.requireNonNull(avgMovement);
+        Objects.requireNonNull(avgMovementSqr);
+
         int stride = TensorOperations.stride(shape);
 
         var avgMovementPointer = executionContext.allocateBackwardMemory(operation, shape);
@@ -103,7 +109,7 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
 
     private static void movingAverageBiasCorrection(float[] movingAverage,
                                                     float betta, long iteration, float[] result, int resultOffset, int size) {
-        var coefficient = (float) (1.0 / (1.0 - Math.pow(betta, iteration)));
+        var coefficient = (float) (1.0 / (1.0 - Math.pow(betta, (double) iteration)));
         VectorOperations.multiplyVectorToScalar(movingAverage, 0, coefficient, result, resultOffset,
                 size);
     }

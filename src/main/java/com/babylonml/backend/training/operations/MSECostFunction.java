@@ -8,6 +8,7 @@ import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -18,7 +19,9 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
 
     private final boolean requiresDerivativeChainValue;
 
+    @Nullable
     private TensorPointer predictionOperandPointer;
+    @Nullable
     private TensorPointer expectedValuesPointer;
 
     private boolean trainingMode;
@@ -28,7 +31,7 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
         this(null, predictionOperation, expectedValuesOperation);
     }
 
-    public MSECostFunction(String name,
+    public MSECostFunction(@Nullable String name,
                            Operation predictionOperation,
                            Operation expectedValuesOperation) {
         super(name, predictionOperation, expectedValuesOperation);
@@ -36,6 +39,7 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
         this.maxShape = TensorOperations.calculateMaxShape(predictionOperation.getMaxResultShape(),
                 expectedValuesOperation.getMaxResultShape());
 
+        Objects.requireNonNull(leftOperation);
         this.requiresDerivativeChainValue = leftOperation.requiresBackwardDerivativeChainValue();
     }
 
@@ -46,6 +50,9 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
+        Objects.requireNonNull(rightOperation);
+
         predictionOperandPointer = leftOperation.forwardPassCalculation();
         expectedValuesPointer = rightOperation.forwardPassCalculation();
 

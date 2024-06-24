@@ -4,13 +4,17 @@ import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.cpu.VectorOperations;
 
-import org.jetbrains.annotations.NotNull;
+
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
 public final class HadamardProduct extends AbstractOperation {
+    @Nullable
     private TensorPointer leftOperandPointer;
+
+    @Nullable
     private TensorPointer rightOperandPointer;
 
     private final boolean requiresDerivativeChainValue;
@@ -33,48 +37,49 @@ public final class HadamardProduct extends AbstractOperation {
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
+        Objects.requireNonNull(rightOperation);
+
         leftOperandPointer = leftOperation.forwardPassCalculation();
         rightOperandPointer = rightOperation.forwardPassCalculation();
 
         return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, forwardMemoryAllocator,
-                ((firstTensor, secondTensor, result) ->
+                (firstTensor, secondTensor, result) ->
                         VectorOperations.vectorToVectorElementWiseMultiplication(firstTensor.buffer(), firstTensor.offset(),
                                 secondTensor.buffer(), secondTensor.offset(), result.buffer(), result.offset(),
-                                TensorOperations.stride(result.shape()))
-                ));
+                                TensorOperations.stride(result.shape())));
     }
 
     @Override
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
+        Objects.requireNonNull(rightOperandPointer);
 
         return reduceIfNeeded(derivativeChainPointer, rightOperandPointer, backwardMemoryAllocator,
-                ((derivativeTensor, rightTensor, resultTensor) ->
+                (derivativeTensor, rightTensor, resultTensor) ->
                         VectorOperations.vectorToVectorElementWiseMultiplication(
+
                                 derivativeTensor.buffer(), derivativeTensor.offset(),
                                 rightTensor.buffer(), rightTensor.offset(),
                                 resultTensor.buffer(), resultTensor.offset(),
-                                TensorOperations.stride(resultTensor.shape()))
-                )
-        );
+                                TensorOperations.stride(resultTensor.shape())));
     }
 
     @Override
     public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
         Objects.requireNonNull(derivativeChainPointer);
+        Objects.requireNonNull(leftOperandPointer);
 
         return reduceIfNeeded(derivativeChainPointer, leftOperandPointer, backwardMemoryAllocator,
-                ((derivativeTensor, leftTensor, resultTensor) ->
+                (derivativeTensor, leftTensor, resultTensor) ->
                         VectorOperations.vectorToVectorElementWiseMultiplication(
                                 derivativeTensor.buffer(), derivativeTensor.offset(),
                                 leftTensor.buffer(), leftTensor.offset(),
                                 resultTensor.buffer(), resultTensor.offset(),
                                 TensorOperations.stride(resultTensor.shape()))
-                )
         );
     }
 
-    @NotNull
     @Override
     public int @NonNull [][] getForwardMemoryAllocations() {
         return new int[][]{

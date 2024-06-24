@@ -5,12 +5,15 @@ import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.cpu.VectorOperations;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
 
 public final class Add extends AbstractOperation {
+    @Nullable
     private TensorPointer leftOperandPointer;
+    @Nullable
     private TensorPointer rightOperandPointer;
 
     private final boolean requiresDerivativeChainValue;
@@ -21,7 +24,7 @@ public final class Add extends AbstractOperation {
         this(null, leftOperation, rightOperation);
     }
 
-    public Add(String name, Operation leftOperation, Operation rightOperation) {
+    public Add(@Nullable String name, Operation leftOperation, Operation rightOperation) {
         super(name, leftOperation, rightOperation);
 
         var leftMaxShape = leftOperation.getMaxResultShape();
@@ -36,14 +39,17 @@ public final class Add extends AbstractOperation {
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        Objects.requireNonNull(leftOperation);
+        Objects.requireNonNull(rightOperation);
+
         leftOperandPointer = leftOperation.forwardPassCalculation();
         rightOperandPointer = rightOperation.forwardPassCalculation();
 
         return broadcastIfNeeded(leftOperandPointer, rightOperandPointer, forwardMemoryAllocator,
-                ((firstTensor, secondTensor, result) ->
+                (firstTensor, secondTensor, result) ->
                         VectorOperations.addVectorToVector(firstTensor.buffer(), firstTensor.offset(), secondTensor.buffer(),
-                                secondTensor.offset(),  result.buffer(),
-                                result.offset(), TensorOperations.stride(result.shape()))));
+                                secondTensor.offset(), result.buffer(),
+                                result.offset(), TensorOperations.stride(result.shape())));
     }
 
     @NotNull
@@ -54,6 +60,7 @@ public final class Add extends AbstractOperation {
 
     @Override
     public @NonNull TensorPointer leftBackwardDerivativeChainValue() {
+        Objects.requireNonNull(leftOperandPointer);
         return calculateDerivative(leftOperandPointer);
     }
 
@@ -61,15 +68,16 @@ public final class Add extends AbstractOperation {
         Objects.requireNonNull(derivativeChainPointer);
 
         return reduceIfNeeded(operandPointer, derivativeChainPointer, backwardMemoryAllocator,
-                ((operand, derivativeChain, result) -> System.arraycopy(derivativeChain.buffer(),
+                (operand, derivativeChain, result) -> System.arraycopy(derivativeChain.buffer(),
                         derivativeChain.offset(),
                         result.buffer(), result.offset(),
-                        TensorOperations.stride(result.shape()))));
+                        TensorOperations.stride(result.shape())));
 
     }
 
     @Override
     public @NonNull TensorPointer rightBackwardDerivativeChainValue() {
+        Objects.requireNonNull(rightOperandPointer);
         return calculateDerivative(rightOperandPointer);
     }
 

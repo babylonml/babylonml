@@ -14,7 +14,9 @@ public abstract class AbstractOperation implements Operation {
     protected final BiFunction<Operation, int[], TensorPointer> forwardMemoryAllocator;
     protected final BiFunction<Operation, int[], TensorPointer> backwardMemoryAllocator;
 
+    @Nullable
     protected Operation leftOperation;
+    @Nullable
     protected Operation rightOperation;
 
     @NonNull
@@ -23,27 +25,28 @@ public abstract class AbstractOperation implements Operation {
     @Nullable
     protected TensorPointer derivativeChainPointer;
 
+    @Nullable
     protected Operation nextOperation;
 
     @Nullable
     protected String name;
 
-    public AbstractOperation(String name, Operation leftOperation, Operation rightOperation) {
+    public AbstractOperation(@Nullable String name, @Nullable Operation leftOperation, @Nullable Operation rightOperation) {
         this(name, null, leftOperation, rightOperation);
     }
 
-    public AbstractOperation(Operation leftOperation, Operation rightOperation) {
+    public AbstractOperation(@Nullable Operation leftOperation, @Nullable Operation rightOperation) {
         this(null, null, leftOperation, rightOperation);
     }
 
-    public AbstractOperation(TrainingExecutionContext executionContext,
-                             Operation leftOperation, Operation rightOperation) {
+    public AbstractOperation(@Nullable TrainingExecutionContext executionContext,
+                             @Nullable Operation leftOperation, @Nullable Operation rightOperation) {
         this(null, executionContext, leftOperation, rightOperation);
     }
 
 
     public AbstractOperation(@Nullable String name, @Nullable TrainingExecutionContext executionContext,
-                             Operation leftOperation, Operation rightOperation) {
+                             @Nullable Operation leftOperation, @Nullable Operation rightOperation) {
         this.name = name;
 
         this.leftOperation = leftOperation;
@@ -74,6 +77,7 @@ public abstract class AbstractOperation implements Operation {
                 throw new IllegalArgumentException("At least one of the operations should be provided");
             }
         } else {
+            Objects.requireNonNull(executionContext);
             this.executionContext = executionContext;
         }
 
@@ -85,17 +89,18 @@ public abstract class AbstractOperation implements Operation {
         backwardMemoryAllocator = ex::allocateBackwardMemory;
     }
 
+    @Override
     public final void updateBackwardDerivativeChainValue(@NonNull TensorPointer backwardDerivativeChainValue) {
         this.derivativeChainPointer = backwardDerivativeChainValue;
     }
 
     @Override
-    public final Operation getLeftPreviousOperation() {
+    public final @Nullable Operation getLeftPreviousOperation() {
         return leftOperation;
     }
 
     @Override
-    public final Operation getRightPreviousOperation() {
+    public final @Nullable Operation getRightPreviousOperation() {
         return rightOperation;
     }
 
@@ -110,7 +115,7 @@ public abstract class AbstractOperation implements Operation {
     }
 
     @Override
-    public Operation getNextOperation() {
+    public @Nullable Operation getNextOperation() {
         return nextOperation;
     }
 

@@ -107,7 +107,7 @@ public final class TrainingExecutionContext {
             throw new IllegalStateException("Main input source is not registered");
         }
 
-        if (data.getShape().getInt(0) != inputSource.getSamplesCount()) {
+        if (data.shape.getInt(0) != inputSource.getSamplesCount()) {
             throw new IllegalArgumentException("Samples count do not match the main input source");
         }
 
@@ -118,7 +118,7 @@ public final class TrainingExecutionContext {
     private int calculateMiniBatchSize(Tensor data) {
         int batchSize;
         if (miniBatchSize == -1) {
-            batchSize = data.getShape().getInt(0);
+            batchSize = data.shape.getInt(0);
         } else {
             batchSize = miniBatchSize;
         }
@@ -442,15 +442,15 @@ public final class TrainingExecutionContext {
 
             var leftOperation = operation.getLeftPreviousOperation();
 
-            if (leftOperation != null && leftOperation.requiresBackwardDerivativeChainValue()) {
+            if (leftOperation != null && leftOperation.getRequiresBackwardDerivativeChainValue()) {
                 var result = operation.leftBackwardDerivativeChainValue();
-                leftOperation.updateBackwardDerivativeChainValue(result);
+                leftOperation.setDerivativeChainPointer(result);
             }
 
             var rightOperation = operation.getRightPreviousOperation();
-            if (rightOperation != null && rightOperation.requiresBackwardDerivativeChainValue()) {
+            if (rightOperation != null && rightOperation.getRequiresBackwardDerivativeChainValue()) {
                 var result = operation.rightBackwardDerivativeChainValue();
-                rightOperation.updateBackwardDerivativeChainValue(result);
+                rightOperation.setDerivativeChainPointer(result);
             }
         }
     }

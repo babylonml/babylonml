@@ -16,10 +16,8 @@ class RandomGradientSource(
 ), CostFunction {
     val generatedGradients = mutableListOf<FloatArray>()
 
-    override fun getMaxResultShape(): IntImmutableList = shape
-
     override fun forwardPassCalculation(): TensorPointer {
-        return leftOperation!!.forwardPassCalculation()
+        return leftPreviousOperation!!.forwardPassCalculation()
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
@@ -41,13 +39,6 @@ class RandomGradientSource(
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer = TrainingExecutionContext.NULL
 
-    override fun getForwardMemoryAllocations(): List<IntImmutableList> = emptyList()
-
-    override fun getBackwardMemoryAllocations(): List<IntImmutableList> =
-        listOf(shape)
-
-    override fun requiresBackwardDerivativeChainValue(): Boolean = true
-
     override fun trainingMode() {
         //No-op
     }
@@ -56,4 +47,12 @@ class RandomGradientSource(
         //No-op
     }
 
+    override val maxResultShape: IntImmutableList
+        get() = shape
+    override val forwardMemoryAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val backwardMemoryAllocations: List<IntImmutableList>
+        get() = listOf(shape)
+    override val requiresBackwardDerivativeChainValue: Boolean
+        get() = true
 }

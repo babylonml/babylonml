@@ -8,10 +8,8 @@ class GradientSource(
     private val shape: IntImmutableList,
     private val gradients: FloatArray, leftOperation: AbstractOperation
 ) : AbstractOperation(leftOperation, null), CostFunction {
-    override fun getMaxResultShape(): IntImmutableList = shape
-
     override fun forwardPassCalculation(): TensorPointer {
-        return leftOperation!!.forwardPassCalculation()
+        return leftPreviousOperation!!.forwardPassCalculation()
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
@@ -34,12 +32,6 @@ class GradientSource(
         return result
     }
 
-    override fun getForwardMemoryAllocations(): List<IntImmutableList> = emptyList()
-
-    override fun getBackwardMemoryAllocations(): List<IntImmutableList> =  listOf(shape)
-
-    override fun requiresBackwardDerivativeChainValue(): Boolean = true
-
     override fun trainingMode() {
         //No-op
     }
@@ -47,4 +39,13 @@ class GradientSource(
     override fun fullPassCalculationMode() {
         //No-op
     }
+
+    override val maxResultShape: IntImmutableList
+        get() = shape
+    override val forwardMemoryAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val backwardMemoryAllocations: List<IntImmutableList>
+        get() = listOf(shape)
+    override val requiresBackwardDerivativeChainValue: Boolean
+        get() = true
 }

@@ -46,13 +46,13 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
 
             this.miniBatchSize = miniBatchSize;
 
-            var dataShape = data.getShape();
+            var dataShape = data.shape;
             this.batchWidth = TensorOperations.stride(dataShape) / dataShape.getInt(0);
         }
 
         @Override
         public int getSamplesCount() {
-            return data.getShape().getInt(0);
+            return data.shape.getInt(0);
         }
 
         @Override
@@ -72,7 +72,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
 
         @Override
         public @NonNull IntImmutableList getMaxResultShape() {
-            var dataShape = data.getShape();
+            var dataShape = data.shape;
             var result = new int[dataShape.size()];
             result[0] = miniBatchSize;
 
@@ -83,7 +83,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
 
         @Override
         public @NonNull TensorPointer forwardPassCalculation() {
-            var dataShape = data.getShape();
+            var dataShape = data.shape;
             var currentBatchSnippedIndex = localMiniBatchIndex * miniBatchSize;
             var currentBatchSize = Math.min(miniBatchSize, dataShape.getInt(0) - currentBatchSnippedIndex);
 
@@ -91,7 +91,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
             shape[0] = currentBatchSize;
 
             dataShape.getElements(1, shape, 1, dataShape.size() - 1);
-            var result = executionContext.allocateForwardMemory(this, IntImmutableList.of(shape));
+            var result = getExecutionContext().allocateForwardMemory(this, IntImmutableList.of(shape));
 
             var resultBuffer = result.buffer();
             var resultOffset = result.offset();
@@ -100,7 +100,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
             var startIndex = currentBatchSnippedIndex * batchWidth;
             var width = currentBatchSize * batchWidth;
 
-            System.arraycopy(data.getData(), startIndex, resultBuffer, resultOffset, width);
+            System.arraycopy(data.data, startIndex, resultBuffer, resultOffset, width);
 
             return result;
         }
@@ -112,7 +112,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
 
         @Override
         public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
-            var dataShape = data.getShape();
+            var dataShape = data.shape;
             var result = new int[dataShape.size()];
             result[0] = miniBatchSize;
 
@@ -137,18 +137,13 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
         }
 
         @Override
-        public boolean requiresBackwardDerivativeChainValue() {
-            return false;
-        }
-
-        @Override
         public void prepareForNextPropagation() {
             super.prepareForNextPropagation();
 
             globalMiniBatchIndex++;
             localMiniBatchIndex++;
 
-            if (localMiniBatchIndex * miniBatchSize >= data.getShape().getInt(0)) {
+            if (localMiniBatchIndex * miniBatchSize >= data.shape.getInt(0)) {
                 localMiniBatchIndex = 0;
             }
 
@@ -158,7 +153,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
         private void notifyListeners() {
             for (var listener : miniBatchListeners) {
                 listener.onMiniBatchStart(globalMiniBatchIndex, Math.min(miniBatchSize,
-                        data.getShape().getInt(0) - localMiniBatchIndex * miniBatchSize));
+                        data.shape.getInt(0) - localMiniBatchIndex * miniBatchSize));
             }
         }
 
@@ -168,6 +163,11 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
 
             //will be set to 0 in prepareForNextPropagation
             localMiniBatchIndex = -1;
+        }
+
+        @Override
+        public boolean getRequiresBackwardDerivativeChainValue() {
+            return false;
         }
     }
 

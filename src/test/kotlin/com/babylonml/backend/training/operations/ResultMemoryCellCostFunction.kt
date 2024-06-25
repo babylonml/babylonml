@@ -8,14 +8,12 @@ import it.unimi.dsi.fastutil.ints.IntImmutableList
 
 class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(operation, null), CostFunction {
     var result = FloatArray(0)
-    private val maxShape = operation.getMaxResultShape()
+    private val maxShape = operation.maxResultShape
 
     private lateinit var shape: IntImmutableList
 
-    override fun getMaxResultShape(): IntImmutableList = maxShape
-
     override fun forwardPassCalculation(): TensorPointer {
-        val resultPointer = leftOperation!!.forwardPassCalculation()
+        val resultPointer = leftPreviousOperation!!.forwardPassCalculation()
 
         val resultOffset = resultPointer.offset()
         val resultBuffer = resultPointer.buffer()
@@ -43,12 +41,6 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer = TrainingExecutionContext.NULL
 
-    override fun getForwardMemoryAllocations(): List<IntImmutableList> = emptyList()
-
-    override fun getBackwardMemoryAllocations(): List<IntImmutableList> = listOf(maxShape)
-
-    override fun requiresBackwardDerivativeChainValue(): Boolean = false
-
     override fun trainingMode() {
         //No-op
     }
@@ -56,4 +48,13 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
     override fun fullPassCalculationMode() {
         //No-op
     }
+
+    override val maxResultShape: IntImmutableList
+        get() = maxShape
+    override val forwardMemoryAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val backwardMemoryAllocations: List<IntImmutableList>
+        get() = listOf(maxShape)
+    override val requiresBackwardDerivativeChainValue: Boolean
+        get() = true
 }

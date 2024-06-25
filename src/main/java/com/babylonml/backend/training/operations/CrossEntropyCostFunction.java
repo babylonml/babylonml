@@ -2,13 +2,15 @@ package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
-import org.jetbrains.annotations.NotNull;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
+
 public class CrossEntropyCostFunction extends AbstractOperation implements CostFunction {
 
-    private final int[] shape;
+    private final IntImmutableList shape;
 
     public CrossEntropyCostFunction(@NonNull Operation expectedValues, @NonNull Operation leftOperation) {
         super(leftOperation, expectedValues);
@@ -18,7 +20,7 @@ public class CrossEntropyCostFunction extends AbstractOperation implements CostF
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return shape;
     }
 
@@ -44,15 +46,14 @@ public class CrossEntropyCostFunction extends AbstractOperation implements CostF
                 " and softmax. It should not be used in backward pass");
     }
 
-    @NotNull
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in forward pass");
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in backward pass");
     }

@@ -265,7 +265,7 @@ class TrainingExecutionContextTests {
         )
 
         val expectedValues = FloatMatrix.random(1, outputSize, source)
-        val expectedValuesConst = Constant(executionContext, expectedValues.toFlatArray(), intArrayOf(1, outputSize))
+        val expectedValuesConst = Constant(executionContext, expectedValues.toTensor())
         val crossEntropy = CrossEntropyCostFunction(
             expectedValuesConst, softMax
         )

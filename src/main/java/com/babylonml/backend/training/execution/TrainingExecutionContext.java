@@ -2,13 +2,14 @@ package com.babylonml.backend.training.execution;
 
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.operations.*;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
 public final class TrainingExecutionContext {
-    public static final TensorPointer NULL = new TensorPointer(0, new int[0], null);
+    public static final TensorPointer NULL = new TensorPointer(0, IntImmutableList.of(), null);
 
     private static final int FORWARD_MEMORY_TYPE = 1;
 
@@ -106,7 +107,7 @@ public final class TrainingExecutionContext {
             throw new IllegalStateException("Main input source is not registered");
         }
 
-        if (data.getShape()[0] != inputSource.getSamplesCount()) {
+        if (data.getShape().getInt(0) != inputSource.getSamplesCount()) {
             throw new IllegalArgumentException("Samples count do not match the main input source");
         }
 
@@ -117,7 +118,7 @@ public final class TrainingExecutionContext {
     private int calculateMiniBatchSize(Tensor data) {
         int batchSize;
         if (miniBatchSize == -1) {
-            batchSize = data.getShape()[0];
+            batchSize = data.getShape().getInt(0);
         } else {
             batchSize = miniBatchSize;
         }
@@ -265,7 +266,7 @@ public final class TrainingExecutionContext {
     }
 
 
-    public TensorPointer allocateForwardMemory(Operation operation, int... dimensions) {
+    public TensorPointer allocateForwardMemory(Operation operation, IntImmutableList dimensions) {
         Objects.requireNonNull(forwardMemoryBuffer, "Forward memory buffer is not initialized");
 
         var length = 1;
@@ -293,7 +294,7 @@ public final class TrainingExecutionContext {
         return new TensorPointer(address, dimensions, this);
     }
 
-    public @NonNull TensorPointer allocateBackwardMemory(@NonNull Operation operation, int... dimensions) {
+    public @NonNull TensorPointer allocateBackwardMemory(@NonNull Operation operation, IntImmutableList dimensions) {
         Objects.requireNonNull(currentStepBackwardMemoryBuffer, "Backward memory buffer is not initialized");
 
         var length = 1;
@@ -483,7 +484,7 @@ public final class TrainingExecutionContext {
         backwardMemoryIndex = 0;
     }
 
-    private static int allocationsSize(int[][] allocations) {
+    private static int allocationsSize(List<IntImmutableList> allocations) {
         var sum = 0;
 
         for (var allocation : allocations) {

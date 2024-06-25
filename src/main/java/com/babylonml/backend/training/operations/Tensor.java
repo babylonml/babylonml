@@ -1,10 +1,11 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.cpu.TensorOperations;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 
 public final class Tensor {
     private final float[] data;
-    private final int[] shape;
+    private final IntImmutableList shape;
 
     public Tensor(float[] data, int[] shape) {
         var stride = TensorOperations.stride(shape);
@@ -14,7 +15,7 @@ public final class Tensor {
         }
 
         this.data = data;
-        this.shape = shape;
+        this.shape = IntImmutableList.of(shape);
     }
 
     @SuppressWarnings("unused")
@@ -22,7 +23,7 @@ public final class Tensor {
         this(new float[TensorOperations.stride(shape)], shape);
     }
 
-    public int[] getShape() {
+    public IntImmutableList getShape() {
         return shape;
     }
 

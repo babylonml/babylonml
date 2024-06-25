@@ -3,13 +3,14 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class GeLUFunction extends AbstractOperation {
@@ -21,7 +22,7 @@ public final class GeLUFunction extends AbstractOperation {
     private static final float SCALAR_4 = 0.044715f;
     private static final float SCALAR_5 = 3 * SCALAR_4;
 
-    private final int[] maxShape;
+    private final IntImmutableList maxShape;
 
     private final boolean requiresDerivativeChainValue;
 
@@ -36,7 +37,7 @@ public final class GeLUFunction extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
@@ -162,19 +163,15 @@ public final class GeLUFunction extends AbstractOperation {
         return TrainingExecutionContext.NULL;
     }
 
-    @NotNull
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(maxShape);
+
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 
     @Override

@@ -2,12 +2,13 @@ package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public final class Multiplication extends AbstractOperation {
@@ -24,7 +25,7 @@ public final class Multiplication extends AbstractOperation {
 
     private final boolean requiresDerivativeChainValue;
 
-    private final int[] maxOperandShape;
+    private final IntImmutableList maxOperandShape;
 
     public Multiplication(Operation leftOperation, Operation rightOperation) {
         this(null, leftOperation, rightOperation);
@@ -41,11 +42,11 @@ public final class Multiplication extends AbstractOperation {
         leftMaxShape = reduceShapes.left();
         rightMaxShape = reduceShapes.right();
 
-        this.leftMatrixMaxRows = leftMaxShape[0];
-        this.leftMatrixMaxColumns = leftMaxShape[1];
+        this.leftMatrixMaxRows = leftMaxShape.getInt(0);
+        this.leftMatrixMaxColumns = leftMaxShape.getInt(1);
 
-        this.rightMatrixMaxRows = rightMaxShape[0];
-        this.rightMatrixMaxColumns = rightMaxShape[1];
+        this.rightMatrixMaxRows = rightMaxShape.getInt(0);
+        this.rightMatrixMaxColumns = rightMaxShape.getInt(1);
 
         this.maxOperandShape = TensorOperations.calculateBMMShape(leftMaxShape, rightMaxShape);
 
@@ -54,8 +55,8 @@ public final class Multiplication extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
-        return new int[]{leftMatrixMaxRows, rightMatrixMaxColumns};
+    public @NonNull IntImmutableList getMaxResultShape() {
+        return IntImmutableList.of(leftMatrixMaxRows, rightMatrixMaxColumns);
     }
 
     @Override
@@ -71,8 +72,8 @@ public final class Multiplication extends AbstractOperation {
 
         var reducedShapes = reduceShapes(leftOperandShape, rightOperandShape);
 
-        int[] leftShape = reducedShapes.left();
-        int[] rightShape = reducedShapes.right();
+        var leftShape = reducedShapes.left();
+        var rightShape = reducedShapes.right();
 
         var resultShape = TensorOperations.calculateBMMShape(leftShape, rightShape);
 
@@ -89,11 +90,11 @@ public final class Multiplication extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
-                new int[]{leftMatrixMaxRows, rightMatrixMaxColumns},
-                maxOperandShape,
-        };
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(
+                IntImmutableList.of(leftMatrixMaxRows, rightMatrixMaxColumns),
+                maxOperandShape
+        );
     }
 
     @Override
@@ -183,19 +184,19 @@ public final class Multiplication extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(
                 //left
-                new int[]{leftMatrixMaxRows, leftMatrixMaxColumns},
+                IntImmutableList.of(leftMatrixMaxRows, leftMatrixMaxColumns),
                 //right^t
-                new int[]{rightMatrixMaxColumns, rightMatrixMaxRows},
+                IntImmutableList.of(rightMatrixMaxColumns, rightMatrixMaxRows),
 
 
                 //right
-                new int[]{rightMatrixMaxRows, rightMatrixMaxColumns},
+                IntImmutableList.of(rightMatrixMaxRows, rightMatrixMaxColumns),
                 //left^t
-                new int[]{leftMatrixMaxColumns, leftMatrixMaxRows},
-        };
+                IntImmutableList.of(leftMatrixMaxColumns, leftMatrixMaxRows)
+        );
     }
 
     @Override
@@ -203,31 +204,32 @@ public final class Multiplication extends AbstractOperation {
         return requiresDerivativeChainValue;
     }
 
-    private static ObjectObjectImmutablePair<int[], int[]> reduceShapes(int[] firstShape, int[] secondShape) {
-        if (firstShape.length == 1 && secondShape.length == 1) {
+    private static ObjectObjectImmutablePair<IntImmutableList, IntImmutableList> reduceShapes(IntImmutableList firstShape, IntImmutableList secondShape) {
+        if (firstShape.size() == 1 && secondShape.size() == 1) {
             return new ObjectObjectImmutablePair<>(firstShape, secondShape);
-        } else if (firstShape.length < secondShape.length) {
-            int diff = secondShape.length - firstShape.length;
+        } else if (firstShape.size() < secondShape.size()) {
+            int diff = secondShape.size() - firstShape.size();
             for (int i = 0; i < diff; i++) {
-                if (secondShape[i] != 1) {
+                if (secondShape.getInt(i) != 1) {
                     throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
-                            Arrays.toString(firstShape) + ", second shape: " + Arrays.toString(secondShape) + ".");
+                            firstShape + ", second shape: " + secondShape + ".");
                 }
             }
-            var result = new int[firstShape.length];
-            System.arraycopy(secondShape, diff, result, 0, firstShape.length);
-            return new ObjectObjectImmutablePair<>(firstShape, result);
+            var result = new int[firstShape.size()];
+            secondShape.getElements(diff, result, 0, firstShape.size());
+            return new ObjectObjectImmutablePair<>(firstShape, IntImmutableList.of(result));
         } else {
-            int diff = firstShape.length - secondShape.length;
+            int diff = firstShape.size() - secondShape.size();
             for (int i = 0; i < diff; i++) {
-                if (firstShape[i] != 1) {
+                if (firstShape.getInt(i) != 1) {
                     throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
-                            Arrays.toString(firstShape) + ", second shape: " + Arrays.toString(secondShape) + ".");
+                            firstShape + ", second shape: " + secondShape + ".");
                 }
             }
-            var result = new int[secondShape.length];
-            System.arraycopy(firstShape, diff, result, 0, secondShape.length);
-            return new ObjectObjectImmutablePair<>(result, secondShape);
+
+            var result = new int[secondShape.size()];
+            firstShape.getElements(diff, result, 0, secondShape.size());
+            return new ObjectObjectImmutablePair<>(IntImmutableList.of(result), secondShape);
         }
     }
 }

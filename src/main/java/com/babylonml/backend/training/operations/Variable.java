@@ -6,9 +6,11 @@ import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import com.babylonml.backend.training.initializer.Initializer;
 import com.babylonml.backend.training.optimizer.GradientOptimizer;
 
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class Variable extends AbstractOperation implements StartOperation {
@@ -16,46 +18,47 @@ public final class Variable extends AbstractOperation implements StartOperation 
     private final GradientOptimizer optimizer;
     private final float learningRate;
 
-    private final float @NonNull [] data;
-    private final int[] shape;
+    private final @NonNull Tensor data;
 
     public Variable(@NonNull TrainingExecutionContext executionContext, @NonNull GradientOptimizer optimizer,
-                    float @NonNull [] data, int[] shape, float learningRate) {
-        this(null, executionContext, optimizer, data, shape, learningRate);
+                    @NonNull Tensor data, float learningRate) {
+        this(null, executionContext, optimizer, data, learningRate);
     }
 
     public Variable(@Nullable String name, @NonNull TrainingExecutionContext executionContext,
                     @NonNull GradientOptimizer optimizer,
                     int[] shape, float learningRate, Initializer initializer) {
         this(name, executionContext, optimizer, initData(shape, initializer),
-                shape, learningRate);
+                learningRate);
     }
 
-    private static float @NonNull [] initData(int[] shape, Initializer initializer) {
+    private static @NonNull Tensor initData(int[] shape, Initializer initializer) {
         var data = new float[TensorOperations.stride(shape)];
         initializer.initialize(data, 0, shape);
 
-        return data;
+        return new Tensor(data, shape);
     }
 
     public Variable(@Nullable String name, @NonNull TrainingExecutionContext executionContext,
                     @NonNull GradientOptimizer optimizer,
-                    float @NonNull [] data, int[] shape, float learningRate) {
+                    @NonNull Tensor data, float learningRate) {
         super(name, executionContext, null, null);
 
         this.optimizer = optimizer;
         this.data = data;
-        this.shape = shape;
         this.learningRate = learningRate;
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
-        return shape;
+    public @NonNull IntImmutableList getMaxResultShape() {
+        return data.getShape();
     }
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
+        var data = this.data.getData();
+        var shape = this.data.getShape();
+
         var result = executionContext.allocateForwardMemory(this, shape);
         var resultBuffer = executionContext.getMemoryBuffer(result.pointer());
         var resultOffset = TrainingExecutionContext.addressOffset(result.pointer());
@@ -66,8 +69,8 @@ public final class Variable extends AbstractOperation implements StartOperation 
     }
 
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{shape};
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(data.getShape());
     }
 
     @Override
@@ -81,8 +84,8 @@ public final class Variable extends AbstractOperation implements StartOperation 
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return optimizer.calculateRequiredMemoryAllocations(shape);
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return optimizer.calculateRequiredMemoryAllocations(data.getShape());
     }
 
     @Override
@@ -91,7 +94,7 @@ public final class Variable extends AbstractOperation implements StartOperation 
     }
 
     public float @NonNull [] getData() {
-        return data;
+        return data.getData();
     }
 
     @Override
@@ -101,7 +104,7 @@ public final class Variable extends AbstractOperation implements StartOperation 
         var derivativeBuffer = executionContext.getMemoryBuffer(derivativeChainPointer.pointer());
         var derivativeOffset = TrainingExecutionContext.addressOffset(derivativeChainPointer.pointer());
 
-        optimizer.optimize(executionContext, data, 0, shape, derivativeBuffer,
+        optimizer.optimize(executionContext, data.getData(), 0, data.getShape(), derivativeBuffer,
                 derivativeOffset, learningRate, this);
     }
 }

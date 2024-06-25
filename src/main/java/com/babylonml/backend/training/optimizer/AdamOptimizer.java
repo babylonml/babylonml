@@ -7,9 +7,11 @@ import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.babylonml.backend.cpu.VectorOperations;
 
 import com.babylonml.backend.training.operations.Operation;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
@@ -42,7 +44,7 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
 
     @Override
     public void optimize(TrainingExecutionContext executionContext, float[] matrix, int matrixOffset,
-                         int[] shape, float[] gradient, int gradientOffset, float learningRate, @NonNull Operation operation) {
+                         IntImmutableList shape, float[] gradient, int gradientOffset, float learningRate, @NonNull Operation operation) {
         Objects.requireNonNull(avgMovement);
         Objects.requireNonNull(avgMovementSqr);
 
@@ -72,14 +74,13 @@ public class AdamOptimizer implements GradientOptimizer, MiniBatchListener {
     }
 
     @Override
-    public int @NonNull [][] calculateRequiredMemoryAllocations(int[] shape) {
+    public @NonNull List<IntImmutableList> calculateRequiredMemoryAllocations(IntImmutableList shape) {
         var stride = TensorOperations.stride(shape);
+
         this.avgMovement = new float[stride];
         this.avgMovementSqr = new float[stride];
 
-        return new int[][]{
-                shape, shape
-        };
+        return List.of(shape, shape);
     }
 
     public static void updateAvgMovement(float[] gradient, int gradientOffset, float[] avgMovement,

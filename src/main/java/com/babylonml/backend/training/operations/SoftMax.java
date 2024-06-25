@@ -1,10 +1,13 @@
 package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.execution.TensorPointer;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 
+import java.util.List;
+
 public class SoftMax extends AbstractOperation {
-    private final int @NonNull [] maxShape;
+    private final @NonNull IntImmutableList maxShape;
 
     public SoftMax(Operation leftOperation) {
         super(leftOperation, null);
@@ -31,18 +34,18 @@ public class SoftMax extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in forward pass");
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
         throw new UnsupportedOperationException("This is stub class that is used to implement mix of cross entropy" +
                 " and softmax. It should not be used in backward pass");
     }

@@ -3,10 +3,12 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.cpu.VectorOperations;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 
@@ -18,7 +20,7 @@ public final class Add extends AbstractOperation {
 
     private final boolean requiresDerivativeChainValue;
 
-    private final int[] maxShape;
+    private final IntImmutableList maxShape;
 
     public Add(Operation leftOperation, Operation rightOperation) {
         this(null, leftOperation, rightOperation);
@@ -54,8 +56,8 @@ public final class Add extends AbstractOperation {
 
     @NotNull
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{maxShape};
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 
     @Override
@@ -82,8 +84,8 @@ public final class Add extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{maxShape, maxShape};
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape, maxShape);
     }
 
     @Override
@@ -92,7 +94,7 @@ public final class Add extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 }

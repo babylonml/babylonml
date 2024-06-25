@@ -141,14 +141,14 @@ class FloatMatrix(val rows: Int, val cols: Int) {
     }
 
     fun toVariable(exec: TrainingExecutionContext, optimizer: GradientOptimizer, learningRate: Float): Variable {
-        return Variable(exec, optimizer, toFlatArray(), intArrayOf(rows, cols), learningRate)
+        return Variable(exec, optimizer, toTensor(), learningRate)
     }
 
     fun toVariable(
         name: String, exec: TrainingExecutionContext, optimizer: GradientOptimizer,
         learningRate: Float
     ): Variable {
-        return Variable(name, exec, optimizer, toFlatArray(), intArrayOf(rows, cols), learningRate)
+        return Variable(name, exec, optimizer, toTensor(), learningRate)
     }
 
     fun toTensor(dimensions: Int = 2): Tensor {

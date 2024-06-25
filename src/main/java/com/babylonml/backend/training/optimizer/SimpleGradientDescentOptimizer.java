@@ -6,7 +6,10 @@ import com.babylonml.backend.training.execution.ContextInputSource;
 import com.babylonml.backend.training.operations.MiniBatchListener;
 import com.babylonml.backend.cpu.VectorOperations;
 import com.babylonml.backend.training.operations.Operation;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
+
+import java.util.List;
 
 public class SimpleGradientDescentOptimizer implements GradientOptimizer, MiniBatchListener {
     private int scaleValue = 1;
@@ -17,7 +20,7 @@ public class SimpleGradientDescentOptimizer implements GradientOptimizer, MiniBa
 
     @Override
     public void optimize(@NonNull TrainingExecutionContext executionContext, float @NonNull [] matrix, int matrixOffset,
-                         int[] shape, float @NonNull [] gradient, int gradientOffset, float learningRate, Operation operation) {
+                         IntImmutableList shape, float @NonNull [] gradient, int gradientOffset, float learningRate, Operation operation) {
         var pointer = executionContext.allocateBackwardMemory(operation, shape);
         var buffer = pointer.buffer();
         var bufferOffset = pointer.offset();
@@ -31,10 +34,8 @@ public class SimpleGradientDescentOptimizer implements GradientOptimizer, MiniBa
     }
 
     @Override
-    public int @NonNull [][] calculateRequiredMemoryAllocations(int[] shape) {
-        return new int[][]{
-                shape
-        };
+    public @NonNull List<IntImmutableList> calculateRequiredMemoryAllocations(IntImmutableList shape) {
+        return List.of(shape);
     }
 
     @Override

@@ -5,9 +5,11 @@ import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.cpu.VectorOperations;
 
 
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class HadamardProduct extends AbstractOperation {
@@ -19,7 +21,7 @@ public final class HadamardProduct extends AbstractOperation {
 
     private final boolean requiresDerivativeChainValue;
 
-    private final int[] maxShape;
+    private final IntImmutableList maxShape;
 
     public HadamardProduct(Operation leftOperation, Operation rightOperation) {
         super(leftOperation, rightOperation);
@@ -31,7 +33,7 @@ public final class HadamardProduct extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
@@ -81,18 +83,13 @@ public final class HadamardProduct extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
-                maxShape,
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape, maxShape);
     }
 
     @Override

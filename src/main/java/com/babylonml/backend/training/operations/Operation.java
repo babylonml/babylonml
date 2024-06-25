@@ -2,11 +2,15 @@ package com.babylonml.backend.training.operations;
 
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
+
 public interface Operation {
-    int @NonNull [] getMaxResultShape();
+    @NonNull
+    IntImmutableList getMaxResultShape();
 
     @NonNull
     TensorPointer forwardPassCalculation();
@@ -17,9 +21,10 @@ public interface Operation {
     @NonNull
     TensorPointer rightBackwardDerivativeChainValue();
 
-    int @NonNull [][] getForwardMemoryAllocations();
+    List<IntImmutableList> getForwardMemoryAllocations();
 
-    int @NonNull [][] getBackwardMemoryAllocations();
+    @NonNull
+    List<IntImmutableList> getBackwardMemoryAllocations();
 
     @Nullable
     Operation getLeftPreviousOperation();

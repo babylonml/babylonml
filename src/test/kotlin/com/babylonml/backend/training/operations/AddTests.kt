@@ -4,6 +4,7 @@ import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -62,7 +63,7 @@ class AddTests {
 
         val add = Add(variable, inputSource)
         val gradientsMatrix = FloatMatrix.random(rows, columns, source)
-        val gradients = GradientSource(intArrayOf(rows, columns), gradientsMatrix.toFlatArray(), add)
+        val gradients = GradientSource( IntImmutableList.of(rows, columns), gradientsMatrix.toFlatArray(), add)
 
         executionContext.initializeExecution(gradients)
         executionContext.executePropagation()
@@ -94,7 +95,7 @@ class AddTests {
         val add = Add(inputSource, variable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
-        val gradientsSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), add)
+        val gradientsSource = GradientSource( IntImmutableList.of(rows, columns), gradients.toFlatArray(), add)
         val expectedResult = variableMatrix - gradients * learningRate
 
         executionContext.initializeExecution(gradientsSource)

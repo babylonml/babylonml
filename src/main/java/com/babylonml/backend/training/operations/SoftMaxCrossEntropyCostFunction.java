@@ -5,19 +5,20 @@ import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
 import com.babylonml.backend.cpu.MatrixOperations;
 import com.babylonml.backend.cpu.VectorOperations;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
-import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation implements CostFunction {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int @NonNull [] maxShape;
+    private final @NonNull IntImmutableList maxShape;
 
     @Nullable
     private TensorPointer softMaxResultPointer;
@@ -39,7 +40,7 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
@@ -63,11 +64,12 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
         var expectedProbabilityOffset = expectedProbabilityPointer.offset();
 
         var shape = predictedOperandResultPointer.shape();
-        if (shape.length != 2) {
+        if (shape.size() != 2) {
             throw new IllegalArgumentException("Softmax cross entropy cost function only supports 2D tensors");
         }
 
-        MatrixOperations.softMaxByRows(predictedOperandBuffer, predictedOperandOffset, shape[0], shape[1],
+        MatrixOperations.softMaxByRows(predictedOperandBuffer, predictedOperandOffset, shape.getInt(0),
+                shape.getInt(1),
                 softMaxBuffer, softMaxOffset);
 
         if (trainingMode) {
@@ -89,7 +91,7 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
             sum += (float) Math.log(softMaxBuffer[softMaxOffset + i]) * expectedProbability[i + expectedProbabilityOffset];
         }
 
-        var result = executionContext.allocateForwardMemory(this, 1, 1);
+        var result = executionContext.allocateForwardMemory(this, IntImmutableList.of(1, 1));
 
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
@@ -126,20 +128,17 @@ public final class SoftMaxCrossEntropyCostFunction extends AbstractOperation imp
         return TrainingExecutionContext.NULL;
     }
 
-    @NotNull
+
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(
                 maxShape,
-                new int[]{1, 1}
-        };
+                IntImmutableList.of(1, 1));
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 
     @Override

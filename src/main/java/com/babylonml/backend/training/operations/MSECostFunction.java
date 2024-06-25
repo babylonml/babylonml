@@ -3,19 +3,20 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
-import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class MSECostFunction extends AbstractOperation implements CostFunction {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int @NonNull [] maxShape;
+    private final @NonNull IntImmutableList maxShape;
 
     private final boolean requiresDerivativeChainValue;
 
@@ -44,7 +45,7 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
@@ -66,7 +67,7 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
         var expectedValuesBuffer = expectedValuesPointer.buffer();
         var expectedValuesOffset = expectedValuesPointer.offset();
 
-        var result = executionContext.allocateForwardMemory(this, 1, 1);
+        var result = executionContext.allocateForwardMemory(this, IntImmutableList.of(1, 1));
         var resultBuffer = result.buffer();
         var resultOffset = result.offset();
 
@@ -128,19 +129,15 @@ public final class MSECostFunction extends AbstractOperation implements CostFunc
         return result;
     }
 
-    @NotNull
+    @NonNull
     @Override
-    public int[][] getForwardMemoryAllocations() {
-        return new int[][]{
-                new int[]{1, 1}
-        };
+    public List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(IntImmutableList.of(1, 1));
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 
     @Override

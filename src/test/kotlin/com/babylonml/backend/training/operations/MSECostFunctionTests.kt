@@ -28,7 +28,7 @@ class MSECostFunctionTests {
         val inputSource = executionContext.registerMainInputSource(predictedValuesMatrix.toTensor())
 
         val expectedValuesConst = Constant(
-            executionContext, expectedValuesMatrix.toFlatArray(), intArrayOf(rows, columns)
+            executionContext, expectedValuesMatrix.toTensor()
         )
         val mseCostFunction = MSECostFunction(inputSource, expectedValuesConst)
 

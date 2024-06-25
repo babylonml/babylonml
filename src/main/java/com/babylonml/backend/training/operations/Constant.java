@@ -4,38 +4,37 @@ import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
 
-import org.jetbrains.annotations.NotNull;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+
+import java.util.List;
 
 
 @SuppressWarnings("unused")
 public final class Constant extends AbstractOperation implements StartOperation {
-    private final float[] constant;
-    private final int[] shape;
+    private final Tensor constant;
 
-
-    public Constant(@NonNull TrainingExecutionContext executionContext, float[] constant, int[] shape) {
-        this(null, executionContext, constant, shape);
+    public Constant(@NonNull TrainingExecutionContext executionContext, Tensor constant) {
+        this(null, executionContext, constant);
     }
 
-    public Constant(@Nullable String name, @NonNull TrainingExecutionContext executionContext, float[] constant, int[] shape) {
+    public Constant(@Nullable String name, @NonNull TrainingExecutionContext executionContext, Tensor constant) {
         super(name, executionContext, null, null);
         this.constant = constant;
-        this.shape = shape;
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
-        return shape;
+    public @NonNull IntImmutableList getMaxResultShape() {
+        return constant.getShape();
     }
 
     @Override
     public @NonNull TensorPointer forwardPassCalculation() {
-        var result = executionContext.allocateForwardMemory(this, shape);
+        var result = executionContext.allocateForwardMemory(this, constant.getShape());
 
-        var stride = TensorOperations.stride(shape);
-        System.arraycopy(constant, 0, result.buffer(), result.offset(), stride);
+        var stride = TensorOperations.stride(constant.getShape());
+        System.arraycopy(constant.getData(), 0, result.buffer(), result.offset(), stride);
 
         return result;
     }
@@ -50,17 +49,14 @@ public final class Constant extends AbstractOperation implements StartOperation 
         return TrainingExecutionContext.NULL;
     }
 
-    @NotNull
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
-                shape
-        };
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(constant.getShape());
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[0][0];
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of();
     }
 
     @Override

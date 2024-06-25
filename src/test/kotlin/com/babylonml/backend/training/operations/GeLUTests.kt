@@ -6,6 +6,7 @@ import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.geLU
 import com.babylonml.geLUDerivative
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -62,7 +63,7 @@ class GeLUTests {
         val geLU = GeLUFunction(add)
 
         val gradients = FloatMatrix.random(rows, columns, source)
-        val gradientSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), geLU)
+        val gradientSource = GradientSource( IntImmutableList.of(rows, columns), gradients.toFlatArray(), geLU)
 
         executionContext.initializeExecution(gradientSource)
         executionContext.executePropagation()

@@ -3,16 +3,16 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
 public abstract class AbstractOperation implements Operation {
-    protected final BiFunction<Operation, int[], TensorPointer> forwardMemoryAllocator;
-    protected final BiFunction<Operation, int[], TensorPointer> backwardMemoryAllocator;
+    protected final BiFunction<Operation, IntImmutableList, TensorPointer> forwardMemoryAllocator;
+    protected final BiFunction<Operation, IntImmutableList, TensorPointer> backwardMemoryAllocator;
 
     @Nullable
     protected Operation leftOperation;
@@ -159,7 +159,7 @@ public abstract class AbstractOperation implements Operation {
 
     protected TensorPointer broadcastIfNeeded(TensorPointer firstTensor,
                                               TensorPointer secondTensor,
-                                              BiFunction<Operation, int[], TensorPointer> allocator,
+                                              BiFunction<Operation, IntImmutableList, TensorPointer> allocator,
                                               BiKernelFunction function) {
         var firstTensorShape = firstTensor.shape();
         var secondTensorShape = secondTensor.shape();
@@ -167,7 +167,7 @@ public abstract class AbstractOperation implements Operation {
         var broadcastCandidate = TensorOperations.broadcastCandidate(firstTensorShape, secondTensorShape);
         if (broadcastCandidate == -1) {
             throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
-                    Arrays.toString(firstTensorShape) + ", second shape: " + Arrays.toString(secondTensorShape) + ".");
+                    firstTensorShape + ", second shape: " + secondTensorShape + ".");
         }
 
         if (broadcastCandidate == 0) {
@@ -194,7 +194,7 @@ public abstract class AbstractOperation implements Operation {
     }
 
     protected TensorPointer reduceIfNeeded(TensorPointer firstTensor, TensorPointer secondTensor,
-                                           BiFunction<Operation, int[], TensorPointer> allocator,
+                                           BiFunction<Operation, IntImmutableList, TensorPointer> allocator,
                                            BiKernelFunction function) {
         var firstTensorShape = firstTensor.shape();
         var secondTensorShape = secondTensor.shape();
@@ -202,7 +202,7 @@ public abstract class AbstractOperation implements Operation {
         var broadcastCandidate = TensorOperations.broadcastCandidate(firstTensorShape, secondTensorShape);
         if (broadcastCandidate == -1) {
             throw new IllegalArgumentException("Invalid shapes for operation. First shape: " +
-                    Arrays.toString(firstTensorShape) + ", second shape: " + Arrays.toString(secondTensorShape) + ".");
+                    firstTensorShape + ", second shape: " + secondTensorShape + ".");
         }
 
         if (broadcastCandidate == 0) {

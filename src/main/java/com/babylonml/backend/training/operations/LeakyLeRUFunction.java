@@ -3,18 +3,20 @@ package com.babylonml.backend.training.operations;
 import com.babylonml.backend.cpu.TensorOperations;
 import com.babylonml.backend.training.execution.TensorPointer;
 import com.babylonml.backend.training.execution.TrainingExecutionContext;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import jdk.incubator.vector.FloatVector;
 import jdk.incubator.vector.VectorOperators;
 import jdk.incubator.vector.VectorSpecies;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
 import java.util.Objects;
 
 public final class LeakyLeRUFunction extends AbstractOperation {
     private static final VectorSpecies<Float> SPECIES = FloatVector.SPECIES_PREFERRED;
 
-    private final int @NonNull [] maxShape;
+    private final @NonNull IntImmutableList maxShape;
 
     private final boolean requiresDerivativeChainValue;
     private final float leakyLeRUASlope;
@@ -38,7 +40,7 @@ public final class LeakyLeRUFunction extends AbstractOperation {
     }
 
     @Override
-    public int @NonNull [] getMaxResultShape() {
+    public @NonNull IntImmutableList getMaxResultShape() {
         return maxShape;
     }
 
@@ -127,16 +129,13 @@ public final class LeakyLeRUFunction extends AbstractOperation {
 
 
     @Override
-    public int @NonNull [][] getForwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getForwardMemoryAllocations() {
+        return List.of(maxShape);
+
     }
 
     @Override
-    public int @NonNull [][] getBackwardMemoryAllocations() {
-        return new int[][]{
-                maxShape
-        };
+    public @NonNull List<IntImmutableList> getBackwardMemoryAllocations() {
+        return List.of(maxShape);
     }
 }

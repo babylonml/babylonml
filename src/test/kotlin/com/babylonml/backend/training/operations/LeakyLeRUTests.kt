@@ -6,6 +6,7 @@ import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.leakyLeRU
 import com.babylonml.leakyLeRUDerivative
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -64,7 +65,7 @@ class LeakyLeRUTests {
         val leakyLeRU = LeakyLeRUFunction(leakyLeRUSlope, add)
 
         val gradients = FloatMatrix.random(rows, columns, source)
-        val gradientSource = GradientSource(intArrayOf(rows, columns), gradients.toFlatArray(), leakyLeRU)
+        val gradientSource = GradientSource(IntImmutableList.of(rows, columns), gradients.toFlatArray(), leakyLeRU)
 
         executionContext.initializeExecution(gradientSource)
         executionContext.executePropagation()

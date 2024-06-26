@@ -1,9 +1,8 @@
 package com.babylonml.backend.cpu;
 
 
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
-
-import java.util.Arrays;
 
 public abstract class TensorOperations {
     public static int stride(int @NonNull [] shape) {
@@ -14,41 +13,39 @@ public abstract class TensorOperations {
         return stride;
     }
 
-    public static int stride(@NonNull Object data) {
+    public static int stride(@NonNull IntImmutableList shape) {
         int stride = 1;
-
-        if (data instanceof Object[] objects) {
-            stride *= objects.length;
-            stride *= stride(objects[0]);
-        } else if (data instanceof float[] floats) {
-            stride *= floats.length;
-        } else {
-            throw new IllegalArgumentException("Unsupported data type: " + data.getClass());
+        for (int i = 0; i < shape.size(); i++) {
+            stride *= shape.getInt(i);
         }
-
         return stride;
     }
 
-    public static int @NonNull [] calculateMaxShape(int @NonNull [] leftShape, int @NonNull [] rightShape) {
-        final int[] maxShape;
+    public static @NonNull IntImmutableList calculateMaxShape(@NonNull IntImmutableList leftShape,
+                                                              @NonNull IntImmutableList rightShape) {
+        if (leftShape.size() == rightShape.size()) {
+            var maxShape = new int[leftShape.size()];
 
-        if (leftShape.length == rightShape.length) {
-            maxShape = new int[leftShape.length];
-            for (int i = 0; i < leftShape.length; i++) {
-                maxShape[i] = Math.max(leftShape[i], rightShape[i]);
+            for (int i = 0; i < leftShape.size(); i++) {
+                maxShape[i] = Math.max(leftShape.getInt(i), rightShape.getInt(i));
             }
-        } else if (leftShape.length < rightShape.length) {
-            maxShape = rightShape;
-        } else {
-            maxShape = leftShape;
+
+            return new IntImmutableList(maxShape);
         }
 
-        return maxShape;
+        if (leftShape.size() < rightShape.size()) {
+            var left = extendShapeTill(leftShape, rightShape.size());
+            return calculateMaxShape(left, rightShape);
+        }
+
+        var right = extendShapeTill(rightShape, leftShape.size());
+        return calculateMaxShape(leftShape, right);
     }
 
-    private static boolean isNotBroadcastCompatible(int @NonNull [] firstShape, int @NonNull [] secondShape) {
-        for (int i = 0; i < firstShape.length; i++) {
-            if (firstShape[i] != secondShape[i] && firstShape[i] != 1 && secondShape[i] != 1) {
+    private static boolean isNotBroadcastCompatible(@NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape) {
+        for (int i = 0; i < firstShape.size(); i++) {
+            if (firstShape.getInt(i) != secondShape.getInt(i) &&
+                    firstShape.getInt(i) != 1 && secondShape.getInt(i) != 1) {
                 return true;
             }
         }
@@ -64,30 +61,30 @@ public abstract class TensorOperations {
      * @return 0 if shapes are not needed to be broadcast, 1 if first shape is a candidate for broadcasting
      * and 2 if second shape is a candidate for broadcasting. -1 if shapes are not broadcast compatible.
      */
-    public static int broadcastCandidate(int @NonNull [] firstShape, int @NonNull [] secondShape) {
+    public static int broadcastCandidate(@NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape) {
         int candidate = 0;
 
-        if (firstShape.length < secondShape.length) {
+        if (firstShape.size() < secondShape.size()) {
             candidate = 1;
-        } else if (firstShape.length > secondShape.length) {
+        } else if (firstShape.size() > secondShape.size()) {
             candidate = 2;
         }
 
         if (candidate == 1) {
-            firstShape = broadcastShape(firstShape, secondShape);
+            firstShape = extendShapeTill(firstShape, secondShape.size());
         } else if (candidate == 2) {
-            secondShape = broadcastShape(secondShape, firstShape);
+            secondShape = extendShapeTill(secondShape, firstShape.size());
         }
 
-        for (int i = 0; i < firstShape.length; i++) {
-            if (firstShape[i] != secondShape[i]) {
-                if (firstShape[i] == 1) {
+        for (int i = 0; i < firstShape.size(); i++) {
+            if (firstShape.getInt(i) != secondShape.getInt(i)) {
+                if (firstShape.getInt(i) == 1) {
                     if (candidate == 2) {
                         return -1;
                     }
 
                     candidate = 1;
-                } else if (secondShape[i] == 1) {
+                } else if (secondShape.getInt(i) == 1) {
                     if (candidate == 1) {
                         return -1;
                     }
@@ -103,25 +100,25 @@ public abstract class TensorOperations {
     }
 
 
-    public static void broadcast(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
-                                 float @NonNull [] output, int outputOffset, int @NonNull [] outputShape) {
-        if (outputShape.length < inputShape.length) {
+    public static void broadcast(float @NonNull [] input, int inputOffset, @NonNull IntImmutableList inputShape,
+                                 float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape) {
+        if (outputShape.size() < inputShape.size()) {
             throw new IllegalArgumentException("Output shape must have at least the same rank as input shape");
         }
 
-        inputShape = broadcastShape(inputShape, outputShape);
+        inputShape = extendShapeTill(inputShape, outputShape.size());
 
         if (isNotBroadcastCompatible(inputShape, outputShape)) {
             throw new IllegalArgumentException("Shapes are not broadcast compatible. Input shape: " +
-                    Arrays.toString(inputShape) + ", output shape: " +
-                    Arrays.toString(outputShape) + ".");
+                    inputShape + ", output shape: " +
+                    outputShape + ".");
         }
 
 
         var batchRank = -1;
 
-        for (int i = inputShape.length - 1; i >= 0; i--) {
-            if (inputShape[i] != outputShape[i]) {
+        for (int i = inputShape.size() - 1; i >= 0; i--) {
+            if (inputShape.getInt(i) != outputShape.getInt(i)) {
                 batchRank = i;
                 break;
             }
@@ -136,37 +133,38 @@ public abstract class TensorOperations {
         var currentRank = 0;
         var outputStride = stride(outputShape);
 
-        copyAndBroadcastDimension(input, inputOffset, inputStride / inputShape[currentRank],
+        copyAndBroadcastDimension(input, inputOffset, inputStride / inputShape.getInt(currentRank),
                 inputShape, output, outputOffset,
-                outputStride / outputShape[currentRank],
+                outputStride / outputShape.getInt(currentRank),
                 outputShape,
                 currentRank, batchRank);
     }
 
     private static void copyAndBroadcastDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
-                                                  int @NonNull [] inputShape, float @NonNull [] output,
+                                                  @NonNull IntImmutableList inputShape, float @NonNull [] output,
                                                   int outputOffset, int outputStrideWidth,
-                                                  int @NonNull [] outputShape, int currentRank, int batchRank) {
+                                                  @NonNull IntImmutableList outputShape,
+                                                  int currentRank, int batchRank) {
         assert currentRank <= batchRank;
 
         if (currentRank == batchRank) {
             System.arraycopy(input, inputOffset, output, outputOffset, inputStrideWidth);
             assert inputStrideWidth == outputStrideWidth;
 
-            if (inputShape[currentRank] != outputShape[currentRank]) {
-                assert inputShape[currentRank] == 1;
+            if (inputShape.getInt(currentRank) != outputShape.getInt(currentRank)) {
+                assert inputShape.getInt(currentRank) == 1;
 
                 duplicateDimension(output, outputOffset, outputStrideWidth, outputShape, currentRank);
             }
         } else {
-            var inputDimension = inputShape[currentRank];
-            var outputDimension = outputShape[currentRank];
+            var inputDimension = inputShape.getInt(currentRank);
+            var outputDimension = outputShape.getInt(currentRank);
 
             for (int i = 0; i < inputDimension; i++) {
                 copyAndBroadcastDimension(input, inputOffset + i * inputStrideWidth,
-                        inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                        inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                         output, outputOffset + i * outputStrideWidth,
-                        outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                        outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                         currentRank + 1, batchRank);
             }
 
@@ -178,8 +176,8 @@ public abstract class TensorOperations {
     }
 
     private static void duplicateDimension(float @NonNull [] output, int outputOffset,
-                                           int outputStrideWidth, int @NonNull [] outputShape, int currentRank) {
-        var repeat = outputShape[currentRank];
+                                           int outputStrideWidth, @NonNull IntImmutableList outputShape, int currentRank) {
+        var repeat = outputShape.getInt(currentRank);
         var outputIndex = outputOffset + outputStrideWidth;
 
         var batchSize = 1;
@@ -202,43 +200,45 @@ public abstract class TensorOperations {
         }
     }
 
-    public static int @NonNull [] broadcastShape(int @NonNull [] shapeToBroadcast, int @NonNull [] templateShape) {
-        if (templateShape.length > shapeToBroadcast.length) {
-            var newInputShape = new int[templateShape.length];
+    public static @NonNull IntImmutableList extendShapeTill(@NonNull IntImmutableList shapeToBroadcast, int size) {
+        if (size > shapeToBroadcast.size()) {
+            var newInputShape = new int[size];
 
-            for (int i = 0; i < templateShape.length - shapeToBroadcast.length; i++) {
+            for (int i = 0; i < size - shapeToBroadcast.size(); i++) {
                 newInputShape[i] = 1;
             }
 
-            System.arraycopy(shapeToBroadcast, 0, newInputShape, templateShape.length - shapeToBroadcast.length,
-                    shapeToBroadcast.length);
+            shapeToBroadcast.getElements(0, newInputShape, size - shapeToBroadcast.size(),
+                    shapeToBroadcast.size());
 
-            shapeToBroadcast = newInputShape;
+            return new IntImmutableList(newInputShape);
+        } else if (size < shapeToBroadcast.size()) {
+            throw new IllegalArgumentException("Size must be greater than or equal to the size of the shape to broadcast");
         }
 
         return shapeToBroadcast;
     }
 
 
-    public static void reduce(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
-                              float @NonNull [] output, int outputOffset, int @NonNull [] outputShape) {
-        if (inputShape.length < outputShape.length) {
+    public static void reduce(float @NonNull [] input, int inputOffset, @NonNull IntImmutableList inputShape,
+                              float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape) {
+        if (inputShape.size() < outputShape.size()) {
             throw new IllegalArgumentException("Input shape must have at least the same rank as output shape");
         }
 
-        outputShape = broadcastShape(outputShape, inputShape);
+        outputShape = extendShapeTill(outputShape, inputShape.size());
 
         if (isNotBroadcastCompatible(outputShape, inputShape)) {
             throw new IllegalArgumentException("Shapes are not reduce compatible. Input shape: " +
-                    Arrays.toString(inputShape) + ", output shape: " +
-                    Arrays.toString(outputShape) + ".");
+                    inputShape + ", output shape: " +
+                    outputShape + ".");
         }
 
 
         var batchRank = -1;
 
-        for (int i = outputShape.length - 1; i >= 0; i--) {
-            if (inputShape[i] != outputShape[i]) {
+        for (int i = outputShape.size() - 1; i >= 0; i--) {
+            if (inputShape.getInt(i) != outputShape.getInt(i)) {
                 batchRank = i;
                 break;
             }
@@ -253,28 +253,28 @@ public abstract class TensorOperations {
         var currentRank = 0;
         var outputStride = stride(outputShape);
 
-        copyAndReduceDimension(input, inputOffset, inputStride / inputShape[currentRank],
+        copyAndReduceDimension(input, inputOffset, inputStride / inputShape.getInt(currentRank),
                 inputShape, output, outputOffset,
-                outputStride / outputShape[currentRank],
+                outputStride / outputShape.getInt(currentRank),
                 outputShape,
                 currentRank, batchRank);
 
     }
 
     private static void copyAndReduceDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
-                                               int @NonNull [] inputShape, float @NonNull [] output,
+                                               @NonNull IntImmutableList inputShape, float @NonNull [] output,
                                                int outputOffset, int outputStrideWidth,
-                                               int @NonNull [] outputShape, int currentRank, int batchRank) {
+                                               @NonNull IntImmutableList outputShape, int currentRank, int batchRank) {
         assert currentRank <= batchRank;
 
         if (currentRank == batchRank) {
             System.arraycopy(input, inputOffset, output, outputOffset, inputStrideWidth);
             assert inputStrideWidth == outputStrideWidth;
 
-            if (inputShape[currentRank] != outputShape[currentRank]) {
-                assert outputShape[currentRank] == 1;
+            if (inputShape.getInt(currentRank) != outputShape.getInt(currentRank)) {
+                assert outputShape.getInt(currentRank) == 1;
 
-                var repeat = inputShape[currentRank];
+                var repeat = inputShape.getInt(currentRank);
                 for (int i = 1; i < repeat; i++) {
                     var inputIndex = inputOffset + i * inputStrideWidth;
                     VectorOperations.addVectorToVector(input, inputIndex,
@@ -282,30 +282,30 @@ public abstract class TensorOperations {
                 }
             }
         } else {
-            var outputDimension = outputShape[currentRank];
-            var inputDimension = inputShape[currentRank];
+            var outputDimension = outputShape.getInt(currentRank);
+            var inputDimension = inputShape.getInt(currentRank);
 
             if (inputDimension == outputDimension) {
                 for (int i = 0; i < outputDimension; i++) {
                     copyAndReduceDimension(input, inputOffset + i * inputStrideWidth,
-                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                             output, outputOffset + i * outputStrideWidth,
-                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                             currentRank + 1, batchRank);
                 }
             } else {
                 assert outputDimension == 1;
 
                 copyAndReduceDimension(input, inputOffset,
-                        inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                        inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                         output, outputOffset,
-                        outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                        outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                         currentRank + 1, batchRank);
                 for (int i = 1; i < inputDimension; i++) {
                     reduceDimension(input, inputOffset + i * inputStrideWidth,
-                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                             output, outputOffset,
-                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                             currentRank + 1, batchRank);
                 }
             }
@@ -313,17 +313,17 @@ public abstract class TensorOperations {
     }
 
     private static void reduceDimension(float @NonNull [] input, int inputOffset, int inputStrideWidth,
-                                        int @NonNull [] inputShape, float @NonNull [] output,
+                                        @NonNull IntImmutableList inputShape, float @NonNull [] output,
                                         int outputOffset, int outputStrideWidth,
-                                        int @NonNull [] outputShape, int currentRank, int batchRank) {
-        var outputDimension = outputShape[currentRank];
-        var inputDimension = inputShape[currentRank];
+                                        @NonNull IntImmutableList outputShape, int currentRank, int batchRank) {
+        var outputDimension = outputShape.getInt(currentRank);
+        var inputDimension = inputShape.getInt(currentRank);
 
         if (currentRank == batchRank) {
             if (inputDimension != outputDimension) {
-                assert outputShape[currentRank] == 1;
+                assert outputShape.getInt(currentRank) == 1;
 
-                var repeat = inputShape[currentRank];
+                var repeat = inputShape.getInt(currentRank);
                 for (int i = 0; i < repeat; i++) {
                     var inputIndex = inputOffset + i * inputStrideWidth;
                     VectorOperations.addVectorToVector(input, inputIndex,
@@ -334,67 +334,67 @@ public abstract class TensorOperations {
             if (inputDimension == outputDimension) {
                 for (int i = 0; i < inputDimension; i++) {
                     reduceDimension(input, inputOffset + i * inputStrideWidth,
-                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                             output, outputOffset + i * outputStrideWidth,
-                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                             currentRank + 1, batchRank);
                 }
             } else {
                 assert outputDimension == 1;
                 for (int i = 0; i < inputDimension; i++) {
                     reduceDimension(input, inputOffset + i * inputStrideWidth,
-                            inputStrideWidth / inputShape[currentRank + 1], inputShape,
+                            inputStrideWidth / inputShape.getInt(currentRank + 1), inputShape,
                             output, outputOffset,
-                            outputStrideWidth / outputShape[currentRank + 1], outputShape,
+                            outputStrideWidth / outputShape.getInt(currentRank + 1), outputShape,
                             currentRank + 1, batchRank);
                 }
             }
         }
     }
 
-    public static void bmm(float @NonNull [] first, int firstOffset, int @NonNull [] firstShape,
+    public static void bmm(float @NonNull [] first, int firstOffset, @NonNull IntImmutableList firstShape,
                            float @NonNull [] second, int secondOffset,
-                           int @NonNull [] secondShape, float @NonNull [] result, int resultOffset,
-                           int @NonNull [] resultShape) {
+                           @NonNull IntImmutableList secondShape, float @NonNull [] result, int resultOffset,
+                           @NonNull IntImmutableList resultShape) {
         validateBMMShapesValidity(firstShape, secondShape);
 
-        var diff = firstShape.length - 2;
+        var diff = firstShape.size() - 2;
         for (int i = 0; i < diff; i++) {
-            if (firstShape[i] != resultShape[i]) {
+            if (firstShape.getInt(i) != resultShape.getInt(i)) {
                 throw new IllegalArgumentException("Input and result shapes must have the" +
                         " same dimensions for the first " + diff + " dimensions");
             }
         }
 
-        if (resultShape.length != firstShape.length) {
+        if (resultShape.size() != firstShape.size()) {
             throw new IllegalArgumentException("Result shape must have the same rank as first and second shapes");
         }
-        if (resultShape[diff] != firstShape[diff]) {
+        if (resultShape.getInt(diff) != firstShape.getInt(diff)) {
             throw new IllegalArgumentException("Result shape must have the same second to last dimension as the first shape");
         }
-        if (resultShape[diff + 1] != secondShape[diff + 1]) {
+        if (resultShape.getInt(diff + 1) != secondShape.getInt(diff + 1)) {
             throw new IllegalArgumentException("Result shape must have the same last dimension as the second shape");
         }
 
 
         var firstWidth = 1;
-        for (int i = diff; i < firstShape.length; i++) {
-            firstWidth *= firstShape[i];
+        for (int i = diff; i < firstShape.size(); i++) {
+            firstWidth *= firstShape.getInt(i);
         }
 
         var secondWidth = 1;
-        for (int i = diff; i < secondShape.length; i++) {
-            secondWidth *= secondShape[i];
+        for (int i = diff; i < secondShape.size(); i++) {
+            secondWidth *= secondShape.getInt(i);
         }
 
         var resultWidth = 1;
-        for (int i = diff; i < resultShape.length; i++) {
-            resultWidth *= resultShape[i];
+        for (int i = diff; i < resultShape.size(); i++) {
+            resultWidth *= resultShape.getInt(i);
         }
 
         var matrices = 1;
         for (int i = 0; i < diff; i++) {
-            matrices *= firstShape[i];
+            matrices *= firstShape.getInt(i);
         }
 
         for (int i = 0; i < matrices; i++) {
@@ -402,119 +402,119 @@ public abstract class TensorOperations {
             var secondIndex = secondOffset + i * secondWidth;
             var resultIndex = resultOffset + i * resultWidth;
 
-            MatrixOperations.matrixToMatrixMultiplication(first, firstIndex, firstShape[diff], firstShape[diff + 1],
-                    second, secondIndex, secondShape[diff], secondShape[diff + 1],
-                    result, resultIndex);
+            MatrixOperations.matrixToMatrixMultiplication(first, firstIndex, firstShape.getInt(diff),
+                    firstShape.getInt(diff + 1), second, secondIndex, secondShape.getInt(diff),
+                    secondShape.getInt(diff + 1), result, resultIndex);
         }
     }
 
-    private static void validateBMMShapesValidity(int @NonNull [] firstShape, int @NonNull [] secondShape) {
-        if (firstShape.length < 2) {
+    private static void validateBMMShapesValidity(@NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape) {
+        if (firstShape.size() < 2) {
             throw new IllegalArgumentException("First and second shapes must have at least 2 dimensions");
         }
-        if (firstShape.length != secondShape.length) {
+        if (firstShape.size() != secondShape.size()) {
             throw new IllegalArgumentException("First and second shapes must have the same rank. First shape: "
-                    + Arrays.toString(firstShape) +
-                    ", second shape: " + Arrays.toString(secondShape) + ".");
+                    + firstShape +
+                    ", second shape: " + secondShape + ".");
         }
 
-        var diff = firstShape.length - 2;
+        var diff = firstShape.size() - 2;
         for (int i = 0; i < diff; i++) {
-            if (firstShape[i] != secondShape[i]) {
+            if (firstShape.getInt(i) != secondShape.getInt(i)) {
                 throw new IllegalArgumentException("First and second shapes must have the" +
                         " same dimensions for the first " + diff + " dimensions. " +
-                        "First shape: " + Arrays.toString(firstShape) +
-                        ", second shape: " + Arrays.toString(secondShape) + ".");
+                        "First shape: " + firstShape +
+                        ", second shape: " + secondShape + ".");
             }
 
         }
-        if (firstShape[diff + 1] != secondShape[diff]) {
+        if (firstShape.getInt(diff + 1) != secondShape.getInt(diff)) {
             throw new IllegalArgumentException("Second to last dimension of first shape must be equal to" +
-                    " the last dimension of the second shape. First shape: " + Arrays.toString(firstShape) +
-                    ", second shape: " + Arrays.toString(secondShape) + ".");
+                    " the last dimension of the second shape. First shape: " + firstShape +
+                    ", second shape: " + secondShape + ".");
         }
     }
 
-    public static int[] calculateBMMShape(int[] firstShape, int[] secondShape) {
+    public static IntImmutableList calculateBMMShape(IntImmutableList firstShape, IntImmutableList secondShape) {
         validateBMMShapesValidity(firstShape, secondShape);
 
-        var resultShape = new int[firstShape.length];
-        System.arraycopy(firstShape, 0, resultShape, 0, firstShape.length - 2);
+        var resultShape = new int[firstShape.size()];
+        firstShape.getElements(0, resultShape, 0, firstShape.size() - 2);
 
-        resultShape[firstShape.length - 2] = firstShape[firstShape.length - 2];
-        resultShape[firstShape.length - 1] = secondShape[secondShape.length - 1];
+        resultShape[firstShape.size() - 2] = firstShape.getInt(firstShape.size() - 2);
+        resultShape[firstShape.size() - 1] = secondShape.getInt(secondShape.size() - 1);
 
-        return resultShape;
+        return IntImmutableList.of(resultShape);
     }
 
-    public static void bmt(float @NonNull [] input, int inputOffset, int @NonNull [] inputShape,
-                           float @NonNull [] result, int resultOffset, int @NonNull [] resultShape) {
-        if (inputShape.length < 2) {
+    public static void bmt(float @NonNull [] input, int inputOffset, @NonNull IntImmutableList inputShape,
+                           float @NonNull [] result, int resultOffset, @NonNull IntImmutableList resultShape) {
+        if (inputShape.size() < 2) {
             throw new IllegalArgumentException("Input shape must have at least 2 dimensions");
         }
 
-        if (resultShape.length != inputShape.length) {
+        if (resultShape.size() != inputShape.size()) {
             throw new IllegalArgumentException("Result shape must have the same rank as input shape.");
         }
 
-        var diff = inputShape.length - 2;
+        var diff = inputShape.size() - 2;
         for (int i = 0; i < diff; i++) {
-            if (inputShape[i] != resultShape[i]) {
+            if (inputShape.getInt(i) != resultShape.getInt(i)) {
                 throw new IllegalArgumentException("Input and result shapes must have the" +
                         " same dimensions for the first " + diff + " dimensions");
             }
         }
 
-        if (resultShape[diff + 1] != inputShape[diff]) {
+        if (resultShape.getInt(diff + 1) != inputShape.getInt(diff)) {
             throw new IllegalArgumentException("Second to last dimension of input shape must be equal to" +
-                    " the last dimension of the result shape. Input shape: " + Arrays.toString(inputShape) +
-                    ", result shape: " + Arrays.toString(resultShape) + ".");
+                    " the last dimension of the result shape. Input shape: " + inputShape +
+                    ", result shape: " + resultShape + ".");
         }
-        if (resultShape[diff] != inputShape[diff + 1]) {
+        if (resultShape.getInt(diff) != inputShape.getInt(diff + 1)) {
             throw new IllegalArgumentException("Result shape must have the same second to last dimension as " +
                     "the last dimension of input shape. " +
-                    "Input shape: " + Arrays.toString(inputShape) +
-                    ", result shape: " + Arrays.toString(resultShape) + ".");
+                    "Input shape: " + inputShape +
+                    ", result shape: " + resultShape + ".");
         }
 
         var inputWidth = 1;
-        for (int i = diff; i < inputShape.length; i++) {
-            inputWidth *= inputShape[i];
+        for (int i = diff; i < inputShape.size(); i++) {
+            inputWidth *= inputShape.getInt(i);
         }
 
 
         var resultWidth = 1;
-        for (int i = diff; i < resultShape.length; i++) {
-            resultWidth *= resultShape[i];
+        for (int i = diff; i < resultShape.size(); i++) {
+            resultWidth *= resultShape.getInt(i);
         }
 
         var matrices = 1;
         for (int i = 0; i < diff; i++) {
-            matrices *= inputShape[i];
+            matrices *= inputShape.getInt(i);
         }
 
         for (int i = 0; i < matrices; i++) {
             var inputIndex = inputOffset + i * inputWidth;
             var resultIndex = resultOffset + i * resultWidth;
 
-            MatrixOperations.transposeMatrix(input, inputIndex, inputShape[diff], inputShape[diff + 1],
+            MatrixOperations.transposeMatrix(input, inputIndex, inputShape.getInt(diff), inputShape.getInt(diff + 1),
                     result, resultIndex);
         }
     }
 
-    public static int[] calculateBMTShape(int @NonNull [] shape) {
+    public static IntImmutableList calculateBMTShape(@NonNull IntImmutableList shape) {
 
-        if (shape.length < 2) {
+        if (shape.size() < 2) {
             throw new IllegalArgumentException("Shape must have at least 2 dimensions. Shape : " +
-                    Arrays.toString(shape));
+                    shape);
         }
 
-        var resultShape = new int[shape.length];
+        var resultShape = new int[shape.size()];
 
-        System.arraycopy(shape, 0, resultShape, 0, shape.length - 2);
-        resultShape[shape.length - 2] = shape[shape.length - 1];
-        resultShape[shape.length - 1] = shape[shape.length - 2];
+        shape.getElements(0, resultShape, 0, shape.size() - 2);
+        resultShape[shape.size() - 2] = shape.getInt(shape.size() - 1);
+        resultShape[shape.size() - 1] = shape.getInt(shape.size() - 2);
 
-        return resultShape;
+        return IntImmutableList.of(resultShape);
     }
 }

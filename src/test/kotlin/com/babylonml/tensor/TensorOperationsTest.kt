@@ -2,6 +2,7 @@ package com.babylonml.tensor
 
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.backend.cpu.TensorOperations
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.sampling.PermutationSampler
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
@@ -29,8 +30,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(matrixRows * vectorSize + outputOffset)
 
         TensorOperations.broadcast(
-            inputArray, inputOffset, intArrayOf(vectorSize),
-            outputArray, outputOffset, intArrayOf(matrixRows, vectorSize)
+            inputArray, inputOffset, IntImmutableList.of(vectorSize),
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, vectorSize)
         )
 
         Assertions.assertArrayEquals(
@@ -59,8 +60,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(expectedResultMatrix.size + outputOffset)
 
         TensorOperations.broadcast(
-            inputArray, inputOffset, intArrayOf(matrixRows, 1),
-            outputArray, outputOffset, intArrayOf(matrixRows, matrixColumns)
+            inputArray, inputOffset, IntImmutableList.of(matrixRows, 1),
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
         )
 
         Assertions.assertArrayEquals(
@@ -90,8 +91,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(matrixColumns * matrixRows + outputOffset)
 
         TensorOperations.broadcast(
-            inputArray, inputOffset, intArrayOf(1, 1),
-            outputArray, outputOffset, intArrayOf(matrixRows, matrixColumns)
+            inputArray, inputOffset, IntImmutableList.of(1, 1),
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
         )
 
         Assertions.assertArrayEquals(
@@ -129,8 +130,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(broadcastTensor.size + outputOffset)
 
         TensorOperations.broadcast(
-            inputArray, inputOffset, shape,
-            outputArray, outputOffset, newShape
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape)
         )
 
         Assertions.assertArrayEquals(
@@ -170,8 +171,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(broadcastTensor.size + outputOffset)
 
         TensorOperations.broadcast(
-            inputArray, inputOffset, shape,
-            outputArray, outputOffset, newShape
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape)
         )
 
         Assertions.assertArrayEquals(
@@ -201,8 +202,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(matrixColumns + outputOffset)
 
         TensorOperations.reduce(
-            inputArray, inputOffset, intArrayOf(vectorSize, matrixColumns),
-            outputArray, outputOffset, intArrayOf(matrixColumns)
+            inputArray, inputOffset, IntImmutableList.of(vectorSize, matrixColumns),
+            outputArray, outputOffset, IntImmutableList.of(matrixColumns)
         )
 
         Assertions.assertArrayEquals(
@@ -232,8 +233,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(matrixRows + outputOffset)
 
         TensorOperations.reduce(
-            inputArray, inputOffset, intArrayOf(matrixRows, matrixColumns),
-            outputArray, outputOffset, intArrayOf(matrixRows, 1)
+            inputArray, inputOffset, IntImmutableList.of(matrixRows, matrixColumns),
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, 1)
         )
 
         Assertions.assertArrayEquals(
@@ -262,8 +263,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(1 + outputOffset)
 
         TensorOperations.reduce(
-            inputArray, inputOffset, intArrayOf(matrixRows, matrixColumns),
-            outputArray, outputOffset, intArrayOf(1)
+            inputArray, inputOffset, IntImmutableList.of(matrixRows, matrixColumns),
+            outputArray, outputOffset, IntImmutableList.of(1)
         )
 
         Assertions.assertEquals(scalar.toFlatArray()[0], outputArray[outputOffset], 0.001f)
@@ -297,8 +298,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(reducedTensor.size + outputOffset)
 
         TensorOperations.reduce(
-            inputArray, inputOffset, shape,
-            outputArray, outputOffset, newShape
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape)
         )
 
         Assertions.assertArrayEquals(
@@ -338,8 +339,8 @@ class TensorOperationsTest {
         val outputArray = FloatArray(reducedTensor.size + outputOffset)
 
         TensorOperations.reduce(
-            inputArray, inputOffset, shape,
-            outputArray, outputOffset, newShape
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape)
         )
 
         Assertions.assertArrayEquals(

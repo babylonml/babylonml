@@ -8,6 +8,7 @@ import com.babylonml.backend.training.optimizer.AdamOptimizer
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.matrix.div
 import com.babylonml.SeedsArgumentsProvider
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -34,7 +35,7 @@ class AdamOptimizerTest {
         val variable = variableMatrix.toVariable(executionContext, optimizer, learningRate)
 
         val add = Add(variable, input)
-        val gradientSource = RandomGradientSource(executionContext, intArrayOf(rows, columns), source, add)
+        val gradientSource = RandomGradientSource(executionContext,  IntImmutableList.of(rows, columns), source, add)
 
         executionContext.initializeExecution(gradientSource)
         executionContext.executePropagation()

@@ -3,10 +3,11 @@ package com.babylonml.backend.training.operations
 import com.babylonml.backend.cpu.TensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
+import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.UniformRandomProvider
 
 class RandomGradientSource(
-    executionContext: TrainingExecutionContext, private val shape: IntArray,
+    executionContext: TrainingExecutionContext, private val shape: IntImmutableList,
     private val source: UniformRandomProvider,
     leftOperation: AbstractOperation
 ) : AbstractOperation(
@@ -15,14 +16,12 @@ class RandomGradientSource(
 ), CostFunction {
     val generatedGradients = mutableListOf<FloatArray>()
 
-    override fun getMaxResultShape(): IntArray = shape
-
     override fun forwardPassCalculation(): TensorPointer {
-        return leftOperation!!.forwardPassCalculation()
+        return leftPreviousOperation!!.forwardPassCalculation()
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(this, *shape)
+        val result = executionContext.allocateBackwardMemory(this, shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
@@ -40,13 +39,6 @@ class RandomGradientSource(
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer = TrainingExecutionContext.NULL
 
-    override fun getForwardMemoryAllocations(): Array<IntArray> = emptyArray()
-
-    override fun getBackwardMemoryAllocations(): Array<IntArray> =
-        arrayOf(shape)
-
-    override fun requiresBackwardDerivativeChainValue(): Boolean = true
-
     override fun trainingMode() {
         //No-op
     }
@@ -55,4 +47,12 @@ class RandomGradientSource(
         //No-op
     }
 
+    override val maxResultShape: IntImmutableList
+        get() = shape
+    override val forwardMemoryAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val backwardMemoryAllocations: List<IntImmutableList>
+        get() = listOf(shape)
+    override val requiresBackwardDerivativeChainValue: Boolean
+        get() = true
 }

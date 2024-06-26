@@ -114,8 +114,8 @@ abstract class AbstractOperation(
             val broadcastTensor = allocator.apply(this, secondTensorShape)
             TensorOperations.broadcast(
                 firstTensor.buffer(), firstTensor.offset(), firstTensor.shape,
-                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
-            )
+                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape,
+            -1)
             function(broadcastTensor, secondTensor, broadcastTensor)
             return broadcastTensor
         }
@@ -123,7 +123,7 @@ abstract class AbstractOperation(
         val broadcastTensor = allocator.apply(this, firstTensorShape)
         TensorOperations.broadcast(
             secondTensor.buffer(), secondTensor.offset(), secondTensor.shape,
-            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
+            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape, -1
         )
 
         function(firstTensor, broadcastTensor, broadcastTensor)

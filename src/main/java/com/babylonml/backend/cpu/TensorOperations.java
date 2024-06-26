@@ -42,8 +42,9 @@ public abstract class TensorOperations {
         return calculateMaxShape(leftShape, right);
     }
 
-    private static boolean isNotBroadcastCompatible(@NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape) {
-        for (int i = 0; i < firstShape.size(); i++) {
+    private static boolean isNotBroadcastCompatible(@NonNull IntImmutableList firstShape,
+                                                    @NonNull IntImmutableList secondShape) {
+        for (int i = 0; i < secondShape.size(); i++) {
             if (firstShape.getInt(i) != secondShape.getInt(i) &&
                     firstShape.getInt(i) != 1 && secondShape.getInt(i) != 1) {
                 return true;
@@ -101,23 +102,46 @@ public abstract class TensorOperations {
 
 
     public static void broadcast(float @NonNull [] input, int inputOffset, @NonNull IntImmutableList inputShape,
-                                 float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape) {
+                                 float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape,
+                                 int broadcastTillRank) {
+        if (broadcastTillRank < 0) {
+            broadcastTillRank = inputShape.size();
+        }
+
+        if (broadcastTillRank > inputShape.size()) {
+            throw new IllegalArgumentException("Broadcast till rank must be less than or equal" +
+                    " to the rank of the input shape. Requested broadcast till rank: " +
+                    broadcastTillRank + ", input shape rank: " +
+                    inputShape.size() + ".");
+        }
+
         if (outputShape.size() < inputShape.size()) {
             throw new IllegalArgumentException("Output shape must have at least the same rank as input shape");
         }
 
+        var prevSize = inputShape.size();
         inputShape = extendShapeTill(inputShape, outputShape.size());
+
+        //adjust broadcastTillRank to the new shape
+        broadcastTillRank += inputShape.size() - prevSize;
+
+        if (outputShape.size() > broadcastTillRank) {
+            var modifiedShape = new int[outputShape.size()];
+            outputShape.getElements(0, modifiedShape, 0, broadcastTillRank);
+            inputShape.getElements(broadcastTillRank, modifiedShape, broadcastTillRank,
+                    outputShape.size() - broadcastTillRank);
+
+            outputShape = IntImmutableList.of(modifiedShape);
+        }
 
         if (isNotBroadcastCompatible(inputShape, outputShape)) {
             throw new IllegalArgumentException("Shapes are not broadcast compatible. Input shape: " +
                     inputShape + ", output shape: " +
-                    outputShape + ".");
+                    outputShape + ". Broadcast till rank: " + broadcastTillRank + ".");
         }
 
-
         var batchRank = -1;
-
-        for (int i = inputShape.size() - 1; i >= 0; i--) {
+        for (int i = broadcastTillRank - 1; i >= 0; i--) {
             if (inputShape.getInt(i) != outputShape.getInt(i)) {
                 batchRank = i;
                 break;

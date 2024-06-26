@@ -26,7 +26,5 @@ jobs:
           distribution: 'temurin'
       - name: 'Qodana Scan'
         uses: JetBrains/qodana-action@v2024.1
-        with:
-          args: --profile-name,qodana/babylonml.xml
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}  

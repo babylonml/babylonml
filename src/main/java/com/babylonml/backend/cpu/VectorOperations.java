@@ -197,6 +197,30 @@ public final class VectorOperations {
         }
     }
 
+    public static float dotProduct(float[] firstVector, int firstVectorOffset, float[] secondVector,
+                                   int secondVectorOffset, int length) {
+        assert firstVector.length >= length + firstVectorOffset;
+        assert secondVector.length >= length + secondVectorOffset;
+
+        var speciesLength = SPECIES.length();
+        var loopBound = SPECIES.loopBound(length);
+
+        var sum = FloatVector.zero(SPECIES);
+        for (int i = 0; i < loopBound; i += speciesLength) {
+            var va = FloatVector.fromArray(SPECIES, firstVector, i + firstVectorOffset);
+            var vb = FloatVector.fromArray(SPECIES, secondVector, i + secondVectorOffset);
+
+            sum = va.fma(vb, sum);
+        }
+
+        var s = sum.reduceLanes(VectorOperators.ADD);
+        for (int i = loopBound; i < length; i++) {
+            s += firstVector[i + firstVectorOffset] * secondVector[i + secondVectorOffset];
+        }
+
+        return s;
+    }
+
     public static void maxBetweenVectorElements(float[] firstVector, int firstVectorOffset,
                                                 float[] secondVector, int secondVectorOffset, float[] result,
                                                 int resultOffset, int length) {

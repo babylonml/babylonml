@@ -5,29 +5,28 @@ import com.babylonml.backend.training.execution.TensorPointer
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 
 class GradientSource(
-    private val shape: IntImmutableList,
-    private val gradients: FloatArray, leftOperation: AbstractOperation
+    private val gradient: Tensor, leftOperation: AbstractOperation
 ) : AbstractOperation(leftOperation, null), CostFunction {
     override fun forwardPassCalculation(): TensorPointer {
         return leftPreviousOperation!!.forwardPassCalculation()
     }
 
     override fun leftBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(this, shape)
+        val result = executionContext.allocateBackwardMemory(this, gradient.shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
-        System.arraycopy(gradients, 0, resultBuffer, resultOffset, TensorOperations.stride(shape))
+        System.arraycopy(gradient.data, 0, resultBuffer, resultOffset, TensorOperations.stride(gradient.shape))
 
         return result
     }
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer {
-        val result = executionContext.allocateBackwardMemory(this, shape)
+        val result = executionContext.allocateBackwardMemory(this, gradient.shape)
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
-        System.arraycopy(gradients, 0, resultBuffer, resultOffset, TensorOperations.stride(shape))
+        System.arraycopy(gradient, 0, resultBuffer, resultOffset, TensorOperations.stride(gradient.shape))
 
         return result
     }
@@ -41,11 +40,11 @@ class GradientSource(
     }
 
     override val maxResultShape: IntImmutableList
-        get() = shape
+        get() = gradient.shape
     override val forwardMemoryAllocations: List<IntImmutableList>
         get() = emptyList()
     override val backwardMemoryAllocations: List<IntImmutableList>
-        get() = listOf(shape)
+        get() = listOf(gradient.shape)
     override val requiresBackwardDerivativeChainValue: Boolean
         get() = true
 }

@@ -4,7 +4,6 @@ import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
-import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -70,13 +69,11 @@ class MultiplicationTests {
         val secondVariable = secondMatrix.toVariable("second", executionContext, optimizer, learningRate)
 
         val add = Add(inputSource, firstVariable)
-
         val multiplication = Multiplication(add, secondVariable)
 
         val gradients = FloatMatrix.random(firstMatrixRows, secondMatrixColumns, source)
         val gradientSource = GradientSource(
-            IntImmutableList.of(firstMatrixRows, secondMatrixColumns),
-            gradients.toFlatArray(), multiplication
+            gradients.toTensor(3), multiplication
         )
 
         val firstMatrixExpectedGradients = gradients * secondMatrix.transpose()

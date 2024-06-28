@@ -31,11 +31,46 @@ class TensorOperationsTest {
 
         TensorOperations.broadcast(
             inputArray, inputOffset, IntImmutableList.of(vectorSize),
-            outputArray, outputOffset, IntImmutableList.of(matrixRows, vectorSize)
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, vectorSize), -1
         )
 
         Assertions.assertArrayEquals(
             matrix.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun matrixToMatrixByOnlyRowsBroadcastTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+
+        val columns = source.nextInt(1, 100)
+        val matrix = FloatTensor.random(source, 1, columns)
+
+        val rows = source.nextInt(1, 100)
+        val newColumns = source.nextInt(1, 100)
+
+        val newShape = intArrayOf(rows, newColumns)
+
+        val expectedMatrix = matrix.broadcast(*newShape, till = 1)
+
+        val inputOffset = source.nextInt(8)
+        val inputArray = FloatArray(matrix.size + inputOffset)
+
+        matrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputOffset = source.nextInt(8)
+        val outputArray = FloatArray(expectedMatrix.size + outputOffset)
+
+        TensorOperations.broadcast(
+            inputArray, inputOffset, IntImmutableList.of(*matrix.shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape), 1
+        )
+
+        Assertions.assertArrayEquals(
+            expectedMatrix.toFlatArray(),
             outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
         )
     }
@@ -61,7 +96,7 @@ class TensorOperationsTest {
 
         TensorOperations.broadcast(
             inputArray, inputOffset, IntImmutableList.of(matrixRows, 1),
-            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns), -1
         )
 
         Assertions.assertArrayEquals(
@@ -92,11 +127,43 @@ class TensorOperationsTest {
 
         TensorOperations.broadcast(
             inputArray, inputOffset, IntImmutableList.of(1, 1),
-            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
+            outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns), -1
         )
 
         Assertions.assertArrayEquals(
             expectedResultMatrix.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun scalarToMatrixBroadcastOnlyRowsTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val matrixRows = source.nextInt(1, 100)
+        val initialMatrix = FloatTensor.random(source, 1, 1)
+
+        val matrixColumns = source.nextInt(1, 100)
+        val newShape = intArrayOf(matrixRows, matrixColumns)
+
+        val expectedMatrix = initialMatrix.broadcast(*newShape, till = 1)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(initialMatrix.size + inputOffset)
+        initialMatrix.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(expectedMatrix.size + outputOffset)
+
+        TensorOperations.broadcast(
+            inputArray, inputOffset, IntImmutableList.of(1, 1),
+            outputArray, outputOffset, IntImmutableList.of(*newShape), 1
+        )
+
+        Assertions.assertArrayEquals(
+            expectedMatrix.toFlatArray(),
             outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
         )
     }
@@ -131,7 +198,48 @@ class TensorOperationsTest {
 
         TensorOperations.broadcast(
             inputArray, inputOffset, IntImmutableList.of(*shape),
-            outputArray, outputOffset, IntImmutableList.of(*newShape)
+            outputArray, outputOffset, IntImmutableList.of(*newShape), -1
+        )
+
+        Assertions.assertArrayEquals(
+            broadcastTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun multipleDimensionsLimitedRankBroadcastTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val tensorDimensions = source.nextInt(3, 7)
+        val newShape = IntArray(tensorDimensions) { source.nextInt(2, 10) }
+
+        val broadcastDimensionsCount = source.nextInt(1, tensorDimensions)
+        val permutation = PermutationSampler.natural(tensorDimensions)
+        PermutationSampler.shuffle(source, permutation)
+
+        val shape = newShape.copyOf()
+        for (i in 0 until broadcastDimensionsCount) {
+            shape[permutation[i]] = 1
+        }
+
+        val broadcastTillRank = source.nextInt(1, tensorDimensions)
+
+        val tensor = FloatTensor.random(source, *shape)
+        val broadcastTensor = tensor.broadcast(*newShape, till = broadcastTillRank)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(broadcastTensor.size + outputOffset)
+
+        TensorOperations.broadcast(
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape), broadcastTillRank
         )
 
         Assertions.assertArrayEquals(
@@ -172,7 +280,49 @@ class TensorOperationsTest {
 
         TensorOperations.broadcast(
             inputArray, inputOffset, IntImmutableList.of(*shape),
-            outputArray, outputOffset, IntImmutableList.of(*newShape)
+            outputArray, outputOffset, IntImmutableList.of(*newShape), -1
+        )
+
+        Assertions.assertArrayEquals(
+            broadcastTensor.toFlatArray(),
+            outputArray.sliceArray(outputOffset..<outputArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun multipleDimensionsCountBroadcastTillRankTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val tensorDimensions = source.nextInt(3, 7)
+        val newTensorDimensions = source.nextInt(tensorDimensions, tensorDimensions + 4)
+
+        val newShape = IntArray(newTensorDimensions) { source.nextInt(2, 7) }
+        val shape = IntArray(tensorDimensions) { newShape[newTensorDimensions - tensorDimensions + it] }
+
+        val broadcastDimensionsCount = source.nextInt(1, tensorDimensions)
+        val permutation = PermutationSampler.natural(tensorDimensions)
+        PermutationSampler.shuffle(source, permutation)
+
+        for (i in 0 until broadcastDimensionsCount) {
+            shape[permutation[i]] = 1
+        }
+
+        val broadcastTillRank = source.nextInt(1, tensorDimensions)
+        val tensor = FloatTensor.random(source, *shape)
+        val broadcastTensor = tensor.broadcast(*newShape, till = broadcastTillRank)
+
+        val inputOffset = source.nextInt(8)
+        val outputOffset = source.nextInt(8)
+
+        val inputArray = FloatArray(tensor.size + inputOffset)
+        tensor.toFlatArray().copyInto(inputArray, inputOffset)
+
+        val outputArray = FloatArray(broadcastTensor.size + outputOffset)
+
+        TensorOperations.broadcast(
+            inputArray, inputOffset, IntImmutableList.of(*shape),
+            outputArray, outputOffset, IntImmutableList.of(*newShape), broadcastTillRank
         )
 
         Assertions.assertArrayEquals(

@@ -7,7 +7,7 @@ import it.unimi.dsi.fastutil.ints.IntImmutableList
 import java.util.function.BiFunction
 
 abstract class AbstractOperation(
-    protected var name: String?, executionContext: TrainingExecutionContext?,
+    override val name: String?, executionContext: TrainingExecutionContext?,
     final override var leftPreviousOperation: Operation?, final override var rightPreviousOperation: Operation?
 ) : Operation {
     protected val forwardMemoryAllocator: BiFunction<Operation, IntImmutableList, TensorPointer>
@@ -36,6 +36,7 @@ abstract class AbstractOperation(
         executionContext: TrainingExecutionContext?,
         leftOperation: Operation?, rightOperation: Operation?
     ) : this(null, executionContext, leftOperation, rightOperation)
+
     init {
         leftPreviousOperation?.let {
             require(it.nextOperation == null) { "Left operation already has a next operation" }
@@ -114,7 +115,8 @@ abstract class AbstractOperation(
             val broadcastTensor = allocator.apply(this, secondTensorShape)
             TensorOperations.broadcast(
                 firstTensor.buffer(), firstTensor.offset(), firstTensor.shape,
-                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
+                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape,
+                -1
             )
             function(broadcastTensor, secondTensor, broadcastTensor)
             return broadcastTensor
@@ -123,7 +125,7 @@ abstract class AbstractOperation(
         val broadcastTensor = allocator.apply(this, firstTensorShape)
         TensorOperations.broadcast(
             secondTensor.buffer(), secondTensor.offset(), secondTensor.shape,
-            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
+            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape, -1
         )
 
         function(firstTensor, broadcastTensor, broadcastTensor)

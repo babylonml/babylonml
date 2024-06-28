@@ -112,11 +112,12 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     val size = calculateSize(shape)
 
 
-    fun broadcast(vararg newShape: Int): FloatTensor {
+    fun broadcast(vararg newShape: Int, till: Int = shape.size): FloatTensor {
         if (newShape.size < shape.size) {
             throw IllegalArgumentException("New shape must have at least as many dimensions as the original shape")
         }
 
+        var broadcastTillRank = till
         val modifiedCurrentShape = if (newShape.size == shape.size) {
             shape
         } else {
@@ -126,16 +127,28 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             }
             prefix + shape
         }
+        broadcastTillRank += modifiedCurrentShape.size - shape.size
 
-        var newData = deepArrayCopy(data)
+        var modifiedData = deepArrayCopy(data)
         for (i in 0 until modifiedCurrentShape.size - shape.size) {
-            newData = Array(modifiedCurrentShape[i]) {
-                newData
+            modifiedData = Array(modifiedCurrentShape[i]) {
+                modifiedData
             }
         }
 
+        val modifiedNewShape = if (newShape.size == broadcastTillRank) {
+            newShape
+        } else {
+            IntArray(newShape.size) {
+                if (it < broadcastTillRank) {
+                    newShape[it]
+                } else {
+                    modifiedCurrentShape[it]
+                }
+            }
+        }
 
-        for ((index, dimensions) in modifiedCurrentShape.zip(newShape).withIndex().reversed()) {
+        for ((index, dimensions) in modifiedCurrentShape.zip(modifiedNewShape).withIndex().reversed()) {
             val currentDimension = dimensions.first
             val newDimension = dimensions.second
 
@@ -147,13 +160,13 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
                         }
 
                         for (indexes in doEnumerateIndexes(activeDimensions)) {
-                            val value = doGet(indexes + intArrayOf(0), newData)
+                            val value = doGet(indexes + intArrayOf(0), modifiedData)
                             val newValue = broadcastObjectToArray(value, newDimension)
 
-                            doSet(indexes, newData, newValue)
+                            doSet(indexes, modifiedData, newValue)
                         }
                     } else {
-                        newData = broadcastObjectToArray(newData[0], newDimension)
+                        modifiedData = broadcastObjectToArray(modifiedData[0], newDimension)
                     }
                 } else {
                     throw IllegalArgumentException(
@@ -164,7 +177,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             }
         }
 
-        return FloatTensor(newShape, newData)
+        return FloatTensor(modifiedNewShape, modifiedData)
     }
 
     @Suppress("unused")
@@ -318,7 +331,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         }
 
         @Suppress("unused")
-        fun natural(vararg  shape: Int): FloatTensor {
+        fun natural(vararg shape: Int): FloatTensor {
             val result = FloatTensor(shape)
             var i = 0
 

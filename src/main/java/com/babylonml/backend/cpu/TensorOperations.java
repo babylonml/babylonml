@@ -2,7 +2,9 @@ package com.babylonml.backend.cpu;
 
 
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public abstract class TensorOperations {
     public static int stride(int @NonNull [] shape) {
@@ -42,8 +44,9 @@ public abstract class TensorOperations {
         return calculateMaxShape(leftShape, right);
     }
 
-    private static boolean isNotBroadcastCompatible(@NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape) {
-        for (int i = 0; i < firstShape.size(); i++) {
+    private static boolean isNotBroadcastCompatible(@NonNull IntImmutableList firstShape,
+                                                    @NonNull IntImmutableList secondShape) {
+        for (int i = 0; i < secondShape.size(); i++) {
             if (firstShape.getInt(i) != secondShape.getInt(i) &&
                     firstShape.getInt(i) != 1 && secondShape.getInt(i) != 1) {
                 return true;
@@ -100,24 +103,180 @@ public abstract class TensorOperations {
     }
 
 
+    @Nullable
+    public static ObjectObjectImmutablePair<IntImmutableList, IntImmutableList> broadcastShapes(
+            @NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape,
+            int skipLast) {
+        if (skipLast < 0) {
+            throw new IllegalArgumentException("skipLast must be greater than or equal to 0, but got " + skipLast + ".");
+        }
+
+        int candidate = 0;
+        if (firstShape.size() < secondShape.size()) {
+            candidate = 1;
+        } else if (firstShape.size() > secondShape.size()) {
+            candidate = 2;
+        }
+
+        if (candidate == 1) {
+            firstShape = extendShapeTill(firstShape, secondShape.size());
+        } else if (candidate == 2) {
+            secondShape = extendShapeTill(secondShape, firstShape.size());
+        }
+
+        if (firstShape.size() < skipLast || secondShape.size() < skipLast) {
+            throw new IllegalArgumentException("skipLast must be less than or equal to the rank of the shapes, " +
+                    "First shape: " +
+                    firstShape + ", Second shape: " + secondShape + ", skipLast: " + skipLast + ".");
+        }
+        var resultShape = new int[firstShape.size()];
+        int end = firstShape.size() - skipLast;
+        for (int i = 0; i < end; i++) {
+            if (firstShape.getInt(i) != secondShape.getInt(i)) {
+                if (firstShape.getInt(i) == 1) {
+                    if (candidate == 2) {
+                        return null;
+                    }
+
+                    candidate = 1;
+                    resultShape[i] = secondShape.getInt(i);
+                } else if (secondShape.getInt(i) == 1) {
+                    if (candidate == 1) {
+                        return null;
+                    }
+
+                    candidate = 2;
+                    resultShape[i] = firstShape.getInt(i);
+                } else {
+                    return null;
+                }
+            } else {
+                resultShape[i] = firstShape.getInt(i);
+            }
+        }
+
+        if (candidate == 0) {
+            return new ObjectObjectImmutablePair<>(firstShape, secondShape);
+        }
+        if (candidate == 1) {
+            if (skipLast > 0) {
+               firstShape.getElements(firstShape.size() - skipLast, resultShape,
+                       resultShape.length - skipLast, skipLast);
+            }
+            return new ObjectObjectImmutablePair<>(IntImmutableList.of(resultShape), secondShape);
+        }
+
+        if (skipLast > 0) {
+            secondShape.getElements(secondShape.size() - skipLast, resultShape,
+                    resultShape.length - skipLast, skipLast);
+        }
+        return new ObjectObjectImmutablePair<>(firstShape, IntImmutableList.of(resultShape));
+    }
+
+    @Nullable
+    public static ObjectObjectImmutablePair<IntImmutableList, IntImmutableList> reduceShapes(
+            @NonNull IntImmutableList firstShape, @NonNull IntImmutableList secondShape,
+            int skipLast) {
+        if (skipLast < 0) {
+            throw new IllegalArgumentException("skipLast must be greater than or equal to 0, but got " + skipLast + ".");
+        }
+        if (firstShape.size() < skipLast || secondShape.size() < skipLast) {
+            throw new IllegalArgumentException("skipLast must be less than or equal to the rank of the shapes, " +
+                    "First shape: " +
+                    firstShape + ", Second shape: " + secondShape + ", skipLast: " + skipLast + ".");
+        }
+
+        int candidate = 0;
+        if (firstShape.size() > secondShape.size()) {
+            candidate = 1;
+        } else if (firstShape.size() < secondShape.size()) {
+            candidate = 2;
+        }
+
+        if (candidate == 1) {
+            firstShape = cutShapeTill(firstShape, secondShape.size());
+        } else if (candidate == 2) {
+            secondShape = cutShapeTill(secondShape, firstShape.size());
+        }
+
+        var resultShape = new int[firstShape.size()];
+        int end = firstShape.size() - skipLast;
+        for (int i = 0; i < end; i++) {
+            if (firstShape.getInt(i) != secondShape.getInt(i)) {
+                if (firstShape.getInt(i) == 1) {
+                    if (candidate == 1) {
+                        return null;
+                    }
+
+                    candidate = 2;
+                    resultShape[i] = firstShape.getInt(i);
+                } else if (secondShape.getInt(i) == 1) {
+                    if (candidate == 2) {
+                        return null;
+                    }
+
+                    candidate = 1;
+                    resultShape[i] = secondShape.getInt(i);
+                } else {
+                    return null;
+                }
+            } else {
+                resultShape[i] = firstShape.getInt(i);
+            }
+        }
+
+        if (candidate == 0) {
+            return new ObjectObjectImmutablePair<>(firstShape, secondShape);
+        }
+        if (candidate == 1) {
+            return new ObjectObjectImmutablePair<>(IntImmutableList.of(resultShape), secondShape);
+        }
+
+        return new ObjectObjectImmutablePair<>(firstShape, IntImmutableList.of(resultShape));
+    }
+
+
     public static void broadcast(float @NonNull [] input, int inputOffset, @NonNull IntImmutableList inputShape,
-                                 float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape) {
+                                 float @NonNull [] output, int outputOffset, @NonNull IntImmutableList outputShape,
+                                 int broadcastTillRank) {
+        if (broadcastTillRank < 0) {
+            broadcastTillRank = inputShape.size();
+        }
+
+        if (broadcastTillRank > inputShape.size()) {
+            throw new IllegalArgumentException("Broadcast till rank must be less than or equal" +
+                    " to the rank of the input shape. Requested broadcast till rank: " +
+                    broadcastTillRank + ", input shape rank: " +
+                    inputShape.size() + ".");
+        }
+
         if (outputShape.size() < inputShape.size()) {
             throw new IllegalArgumentException("Output shape must have at least the same rank as input shape");
         }
 
+        var prevSize = inputShape.size();
         inputShape = extendShapeTill(inputShape, outputShape.size());
+
+        //adjust broadcastTillRank to the new shape
+        broadcastTillRank += inputShape.size() - prevSize;
+
+        if (outputShape.size() > broadcastTillRank) {
+            var modifiedShape = new int[outputShape.size()];
+            outputShape.getElements(0, modifiedShape, 0, broadcastTillRank);
+            inputShape.getElements(broadcastTillRank, modifiedShape, broadcastTillRank,
+                    outputShape.size() - broadcastTillRank);
+
+            outputShape = IntImmutableList.of(modifiedShape);
+        }
 
         if (isNotBroadcastCompatible(inputShape, outputShape)) {
             throw new IllegalArgumentException("Shapes are not broadcast compatible. Input shape: " +
                     inputShape + ", output shape: " +
-                    outputShape + ".");
+                    outputShape + ". Broadcast till rank: " + broadcastTillRank + ".");
         }
 
-
         var batchRank = -1;
-
-        for (int i = inputShape.size() - 1; i >= 0; i--) {
+        for (int i = broadcastTillRank - 1; i >= 0; i--) {
             if (inputShape.getInt(i) != outputShape.getInt(i)) {
                 batchRank = i;
                 break;
@@ -213,10 +372,32 @@ public abstract class TensorOperations {
 
             return new IntImmutableList(newInputShape);
         } else if (size < shapeToBroadcast.size()) {
-            throw new IllegalArgumentException("Size must be greater than or equal to the size of the shape to broadcast");
+            throw new IllegalArgumentException("Size must be greater than or equal to the size of the shape to be extended");
         }
 
         return shapeToBroadcast;
+    }
+
+    public static @NonNull IntImmutableList cutShapeTill(@NonNull IntImmutableList shapeToDecrease, int size) {
+        if (size < shapeToDecrease.size()) {
+            var newInputShape = new int[size];
+
+            for (int i = 0; i < shapeToDecrease.size() - size; i++) {
+                if (shapeToDecrease.getInt(i) != 1) {
+                    throw new IllegalArgumentException("Shape to decrease must have 1s in the dimensions to cut, but got " +
+                            shapeToDecrease + ". ");
+                }
+            }
+
+            shapeToDecrease.getElements(shapeToDecrease.size() - size, newInputShape, 0,
+                    size);
+
+            return new IntImmutableList(newInputShape);
+        } else if (size > shapeToDecrease.size()) {
+            throw new IllegalArgumentException("Size must be less than or equal to the size of the shape to be cut");
+        }
+
+        return shapeToDecrease;
     }
 
 

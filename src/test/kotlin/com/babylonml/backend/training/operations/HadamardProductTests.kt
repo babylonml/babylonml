@@ -4,7 +4,6 @@ import com.babylonml.backend.training.optimizer.SimpleGradientDescentOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.matrix.FloatMatrix
 import com.babylonml.SeedsArgumentsProvider
-import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -65,7 +64,7 @@ class HadamardProductTests {
         val hadamard = HadamardProduct(add, secondVariable)
         val gradients = FloatMatrix.random(rows, columns, source)
 
-        val gradientSource = GradientSource(IntImmutableList.of(rows, columns), gradients.toFlatArray(), hadamard)
+        val gradientSource = GradientSource(gradients.toTensor(), hadamard)
 
         val firstGradient = gradients.hadamardMul(secondMatrix)
         val secondGradient = gradients.hadamardMul(firstMatrix)

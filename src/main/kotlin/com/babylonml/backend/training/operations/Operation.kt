@@ -34,4 +34,6 @@ interface Operation {
     fun startEpochExecution()
 
     val executionContext: TrainingExecutionContext
+
+    val name: String?
 }

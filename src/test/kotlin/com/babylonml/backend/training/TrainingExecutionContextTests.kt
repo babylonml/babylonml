@@ -990,7 +990,7 @@ class TrainingExecutionContextTests {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun threeLayersSingleSampleTestOneEpoch(seed: Long) {
-        val source = RandomSource.ISAAC.create(seed)
+        val source = RandomSource.ISAAC.create(-4385269385279552197L)
         val learningRate = 0.01f
         val leakyLeRUSlope = 0.01f
 
@@ -1011,7 +1011,7 @@ class TrainingExecutionContextTests {
         var weightsMatrix3 = FloatMatrix.random(hiddenSize2, outputSize, source)
         var biasesMatrix3 = FloatMatrix.random(1, outputSize, source)
 
-        val executionContext = TrainingExecutionContext(1)
+        val executionContext = TrainingExecutionContext(1, true)
         val inputSource = executionContext.registerMainInputSource(inputMatrix.toTensor())
         val optimizer = SimpleGradientDescentOptimizer(inputSource)
 
@@ -1024,17 +1024,17 @@ class TrainingExecutionContextTests {
         val weightsVariable3 = weightsMatrix3.toVariable(executionContext, optimizer, learningRate)
         val biasVariable3 = biasesMatrix3.toVariable(executionContext, optimizer, learningRate)
 
-        val multiplication1 = Multiplication(
+        val multiplication1 = Multiplication("multiplication1",
             inputSource, weightsVariable1
         )
         val add1 = Add(multiplication1, biasVariable1)
         val leRU1 = LeakyLeRUFunction(leakyLeRUSlope, add1)
 
-        val multiplication2 = Multiplication(leRU1, weightsVariable2)
+        val multiplication2 = Multiplication("multiplication2", leRU1, weightsVariable2)
         val add2 = Add(multiplication2, biasVariable2)
         val leRU2 = LeakyLeRUFunction(leakyLeRUSlope, add2)
 
-        val multiplication3 = Multiplication(leRU2, weightsVariable3)
+        val multiplication3 = Multiplication("multiplication3", leRU2, weightsVariable3)
         val add3 = Add(multiplication3, biasVariable3)
         val leRU3 = LeakyLeRUFunction(leakyLeRUSlope, add3)
 

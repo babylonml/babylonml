@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.optimizer
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.VectorOperations
 import com.babylonml.backend.training.execution.ContextInputSource
 import com.babylonml.backend.training.execution.TrainingExecutionContext
@@ -38,7 +38,7 @@ class AdamOptimizer(
         learningRate: Float,
         operation: Operation
     ) {
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
 
         val avgMovementPointer = executionContext.allocateBackwardMemory(operation, shape)
         val avgMovementBuffer = executionContext.getMemoryBuffer(avgMovementPointer.pointer)
@@ -73,7 +73,7 @@ class AdamOptimizer(
     }
 
     override fun calculateRequiredMemoryAllocations(shape: IntImmutableList): List<IntImmutableList> {
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
 
         this.avgMovement = FloatArray(stride)
         this.avgMovementSqr = FloatArray(stride)

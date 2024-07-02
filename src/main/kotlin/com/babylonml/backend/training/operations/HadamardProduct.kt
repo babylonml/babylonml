@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.VectorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -11,7 +11,7 @@ class HadamardProduct(leftOperation: Operation, rightOperation: Operation) :
     private var rightOperandPointer: TensorPointer? = null
 
     private val maxShape: IntImmutableList =
-        TensorOperations.calculateMaxShape(
+        CommonTensorOperations.calculateMaxShape(
             leftOperation.maxResultShape,
             rightOperation.maxResultShape
         )
@@ -29,7 +29,7 @@ class HadamardProduct(leftOperation: Operation, rightOperation: Operation) :
             VectorOperations.vectorToVectorElementWiseMultiplication(
                 firstTensor.buffer(), firstTensor.offset(),
                 secondTensor.buffer(), secondTensor.offset(), result.buffer(), result.offset(),
-                TensorOperations.stride(result.shape)
+                CommonTensorOperations.stride(result.shape)
             )
         }
     }
@@ -42,7 +42,7 @@ class HadamardProduct(leftOperation: Operation, rightOperation: Operation) :
                 derivativeTensor.buffer(), derivativeTensor.offset(),
                 rightTensor.buffer(), rightTensor.offset(),
                 resultTensor.buffer(), resultTensor.offset(),
-                TensorOperations.stride(resultTensor.shape)
+                CommonTensorOperations.stride(resultTensor.shape)
             )
         }
     }
@@ -55,7 +55,7 @@ class HadamardProduct(leftOperation: Operation, rightOperation: Operation) :
                 derivativeTensor.buffer(), derivativeTensor.offset(),
                 leftTensor.buffer(), leftTensor.offset(),
                 resultTensor.buffer(), resultTensor.offset(),
-                TensorOperations.stride(resultTensor.shape)
+                CommonTensorOperations.stride(resultTensor.shape)
             )
         }
     }

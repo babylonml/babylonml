@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -20,7 +20,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
 
         shape = resultPointer.shape()
 
-        val size = TensorOperations.stride(shape)
+        val size = CommonTensorOperations.stride(shape)
 
         result = FloatArray(size)
         System.arraycopy(resultBuffer, resultOffset, result, 0, size)
@@ -34,7 +34,7 @@ class ResultMemoryCellCostFunction(operation: Operation) : AbstractOperation(ope
         val diffResultOffset = diffResult.offset()
         val diffResultBuffer = diffResult.buffer()
 
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
         diffResultBuffer.fill(0f, diffResultOffset, diffResultOffset + stride)
         return diffResult
     }

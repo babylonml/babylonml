@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.execution;
 
-import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.common.CommonTensorOperations;
 import com.babylonml.backend.training.operations.*;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
@@ -244,7 +244,7 @@ public final class TrainingExecutionContext {
             var result = executeForwardPropagation();
             var resultBuffer = result.buffer();
 
-            assert TensorOperations.stride(result.shape()) == 1;
+            assert CommonTensorOperations.stride(result.shape()) == 1;
 
             sum += resultBuffer[result.offset()];
         }

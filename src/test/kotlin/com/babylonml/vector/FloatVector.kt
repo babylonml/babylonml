@@ -1,4 +1,4 @@
-package com.babylonml
+package com.babylonml.vector
 
 import com.babylonml.matrix.FloatMatrix
 import org.apache.commons.rng.UniformRandomProvider

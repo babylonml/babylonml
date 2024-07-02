@@ -1,6 +1,6 @@
 package com.babylonml.matrix
 
-import com.babylonml.FloatVector
+import com.babylonml.vector.FloatVector
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.backend.cpu.MatrixOperations
 import org.apache.commons.rng.simple.RandomSource

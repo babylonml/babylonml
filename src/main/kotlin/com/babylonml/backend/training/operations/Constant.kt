@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -24,7 +24,8 @@ class Constant(
     override fun forwardPassCalculation(): TensorPointer {
         val result = executionContext.allocateForwardMemory(this, constant.shape)
 
-        val stride = TensorOperations.stride(constant.shape)
+        val stride =
+            CommonTensorOperations.stride(constant.shape)
         System.arraycopy(constant.data, 0, result.buffer(), result.offset(), stride)
 
         return result

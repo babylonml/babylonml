@@ -1,4 +1,4 @@
-package com.babylonml
+package com.babylonml.vector
 
 import com.babylonml.backend.cpu.VectorOperations
 import org.apache.commons.rng.simple.RandomSource

@@ -368,7 +368,11 @@ class Multiplication(name: String?, leftOperation: Operation, rightOperation: Op
             return result
         }
 
-        return TensorPointer(result.pointer, reducedResultShape, executionContext)
+        return TensorPointer(
+            result.pointer,
+            reducedResultShape,
+            executionContext
+        )
     }
 
     override fun rightBackwardDerivativeChainValue(): TensorPointer {
@@ -454,7 +458,11 @@ class Multiplication(name: String?, leftOperation: Operation, rightOperation: Op
         }
 
 
-        return TensorPointer(result.pointer, reducedResultShape, executionContext)
+        return TensorPointer(
+            result.pointer,
+            reducedResultShape,
+            executionContext
+        )
     }
 
     private fun dotProductDerivative(

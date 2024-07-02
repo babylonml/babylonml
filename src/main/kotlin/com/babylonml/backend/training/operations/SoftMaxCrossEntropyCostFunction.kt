@@ -1,7 +1,7 @@
 package com.babylonml.backend.training.operations
 
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.MatrixOperations
-import com.babylonml.backend.cpu.TensorOperations
 import com.babylonml.backend.cpu.VectorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
@@ -16,7 +16,7 @@ class SoftMaxCrossEntropyCostFunction(
     predictedOperation: Operation
 ) : AbstractOperation(predictedOperation, expectedProbability), CostFunction {
     override val maxResultShape: IntImmutableList =
-        TensorOperations.calculateMaxShape(
+        CommonTensorOperations.calculateMaxShape(
             predictedOperation.maxResultShape,
             expectedProbability.maxResultShape
         )
@@ -57,7 +57,9 @@ class SoftMaxCrossEntropyCostFunction(
             return TrainingExecutionContext.NULL
         }
 
-        val stride = TensorOperations.stride(predictedOperandResultPointer.shape)
+        val stride = CommonTensorOperations.stride(
+            predictedOperandResultPointer.shape
+        )
         val loopBound = SPECIES.loopBound(stride)
         var vecSum = FloatVector.zero(SPECIES)
         run {
@@ -99,7 +101,9 @@ class SoftMaxCrossEntropyCostFunction(
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val stride = TensorOperations.stride(softMaxResultPointer!!.shape)
+        val stride = CommonTensorOperations.stride(
+            softMaxResultPointer!!.shape
+        )
         VectorOperations.subtractVectorFromVector(
             softMaxBuffer, softMaxOffset, expectedProbability,
             expectedProbabilityOffset, resultBuffer, resultOffset, stride

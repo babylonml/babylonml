@@ -6,7 +6,6 @@ import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 
 
-@Suppress("unused")
 class Constant(
     name: String?,
     executionContext: TrainingExecutionContext,

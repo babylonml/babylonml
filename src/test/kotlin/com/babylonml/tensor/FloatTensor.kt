@@ -180,7 +180,6 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         return FloatTensor(modifiedNewShape, modifiedData)
     }
 
-    @Suppress("unused")
     fun reduce(vararg newShape: Int): FloatTensor {
         if (newShape.size > shape.size) {
             throw IllegalArgumentException("Original shape must have at least as many dimensions as the new shape")

@@ -18,7 +18,6 @@ class Tensor(data: FloatArray, shape: IntArray) {
         this.shape = IntImmutableList.of(*shape)
     }
 
-    @Suppress("unused")
     constructor(shape: IntArray) : this(FloatArray(TensorOperations.stride(shape)), shape)
 
     val isEmpty: Boolean

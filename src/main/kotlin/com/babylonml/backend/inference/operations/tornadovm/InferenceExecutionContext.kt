@@ -36,11 +36,6 @@ class InferenceExecutionContext {
         return inputSource
     }
 
-    fun registerAdditionalInputSource(data: Tensor?): InputSource {
-        checkNotNull(inputSource) { "Main input source is not registered" }
-        return TensorInputSource(data!!)
-    }
-
     fun initializeExecution(terminalOperation: Operation) {
         this.terminalOperation = terminalOperation
 

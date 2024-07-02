@@ -31,7 +31,7 @@ public final class ContextMemory {
 
         if (trackMemoryAllocation) {
             var allocationsSize = allocationsSize(expectedAllocations.apply(operation));
-            var allocated = consumedMemory.computeIfAbsent(operation, (k) -> new long[1]);
+            var allocated = consumedMemory.computeIfAbsent(operation, (_) -> new long[1]);
 
             if (length + allocated[0] > allocationsSize) {
                 throw new IllegalStateException("Memory allocation exceeded the required memory size for operation "

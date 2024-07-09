@@ -6,6 +6,8 @@ import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.IntArray;
 
 public abstract class TensorOperations {
     public static int stride(int @NonNull [] shape) {
@@ -120,8 +122,8 @@ public abstract class TensorOperations {
         }
         if (candidate == 1) {
             if (skipLast > 0) {
-               firstShape.getElements(firstShape.size() - skipLast, resultShape,
-                       resultShape.length - skipLast, skipLast);
+                firstShape.getElements(firstShape.size() - skipLast, resultShape,
+                        resultShape.length - skipLast, skipLast);
             }
             return new ObjectObjectImmutablePair<>(IntImmutableList.of(resultShape), secondShape);
         }

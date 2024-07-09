@@ -4,6 +4,7 @@ import com.babylonml.backend.common.TensorPointer
 import com.babylonml.backend.cpu.TensorOperations
 import com.babylonml.backend.inference.operations.tornadovm.InferenceExecutionContext
 import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
+import com.babylonml.backend.tornadovm.TvmCommons
 import com.babylonml.backend.tornadovm.TvmTensorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
@@ -104,21 +105,21 @@ abstract class AbstractOperation(
 
         if (broadcastCandidate == 1) {
             val broadcastTensor = executionContext.allocateSinglePassMemory(this, secondTensorShape)
-            TvmTensorOperations.broadcast(
-                firstTensor.buffer(), firstTensor.offset(), firstTensor.shape,
-                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape, taskGraph,
-                -1,
+            TvmTensorOperations.addBroadcastTask(
+                taskGraph, getTaskName("BroadcastIfNeeded"),
+                secondTensor.buffer(), secondTensor.offset(), secondTensor.shape,
+                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
             )
             function(broadcastTensor, secondTensor, broadcastTensor)
             return broadcastTensor
         }
 
         val broadcastTensor = executionContext.allocateSinglePassMemory(this, firstTensorShape)
-        TvmTensorOperations.broadcast(
-            secondTensor.buffer(), secondTensor.offset(), secondTensor.shape,
-            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape, taskGraph, -1
+        TvmTensorOperations.addBroadcastTask(
+            taskGraph, getTaskName("BroadcastIfNeeded"),
+            firstTensor.buffer(), firstTensor.offset(), firstTensor.shape,
+            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
         )
-
         function(firstTensor, broadcastTensor, broadcastTensor)
 
         return broadcastTensor
@@ -129,4 +130,14 @@ abstract class AbstractOperation(
     }
 
     fun TensorPointer.offset() = InferenceExecutionContext.addressOffset(pointer)
+
+    fun getTaskName(prefix: String? = null): String {
+        return TvmCommons.generateName(
+            if (name == null) {
+                prefix ?: ("" + this::class.simpleName)
+            } else {
+                prefix ?: ("" + name)
+            }
+        )
+    }
 }

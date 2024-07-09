@@ -1,5 +1,6 @@
 package com.babylonml.vector
 
+import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import com.babylonml.matrix.FloatMatrix
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.exp
@@ -151,6 +152,13 @@ class FloatVector(val size: Int) {
     }
 
     fun toArray() = data.copyOf()
+
+    fun toTvmFloatArray(offset: Int = 0, length: Int = size)  : TvmFloatArray {
+        val heapArray = FloatArray(length + offset)
+
+        System.arraycopy(data, 0, heapArray, offset, size)
+        return TvmFloatArray.fromArray(heapArray)
+    }
 
     override fun toString(): String {
         return "FloatVector(size=$size)"

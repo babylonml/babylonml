@@ -23,11 +23,12 @@ val TVM_PTX_MODULE = "tornado.drivers.ptx"
 val TVM_OPENCL_MODULE = "tornado.drivers.opencl"
 
 val TVM_JAVA_BASE_OPTIONS = listOf(
-    "-server", "-XX:-UseCompressedOops", "-XX:+UnlockExperimentalVMOptions",
-    "-XX:+EnableJVMCI", "-XX:-UseCompressedClassPointers", "--enable-preview"
+    "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableJVMCI", "--enable-preview"
 )
 
 val TVM_JAVA_GC_JDK16 = listOf("-XX:+UseParallelGC")
+
+val tvmArgs = createTornadoVMArgs()
 
 plugins {
     java
@@ -87,9 +88,11 @@ tasks {
     test {
         // Use JUnit Platform and enable preview features in tests
         useJUnitPlatform()
-        val tvmArgs = createTornadoVMArgs() ?: error("TornadoVM args could not be created")
+        if (tvmArgs == null) {
+            error("TornadoVM args could not be created")
+        }
 
-        jvmArgs = tvmArgs + listOf("-Xmx8g")
+        jvmArgs = tvmArgs + listOf("-Xmx8g", "-da:org.graalvm.compiler...")
     }
 
     register<JavaExec>("mnistBench") {
@@ -97,12 +100,7 @@ tasks {
         mainClass = "com.babylonml.backend.examples.mnist.MNISTBench"
         classpath = sourceSets["main"].runtimeClasspath
         jvmArgs = listOf(
-            "-server",
             "-Xmx16g",
-            "--add-modules",
-            "jdk.incubator.vector",
-            "--enable-preview",
-            "-Djava.awt.headless=true"
         )
     }
 

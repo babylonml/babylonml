@@ -6,7 +6,7 @@ import com.babylonml.backend.tornadovm.TvmVectorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
 
-class Add(name: String?, leftOperation: Operation, rightOperation: Operation) :
+class AddOperation(name: String?, leftOperation: Operation, rightOperation: Operation) :
     AbstractOperation(name, leftOperation, rightOperation) {
 
     constructor(leftOperation: Operation, rightOperation: Operation) : this(null, leftOperation, rightOperation)
@@ -18,10 +18,10 @@ class Add(name: String?, leftOperation: Operation, rightOperation: Operation) :
         return broadcastIfNeeded(
             taskGraph, leftOperandPointer, rightOperandPointer
         ) { leftPointer, rightPointer, resultPointer ->
-            TvmVectorOperations.addVectorToVector(
-                leftPointer.buffer(), leftPointer.offset(), rightPointer.buffer(),
-                rightPointer.offset(), resultPointer.buffer(),
-                resultPointer.offset(), CommonTensorOperations.stride(resultPointer.shape)
+            TvmVectorOperations.addVectorToVectorTask(
+                taskGraph, getTaskName(),
+                leftPointer.buffer(), leftPointer.offset(), rightPointer.buffer(), rightPointer.offset(),
+                resultPointer.buffer(), resultPointer.offset(), CommonTensorOperations.stride(resultPointer.shape)
             )
         }
     }

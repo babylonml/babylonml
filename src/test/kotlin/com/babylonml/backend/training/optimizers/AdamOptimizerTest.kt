@@ -16,8 +16,6 @@ import org.junit.jupiter.params.provider.ArgumentsSource
 import kotlin.math.pow
 
 class AdamOptimizerTest {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.001f

@@ -5,6 +5,7 @@ import com.babylonml.backend.common.TensorPointer
 import com.babylonml.backend.inference.operations.Operation
 import com.babylonml.backend.inference.tornadovm.ContextMemory
 import com.babylonml.backend.inference.tornadovm.InputSource
+import com.babylonml.backend.tornadovm.TvmVectorOperations
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.jspecify.annotations.Nullable
@@ -56,17 +57,14 @@ class InferenceExecutionContext {
         val resultPointer = terminalOperation.execute(taskGraph)
 
         val result = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
-        taskGraph.task(
-            "fetchExecutionResult",
-            { singlePassMemoryBuffer: TvmFloatArray, res: TvmFloatArray ->
-                fetchExecutionResult(
-                    singlePassMemoryBuffer,
-                    TrainingExecutionContext.addressOffset(resultPointer.pointer),
-                    res
-                )
-            },
-            singlePassMemory.memoryBuffer,
-            result
+        TvmVectorOperations.addCopyVectorTask(
+            taskGraph,
+            "copyResult",
+            getMemoryBuffer(resultPointer.pointer),
+            TrainingExecutionContext.addressOffset(resultPointer.pointer),
+            result,
+            0,
+            result.size
         )
         taskGraph.transferToHost(DataTransferMode.EVERY_EXECUTION, result)
 

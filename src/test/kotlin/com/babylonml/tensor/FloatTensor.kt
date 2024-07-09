@@ -1,5 +1,6 @@
 package com.babylonml.tensor
 
+import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import org.apache.commons.rng.UniformRandomProvider
 
 
@@ -244,6 +245,14 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         }
 
         return result
+    }
+
+    fun toTvmFlatArray(length: Int = size, offset: Int = 0): TvmFloatArray {
+        val flatArray = toFlatArray()
+        val result = FloatArray(length + offset)
+        System.arraycopy(flatArray, 0, result, offset, length)
+
+        return TvmFloatArray.fromArray(result)
     }
 
     private fun reducedIndex(indexes: IntArray): IntArray {

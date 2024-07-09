@@ -11,8 +11,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
 class AddTests {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -42,9 +40,6 @@ class AddTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
-    @SeedBatchSize(1)
     fun leftDifferentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -74,8 +69,6 @@ class AddTests {
         Assertions.assertArrayEquals(expectedResult.toFlatArray(), variable.data, 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun rightDifferentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 

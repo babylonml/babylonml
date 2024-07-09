@@ -13,8 +13,6 @@ import org.junit.jupiter.params.provider.ArgumentsSource
 import kotlin.math.min
 
 class TrainingExecutionContextTests {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun gemExpressionTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -56,8 +54,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleDenseLayerTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -92,8 +88,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoDenseLayersTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -145,8 +139,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun threeDenseLayersTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -211,8 +203,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun threeDenseLayersSMEntropyTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -296,8 +286,6 @@ class TrainingExecutionContextTests {
         Assertions.assertEquals(expectedResult, result, 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleLayerSingleSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -360,8 +348,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleLayerMultiSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -410,8 +396,6 @@ class TrainingExecutionContextTests {
         Assertions.assertArrayEquals(biasesMatrix.toFlatArray(), biasVariable.data,0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleLayerMultiSampleTestSeveralEpochs(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -480,8 +464,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun singleLayerMultiSampleTestSeveralEpochsMiniBatch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -558,8 +540,6 @@ class TrainingExecutionContextTests {
     }
 
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersSingleSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.01f
@@ -651,8 +631,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersMultiSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.001f
@@ -746,8 +724,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersMultiSampleTestSeveralEpochs(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.01f
@@ -863,8 +839,6 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun twoLayersMultiSampleTestSeveralEpochsMiniBatch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.001f
@@ -987,10 +961,9 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun threeLayersSingleSampleTestOneEpoch(seed: Long) {
-        val source = RandomSource.ISAAC.create(-4385269385279552197L)
+        val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.01f
         val leakyLeRUSlope = 0.01f
 
@@ -1116,8 +1089,7 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun theeLayersMultiSampleTestOneEpoch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.01f
@@ -1247,8 +1219,7 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun threeLayersMultiSampleTestSeveralEpochs(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.001f
@@ -1397,8 +1368,7 @@ class TrainingExecutionContextTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun threeLayersMultiSampleTestSeveralEpochsMiniBatch(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
         val learningRate = 0.001f

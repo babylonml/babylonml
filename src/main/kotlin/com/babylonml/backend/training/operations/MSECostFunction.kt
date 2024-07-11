@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -14,7 +14,7 @@ class MSECostFunction(
     expectedValuesOperation: Operation
 ) : AbstractOperation(name, predictionOperation, expectedValuesOperation), CostFunction {
     override val maxResultShape: IntImmutableList =
-        TensorOperations.calculateMaxShape(
+        CommonTensorOperations.calculateMaxShape(
             predictionOperation.maxResultShape,
             expectedValuesOperation.maxResultShape
         )
@@ -48,7 +48,9 @@ class MSECostFunction(
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val stride = TensorOperations.stride(predictionOperandPointer!!.shape)
+        val stride = CommonTensorOperations.stride(
+            predictionOperandPointer!!.shape
+        )
         val loopBound = SPECIES.loopBound(stride)
 
         var vecSum = FloatVector.zero(SPECIES)
@@ -87,7 +89,9 @@ class MSECostFunction(
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val stride = TensorOperations.stride(predictionOperandPointer!!.shape)
+        val stride = CommonTensorOperations.stride(
+            predictionOperandPointer!!.shape
+        )
         val loopBound = SPECIES.loopBound(stride)
 
         run {

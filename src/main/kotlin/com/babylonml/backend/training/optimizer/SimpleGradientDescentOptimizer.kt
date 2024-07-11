@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.optimizer
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.VectorOperations
 import com.babylonml.backend.training.execution.ContextInputSource
 import com.babylonml.backend.training.execution.TrainingExecutionContext
@@ -29,7 +29,7 @@ class SimpleGradientDescentOptimizer(inputSource: ContextInputSource) : Gradient
         val buffer = pointer.buffer()
         val bufferOffset = pointer.offset()
 
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
         VectorOperations.multiplyVectorToScalar(
             gradient, gradientOffset,
             -learningRate / scaleValue, buffer, bufferOffset,

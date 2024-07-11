@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -26,7 +26,9 @@ class GeLUFunction(leftOperation: Operation) : AbstractOperation(leftOperation, 
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val stride = TensorOperations.stride(leftOperandPointer!!.shape)
+        val stride = CommonTensorOperations.stride(
+            leftOperandPointer!!.shape
+        )
 
         val loopBound = SPECIES.loopBound(stride)
         run {
@@ -77,7 +79,9 @@ class GeLUFunction(leftOperation: Operation) : AbstractOperation(leftOperation, 
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val size = TensorOperations.stride(leftOperandPointer!!.shape)
+        val size = CommonTensorOperations.stride(
+            leftOperandPointer!!.shape
+        )
 
         val loopBound = SPECIES.loopBound(size)
         run {

@@ -1,5 +1,6 @@
 package com.babylonml.backend.training.operations
 
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.TensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
@@ -37,7 +38,7 @@ class Variable(
         val resultBuffer = executionContext.getMemoryBuffer(result.pointer)
         val resultOffset = TrainingExecutionContext.addressOffset(result.pointer)
 
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
         System.arraycopy(data, 0, resultBuffer, resultOffset, stride)
         return result
     }

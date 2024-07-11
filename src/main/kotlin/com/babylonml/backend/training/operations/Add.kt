@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.cpu.VectorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -19,7 +19,10 @@ class Add(name: String?, leftOperation: Operation, rightOperation: Operation) :
         val leftMaxShape = leftOperation.maxResultShape
         val rightMaxShape = rightOperation.maxResultShape
 
-        maxShape = TensorOperations.calculateMaxShape(leftMaxShape, rightMaxShape)
+        maxShape = CommonTensorOperations.calculateMaxShape(
+            leftMaxShape,
+            rightMaxShape
+        )
 
     }
 
@@ -34,7 +37,7 @@ class Add(name: String?, leftOperation: Operation, rightOperation: Operation) :
             VectorOperations.addVectorToVector(
                 firstTensor.buffer(), firstTensor.offset(), secondTensor.buffer(),
                 secondTensor.offset(), result.buffer(),
-                result.offset(), TensorOperations.stride(result.shape)
+                result.offset(), CommonTensorOperations.stride(result.shape)
             )
         }
     }
@@ -54,7 +57,7 @@ class Add(name: String?, leftOperation: Operation, rightOperation: Operation) :
                 derivativeTensor.buffer(),
                 derivativeTensor.offset(),
                 resultTensor.buffer(), resultTensor.offset(),
-                TensorOperations.stride(resultTensor.shape)
+                CommonTensorOperations.stride(resultTensor.shape)
             )
         }
     }

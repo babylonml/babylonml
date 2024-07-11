@@ -3,7 +3,7 @@ package com.babylonml.matrix
 import com.babylonml.backend.training.optimizer.GradientOptimizer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import com.babylonml.backend.training.operations.Variable
-import com.babylonml.FloatVector
+import com.babylonml.vector.FloatVector
 import com.babylonml.backend.training.operations.Tensor
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.sqrt

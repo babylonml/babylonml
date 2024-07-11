@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.execution;
 
-import com.babylonml.backend.cpu.TensorOperations;
+import com.babylonml.backend.common.CommonTensorOperations;
 import com.babylonml.backend.training.operations.*;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
@@ -47,7 +47,7 @@ public class MiniBatchTensorInputDataSource implements UserInputSource {
             this.miniBatchSize = miniBatchSize;
 
             var dataShape = data.shape;
-            this.batchWidth = TensorOperations.stride(dataShape) / dataShape.getInt(0);
+            this.batchWidth = CommonTensorOperations.stride(dataShape) / dataShape.getInt(0);
         }
 
         @Override

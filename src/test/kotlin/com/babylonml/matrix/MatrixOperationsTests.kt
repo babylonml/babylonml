@@ -1,6 +1,6 @@
 package com.babylonml.matrix
 
-import com.babylonml.FloatVector
+import com.babylonml.vector.FloatVector
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.backend.cpu.MatrixOperations
 import org.apache.commons.rng.simple.RandomSource
@@ -9,8 +9,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
 class MatrixOperationsTests {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixMulTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -53,8 +51,6 @@ class MatrixOperationsTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixTransposeTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -86,8 +82,6 @@ class MatrixOperationsTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun reduceMatrixToVectorByColumnsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -112,8 +106,7 @@ class MatrixOperationsTests {
         Assertions.assertArrayEquals(matrix.reduceByColumns().toArray(), result.copyOfRange(0, matrixRows), 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun reduceMatrixToVectorByRowsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -144,8 +137,6 @@ class MatrixOperationsTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun broadCastVectorToMatrixByColumnsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -174,8 +165,7 @@ class MatrixOperationsTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun broadCastVectorToMatrixByRowsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -209,8 +199,7 @@ class MatrixOperationsTests {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun subMatrixTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -237,8 +226,7 @@ class MatrixOperationsTests {
         Assertions.assertArrayEquals(copy.toFlatArray(), result, 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun softMaxByColumnsValueCalculationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -260,8 +248,7 @@ class MatrixOperationsTests {
         Assertions.assertArrayEquals(expected.toFlatArray(), actual, 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun softMaxByColumnsIsFiniteTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -284,8 +271,7 @@ class MatrixOperationsTests {
         }
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
+
     fun softMaxByRowsValueCalculationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 

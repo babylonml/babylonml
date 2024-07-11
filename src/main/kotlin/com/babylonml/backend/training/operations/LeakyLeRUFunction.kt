@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -13,7 +13,7 @@ class LeakyLeRUFunction(
     leftOperation: Operation
 ) : AbstractOperation(name, leftOperation, null) {
     override val maxResultShape: IntImmutableList =
-        TensorOperations.calculateMaxShape(
+        CommonTensorOperations.calculateMaxShape(
             leftOperation.maxResultShape,
             leftOperation.maxResultShape
         )
@@ -32,7 +32,9 @@ class LeakyLeRUFunction(
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val size = TensorOperations.stride(leftOperandResult!!.shape)
+        val size = CommonTensorOperations.stride(
+            leftOperandResult!!.shape
+        )
         val loopBound = SPECIES.loopBound(size)
         val zero = FloatVector.zero(SPECIES)
 
@@ -67,7 +69,9 @@ class LeakyLeRUFunction(
         val resultBuffer = result.buffer()
         val resultOffset = result.offset()
 
-        val size = TensorOperations.stride(leftOperandResult!!.shape)
+        val size = CommonTensorOperations.stride(
+            leftOperandResult!!.shape
+        )
 
         val loopBound = SPECIES.loopBound(size)
         val zero = FloatVector.zero(SPECIES)

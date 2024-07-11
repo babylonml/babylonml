@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 
@@ -16,7 +16,9 @@ class GradientSource(
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
-        System.arraycopy(gradient.data, 0, resultBuffer, resultOffset, TensorOperations.stride(gradient.shape))
+        System.arraycopy(gradient.data, 0, resultBuffer, resultOffset,
+            CommonTensorOperations.stride(gradient.shape)
+        )
 
         return result
     }
@@ -26,7 +28,9 @@ class GradientSource(
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
-        System.arraycopy(gradient, 0, resultBuffer, resultOffset, TensorOperations.stride(gradient.shape))
+        System.arraycopy(gradient, 0, resultBuffer, resultOffset,
+            CommonTensorOperations.stride(gradient.shape)
+        )
 
         return result
     }

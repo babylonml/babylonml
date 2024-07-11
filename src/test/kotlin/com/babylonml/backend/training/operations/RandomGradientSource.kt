@@ -1,6 +1,6 @@
 package com.babylonml.backend.training.operations
 
-import com.babylonml.backend.cpu.TensorOperations
+import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.training.execution.TensorPointer
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -25,7 +25,7 @@ class RandomGradientSource(
         val resultOffset = result.offset()
         val resultBuffer = result.buffer()
 
-        val stride = TensorOperations.stride(shape)
+        val stride = CommonTensorOperations.stride(shape)
         val gradients = FloatArray(stride)
         for (i in 0 until stride) {
             gradients[i] = source.nextFloat(-1.0f, 1.0f)

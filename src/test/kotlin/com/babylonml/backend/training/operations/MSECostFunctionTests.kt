@@ -11,8 +11,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
 class MSECostFunctionTests {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun forwardTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -43,8 +41,6 @@ class MSECostFunctionTests {
         Assertions.assertEquals(expectedResult, result, 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun differentiationTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 

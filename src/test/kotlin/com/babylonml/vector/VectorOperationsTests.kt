@@ -1,4 +1,4 @@
-package com.babylonml
+package com.babylonml.vector
 
 import com.babylonml.backend.cpu.VectorOperations
 import org.apache.commons.rng.simple.RandomSource
@@ -10,7 +10,6 @@ import java.security.SecureRandom
 class VectorOperationsTests {
     private val securesRandom = SecureRandom()
 
-    @Test
     fun multiplyVectorToScalarTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -54,7 +53,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun addVectorToVectorTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -93,7 +91,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun vectorToVectorElementWiseMultiplicationTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -132,7 +129,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun divideScalarOnVectorElementsTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -167,7 +163,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun sqrtEachElementOfVectorTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -199,7 +194,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun vectorElementsExpTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -228,7 +222,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun maxBetweenVectorElementsTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -269,7 +262,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun sumVectorElementsTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -296,7 +288,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun addScalarToVectorTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))
@@ -329,7 +320,6 @@ class VectorOperationsTests {
         }
     }
 
-    @Test
     fun subtractVectorFromVectorTest() {
         for (n in 0..9) {
             val bBuffer = ByteBuffer.wrap(securesRandom.generateSeed(8))

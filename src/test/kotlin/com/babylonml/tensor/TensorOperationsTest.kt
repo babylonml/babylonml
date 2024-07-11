@@ -10,8 +10,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
 
 class TensorOperationsTest {
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun vectorToMatrixByRowsBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -40,8 +38,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixToMatrixByOnlyRowsBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -75,8 +71,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixToMatrixByColumnsBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -106,8 +100,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun scalarToMatrixBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -136,8 +128,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun scalarToMatrixBroadcastOnlyRowsTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -168,8 +158,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -207,8 +195,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsLimitedRankBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -248,8 +234,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsCountBroadcastTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -289,8 +273,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsCountBroadcastTillRankTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -331,8 +313,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun vectorToMatrixByRowsReduceTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -362,8 +342,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixToMatrixByColumnsReduceTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -393,8 +371,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun matrixToScalarReduceTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -420,8 +396,6 @@ class TensorOperationsTest {
         Assertions.assertEquals(scalar.toFlatArray()[0], outputArray[outputOffset], 0.001f)
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsReduceTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -458,8 +432,6 @@ class TensorOperationsTest {
         )
     }
 
-    @ParameterizedTest
-    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun multipleDimensionsCountReduceTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 

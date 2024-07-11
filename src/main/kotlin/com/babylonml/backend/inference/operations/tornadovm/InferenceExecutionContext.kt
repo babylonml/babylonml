@@ -4,40 +4,38 @@ import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.common.TensorPointer
 import com.babylonml.backend.inference.operations.Operation
 import com.babylonml.backend.inference.tornadovm.ContextMemory
-import com.babylonml.backend.inference.tornadovm.InputSource
+import com.babylonml.backend.tornadovm.TvmCommons
 import com.babylonml.backend.tornadovm.TvmVectorOperations
 import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
-import org.jspecify.annotations.Nullable
+import uk.ac.manchester.tornado.api.ImmutableTaskGraph
 import uk.ac.manchester.tornado.api.TaskGraph
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan
-import uk.ac.manchester.tornado.api.annotations.Parallel
 import uk.ac.manchester.tornado.api.enums.DataTransferMode
 import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException
-import uk.ac.manchester.tornado.api.types.tensors.Tensor
 import java.util.*
 import kotlin.math.max
 
 typealias TvmFloatArray = uk.ac.manchester.tornado.api.types.arrays.FloatArray
+typealias TvmByteArray = uk.ac.manchester.tornado.api.types.arrays.ByteArray
+typealias TvmArray = uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray
 
 class InferenceExecutionContext {
-    private lateinit var singlePassMemory: ContextMemory
-    private lateinit var operationLocalMemory: ContextMemory
+    private lateinit var singlePassMemory: ContextMemory<TvmFloatArray>
+    private lateinit var operationLocalMemory: ContextMemory<TvmFloatArray>
+    private lateinit var residentMemory: ContextMemory<TvmByteArray>
+    private lateinit var inputMemory: ContextMemory<TvmFloatArray>
+
     private lateinit var terminalOperation: Operation
     private val stages = ArrayList<List<Operation>>()
 
-    private var inputSource: @Nullable InputSource? = null
-
-    fun registerMainInputSource(data: Tensor): InputSource {
-        check(inputSource == null) { "Input source is already registered" }
-
-        val inputSource = TensorInputSource(data)
-        this.inputSource = inputSource
-
-        return inputSource
-    }
+    private var taskGraph: ImmutableTaskGraph? = null
+    private var executionPlan: TornadoExecutionPlan? = null
+    private var executionResult: TvmFloatArray? = null
 
     fun initializeExecution(terminalOperation: Operation) {
+        checkInitialized()
+
         this.terminalOperation = terminalOperation
 
         //Find last operations for all layers and optimize the execution graph.
@@ -49,35 +47,54 @@ class InferenceExecutionContext {
         initializeBuffers()
     }
 
+    private fun checkInitialized() {
+        if (taskGraph != null) {
+            throw IllegalStateException("Execution context is already initialized")
+        }
+    }
+
     fun executePass(): FloatArray {
-        terminalOperation.prepareForNextPass()
+        terminalOperation.prepareForNextExecutionPass()
 
-        val taskGraph = TaskGraph("executionPass")
-        taskGraph.transferToDevice(DataTransferMode.FIRST_EXECUTION, operationLocalMemory, singlePassMemory)
-        val resultPointer = terminalOperation.execute(taskGraph)
+        if (taskGraph == null) {
+            val taskGraph = TaskGraph(TvmCommons.generateName("executionPass"))
 
-        val result = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
-        TvmVectorOperations.addCopyVectorTask(
-            taskGraph,
-            "copyResult",
-            getMemoryBuffer(resultPointer.pointer),
-            TrainingExecutionContext.addressOffset(resultPointer.pointer),
-            result,
-            0,
-            result.size
-        )
-        taskGraph.transferToHost(DataTransferMode.EVERY_EXECUTION, result)
+            taskGraph.transferToDevice(
+                DataTransferMode.FIRST_EXECUTION,
+                operationLocalMemory.memoryBuffer,
+                singlePassMemory.memoryBuffer,
+                residentMemory.memoryBuffer
+            )
 
-        val immutableTaskGraph = taskGraph.snapshot()
+            taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputMemory.memoryBuffer)
+            val resultPointer = terminalOperation.buildTaskGraph(taskGraph)
+
+            val executionResult = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
+            TvmVectorOperations.addCopyVectorTask(
+                taskGraph,
+                TvmCommons.generateName("copyResult"),
+                getMemoryBuffer(resultPointer.pointer),
+                TrainingExecutionContext.addressOffset(resultPointer.pointer),
+                executionResult,
+                0,
+                executionResult.size
+            )
+            taskGraph.transferToHost(DataTransferMode.EVERY_EXECUTION, executionResult)
+
+            this.taskGraph = taskGraph.snapshot()
+            this.executionPlan = TornadoExecutionPlan(this.taskGraph)
+            this.executionResult = executionResult
+        } else {
+            require(executionPlan != null) { "Execution plan is not initialized" }
+        }
+
         try {
-            TornadoExecutionPlan(immutableTaskGraph).use { executionPlan ->
-                executionPlan.execute()
-            }
+            executionPlan!!.execute()
         } catch (e: TornadoExecutionPlanException) {
             throw RuntimeException("Failed to execute the task graph", e)
         }
 
-        return result.toHeapArray()
+        return executionResult!!.toHeapArray()
     }
 
     private fun splitExecutionGraphByStages() {
@@ -125,6 +142,8 @@ class InferenceExecutionContext {
     private fun initializeBuffers() {
         var singlePassBufferLength = 0
         var operationLocalBufferLength = 0
+        var residentMemoryAllocations = 0
+        var inputMemoryAllocations = 0
 
         for (operations in stages) {
             var localBufferLength = 0
@@ -132,74 +151,115 @@ class InferenceExecutionContext {
             for (operation in operations) {
                 var allocations: List<IntImmutableList?> = operation.singlePassAllocations
                 singlePassBufferLength += ContextMemory.allocationsSize(allocations)
+                residentMemoryAllocations += ContextMemory.allocationsSize(operation.residentAllocations)
+                inputMemoryAllocations += ContextMemory.allocationsSize(operation.inputAllocations)
 
                 allocations = operation.localAllocations
                 localBufferLength += ContextMemory.allocationsSize(allocations)
             }
 
-            operationLocalBufferLength = max(localBufferLength.toDouble(), operationLocalBufferLength.toDouble())
-                .toInt()
+            operationLocalBufferLength = max(localBufferLength, operationLocalBufferLength)
         }
 
-        operationLocalMemory = ContextMemory(operationLocalBufferLength, OPERATION_LOCAL_MEMORY_TYPE, true)
-        singlePassMemory = ContextMemory(singlePassBufferLength, SINGLE_PASS_MEMORY_TYPE, true)
+        operationLocalMemory =
+            ContextMemory(
+                TvmFloatArray(operationLocalBufferLength), OPERATION_LOCAL_MEMORY_KIND, TensorPointer.DType.F32,
+                true
+            )
+        singlePassMemory = ContextMemory(
+            TvmFloatArray(singlePassBufferLength), SINGLE_PASS_MEMORY_KIND, TensorPointer.DType.F32,
+            true
+        )
+        residentMemory = ContextMemory(
+            TvmByteArray(residentMemoryAllocations), RESIDENT_MEMORY_KIND, TensorPointer.DType.INT8,
+            true
+        )
+        inputMemory = ContextMemory(
+            TvmFloatArray(inputMemoryAllocations), INPUT_MEMORY_KIND, TensorPointer.DType.F32,
+            true
+        )
     }
 
+    @Suppress("unused")
     fun allocateLocalMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+        checkInitialized()
+
         return operationLocalMemory.allocate(operation, dimensions) {
             operation.localAllocations
         }
     }
 
+    fun allocateInputMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+        checkInitialized()
+
+        return inputMemory.allocate(operation, dimensions) {
+            operation.inputAllocations
+        }
+    }
+
     fun allocateSinglePassMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+        checkInitialized()
+
         return singlePassMemory.allocate(operation, dimensions) {
             operation.singlePassAllocations
         }
     }
 
-    fun getMemoryBuffer(address: Long): TvmFloatArray {
+    fun allocateResidentMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+        checkInitialized()
+
+        return residentMemory.allocate(operation, dimensions) {
+            operation.residentAllocations
+        }
+    }
+
+    fun getMemoryBuffer(address: Long): TvmArray {
         val memoryType = memoryType(address)
 
         return when (memoryType) {
             MemoryType.SINGLE_PASS -> singlePassMemory.memoryBuffer
             MemoryType.OPERATION_LOCAL -> operationLocalMemory.memoryBuffer
+            MemoryType.RESIDENT -> residentMemory.memoryBuffer
+            MemoryType.INPUT -> inputMemory.memoryBuffer
         }
     }
 
     private fun memoryType(address: Long): MemoryType {
         require(!ContextMemory.isNull(address)) { "Provided address is null" }
 
-        val memoryType = address ushr 62
-        if (memoryType == SINGLE_PASS_MEMORY_TYPE.toLong()) {
+        val memoryKind = (address ushr 61).toByte()
+        if (memoryKind == SINGLE_PASS_MEMORY_KIND) {
             return MemoryType.SINGLE_PASS
         }
 
-        if (memoryType == OPERATION_LOCAL_MEMORY_TYPE.toLong()) {
+        if (memoryKind == OPERATION_LOCAL_MEMORY_KIND) {
             return MemoryType.OPERATION_LOCAL
         }
 
-        throw IllegalArgumentException("Unknown memory type : $memoryType")
+        if (memoryKind == RESIDENT_MEMORY_KIND) {
+            return MemoryType.RESIDENT
+        }
+
+        if (memoryKind == INPUT_MEMORY_KIND) {
+            return MemoryType.INPUT
+        }
+
+        throw IllegalArgumentException("Unknown memory kind : $memoryKind")
     }
 
     private enum class MemoryType {
         SINGLE_PASS,
-        OPERATION_LOCAL
+        OPERATION_LOCAL,
+        RESIDENT,
+        INPUT
     }
 
     companion object {
-        private const val SINGLE_PASS_MEMORY_TYPE: Byte = 1
-        private const val OPERATION_LOCAL_MEMORY_TYPE: Byte = 2
+        private const val SINGLE_PASS_MEMORY_KIND: Byte = 1
+        private const val OPERATION_LOCAL_MEMORY_KIND: Byte = 2
+        private const val RESIDENT_MEMORY_KIND: Byte = 3
+        private const val INPUT_MEMORY_KIND: Byte = 4
 
-        @JvmStatic
-        fun fetchExecutionResult(
-            singlePassMemoryBuffer: TvmFloatArray,
-            offset: Int,
-            result: TvmFloatArray
-        ) {
-            for (i: @Parallel Int in 0 until result.size) {
-                result[i] = singlePassMemoryBuffer[offset + i]
-            }
-        }
 
         fun addressOffset(address: Long): Int {
             return ContextMemory.addressOffset(address)

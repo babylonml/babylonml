@@ -4,22 +4,25 @@ import com.babylonml.backend.common.TensorPointer;
 import com.babylonml.backend.inference.operations.Operation;
 import it.unimi.dsi.fastutil.Function;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
-import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
+import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray;
 
 import java.util.IdentityHashMap;
 import java.util.List;
 
-public final class ContextMemory {
+public final class ContextMemory<T extends TornadoNativeArray> {
     private final IdentityHashMap<Operation, long[]> consumedMemory = new IdentityHashMap<>();
-    private final FloatArray memoryBuffer;
+    private final T memoryBuffer;
     private int offset;
     private final boolean trackMemoryAllocation;
-    private final byte memoryType;
+    private final byte memoryKind;
+    private final TensorPointer.DType memoryType;
 
-    public ContextMemory(int size, byte memoryType, boolean trackMemoryAllocation) {
-        this.memoryBuffer = new FloatArray(size);
-        this.memoryType = memoryType;
+    public ContextMemory(T memoryBuffer, byte memoryKind, TensorPointer.DType memoryType,
+                         boolean trackMemoryAllocation) {
+        this.memoryBuffer = memoryBuffer;
+        this.memoryKind = memoryKind;
         this.trackMemoryAllocation = trackMemoryAllocation;
+        this.memoryType = memoryType;
     }
 
     public TensorPointer allocate(Operation operation, IntImmutableList dimensions,
@@ -46,18 +49,13 @@ public final class ContextMemory {
                     + operation);
         }
 
-        var address = address(memoryType, offset);
+        var address = address(memoryKind, offset);
         offset += length;
 
-        return new TensorPointer(address, dimensions);
+        return new TensorPointer(address, dimensions, memoryType);
     }
 
-    public void reset() {
-        offset = 0;
-        consumedMemory.clear();
-    }
-
-    public FloatArray getMemoryBuffer() {
+    public T getMemoryBuffer() {
         return memoryBuffer;
     }
 
@@ -71,7 +69,7 @@ public final class ContextMemory {
     }
 
     public static long address(int memoryType, int offset) {
-        return ((long) memoryType << 62) | offset;
+        return ((long) memoryType << 61) | offset;
     }
 
     public static boolean isNull(long address) {

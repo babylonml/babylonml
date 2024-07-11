@@ -8,11 +8,15 @@ import uk.ac.manchester.tornado.api.TaskGraph
 interface Operation {
     val maxResultShape: IntImmutableList
 
-    fun execute(taskGraph: TaskGraph): TensorPointer
+    fun buildTaskGraph(taskGraph: TaskGraph): TensorPointer
+
+    val residentAllocations: List<IntImmutableList>
 
     val singlePassAllocations: List<IntImmutableList>
 
     val localAllocations: List<IntImmutableList>
+
+    val inputAllocations: List<IntImmutableList>
 
     var leftPreviousOperation: Operation?
 
@@ -20,7 +24,7 @@ interface Operation {
 
     var nextOperation: Operation?
 
-    fun prepareForNextPass()
+    fun prepareForNextExecutionPass()
 
     val executionContext: InferenceExecutionContext
 

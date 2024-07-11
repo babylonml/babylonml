@@ -3,6 +3,7 @@ package com.babylonml.backend.inference.operations
 import com.babylonml.backend.common.TensorPointer
 import com.babylonml.backend.cpu.TensorOperations
 import com.babylonml.backend.inference.operations.tornadovm.InferenceExecutionContext
+import com.babylonml.backend.inference.operations.tornadovm.TvmArray
 import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import com.babylonml.backend.tornadovm.TvmCommons
 import com.babylonml.backend.tornadovm.TvmTensorOperations
@@ -13,10 +14,9 @@ abstract class AbstractOperation(
     override val name: String?, executionContext: InferenceExecutionContext?,
     final override var leftPreviousOperation: Operation?, final override var rightPreviousOperation: Operation?
 ) : Operation {
-    protected val singlePassMemoryAllocator: (operation: Operation, shape: IntImmutableList) -> TensorPointer
-    protected val localMemoryAllocator: (operation: Operation, shape: IntImmutableList) -> TensorPointer
-
     final override var executionContext: InferenceExecutionContext
+    override val residentAllocations: List<IntImmutableList>
+        get() = emptyList()
 
     override var nextOperation: Operation? = null
 
@@ -60,25 +60,18 @@ abstract class AbstractOperation(
         } else {
             this.executionContext = executionContext
         }
-
-        val ex = this.executionContext
-        singlePassMemoryAllocator = { operation, shape ->
-            ex.allocateSinglePassMemory(
-                operation,
-                shape
-            )
-        }
-        localMemoryAllocator = { operation, shape ->
-            ex.allocateLocalMemory(
-                operation,
-                shape
-            )
-        }
     }
 
-    override fun prepareForNextPass() {
-        leftPreviousOperation?.prepareForNextPass()
-        rightPreviousOperation?.prepareForNextPass()
+    final override fun buildTaskGraph(taskGraph: TaskGraph): TensorPointer {
+        prepareForNextExecutionPass()
+        return doBuildTaskGraph(taskGraph)
+    }
+
+    abstract fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer
+
+    override fun prepareForNextExecutionPass() {
+        leftPreviousOperation?.prepareForNextExecutionPass()
+        rightPreviousOperation?.prepareForNextExecutionPass()
     }
 
 
@@ -107,8 +100,8 @@ abstract class AbstractOperation(
             val broadcastTensor = executionContext.allocateSinglePassMemory(this, secondTensorShape)
             TvmTensorOperations.addBroadcastTask(
                 taskGraph, getTaskName("BroadcastIfNeeded"),
-                secondTensor.buffer(), secondTensor.offset(), secondTensor.shape,
-                broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
+                secondTensor.buffer() as TvmFloatArray, secondTensor.offset(), secondTensor.shape,
+                broadcastTensor.buffer() as TvmFloatArray, broadcastTensor.offset(), broadcastTensor.shape
             )
             function(broadcastTensor, secondTensor, broadcastTensor)
             return broadcastTensor
@@ -117,15 +110,15 @@ abstract class AbstractOperation(
         val broadcastTensor = executionContext.allocateSinglePassMemory(this, firstTensorShape)
         TvmTensorOperations.addBroadcastTask(
             taskGraph, getTaskName("BroadcastIfNeeded"),
-            firstTensor.buffer(), firstTensor.offset(), firstTensor.shape,
-            broadcastTensor.buffer(), broadcastTensor.offset(), broadcastTensor.shape
+            firstTensor.buffer() as TvmFloatArray, firstTensor.offset(), firstTensor.shape,
+            broadcastTensor.buffer() as TvmFloatArray, broadcastTensor.offset(), broadcastTensor.shape
         )
         function(firstTensor, broadcastTensor, broadcastTensor)
 
         return broadcastTensor
     }
 
-    fun TensorPointer.buffer(): TvmFloatArray {
+    fun TensorPointer.buffer(): TvmArray {
         return executionContext.getMemoryBuffer(pointer)
     }
 

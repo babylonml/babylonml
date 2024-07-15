@@ -11,8 +11,10 @@ import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
 
 abstract class AbstractOperation(
-    override val name: String?, executionContext: InferenceExecutionContext?,
-    final override var leftPreviousOperation: Operation?, final override var rightPreviousOperation: Operation?
+    override val name: String,
+    executionContext: InferenceExecutionContext?,
+    final override var leftPreviousOperation: Operation?,
+    final override var rightPreviousOperation: Operation?
 ) : Operation {
     final override var executionContext: InferenceExecutionContext
     override val residentAllocations: List<IntImmutableList>
@@ -21,22 +23,10 @@ abstract class AbstractOperation(
     override var nextOperation: Operation? = null
 
     constructor(
-        name: String?,
+        name: String,
         leftOperation: Operation?,
         rightOperation: Operation?
     ) : this(name, null, leftOperation, rightOperation)
-
-    constructor(leftOperation: Operation?, rightOperation: Operation?) : this(
-        null,
-        null,
-        leftOperation,
-        rightOperation
-    )
-
-    constructor(
-        executionContext: InferenceExecutionContext?,
-        leftOperation: Operation?, rightOperation: Operation?
-    ) : this(null, executionContext, leftOperation, rightOperation)
 
     init {
         leftPreviousOperation?.let {
@@ -84,7 +74,8 @@ abstract class AbstractOperation(
         val firstTensorShape = firstTensor.shape
         val secondTensorShape = secondTensor.shape
 
-        val broadcastCandidate = TensorOperations.broadcastCandidate(firstTensorShape, secondTensorShape)
+        val broadcastCandidate =
+            TensorOperations.broadcastCandidate(firstTensorShape, secondTensorShape)
         require(broadcastCandidate != -1) {
             "Invalid shapes for operation. First shape: " +
                     firstTensorShape + ", second shape: " + secondTensorShape + "."
@@ -99,9 +90,14 @@ abstract class AbstractOperation(
         if (broadcastCandidate == 1) {
             val broadcastTensor = executionContext.allocateSinglePassMemory(this, secondTensorShape)
             TvmTensorOperations.addBroadcastTask(
-                taskGraph, getTaskName("BroadcastIfNeeded"),
-                secondTensor.buffer() as TvmFloatArray, secondTensor.offset(), secondTensor.shape,
-                broadcastTensor.buffer() as TvmFloatArray, broadcastTensor.offset(), broadcastTensor.shape
+                taskGraph,
+                getTaskName("BroadcastIfNeeded"),
+                secondTensor.buffer() as TvmFloatArray,
+                secondTensor.offset(),
+                secondTensor.shape,
+                broadcastTensor.buffer() as TvmFloatArray,
+                broadcastTensor.offset(),
+                broadcastTensor.shape
             )
             function(broadcastTensor, secondTensor, broadcastTensor)
             return broadcastTensor
@@ -109,9 +105,14 @@ abstract class AbstractOperation(
 
         val broadcastTensor = executionContext.allocateSinglePassMemory(this, firstTensorShape)
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, getTaskName("BroadcastIfNeeded"),
-            firstTensor.buffer() as TvmFloatArray, firstTensor.offset(), firstTensor.shape,
-            broadcastTensor.buffer() as TvmFloatArray, broadcastTensor.offset(), broadcastTensor.shape
+            taskGraph,
+            getTaskName("BroadcastIfNeeded"),
+            firstTensor.buffer() as TvmFloatArray,
+            firstTensor.offset(),
+            firstTensor.shape,
+            broadcastTensor.buffer() as TvmFloatArray,
+            broadcastTensor.offset(),
+            broadcastTensor.shape
         )
         function(firstTensor, broadcastTensor, broadcastTensor)
 
@@ -122,15 +123,15 @@ abstract class AbstractOperation(
         return executionContext.getMemoryBuffer(pointer)
     }
 
+    fun TensorPointer.floatBuffer(): TvmFloatArray {
+        return buffer() as TvmFloatArray
+    }
+
     fun TensorPointer.offset() = InferenceExecutionContext.addressOffset(pointer)
 
     fun getTaskName(prefix: String? = null): String {
         return TvmCommons.generateName(
-            if (name == null) {
-                prefix ?: ("" + this::class.simpleName)
-            } else {
-                prefix ?: ("" + name)
-            }
+            prefix ?: ("" + name)
         )
     }
 }

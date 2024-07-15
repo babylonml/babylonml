@@ -1,9 +1,9 @@
-package com.babylonml.tensor.tornadovm
+package com.babylonml.backend.tornadovm
 
 import com.babylonml.AbstractTvmTest
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
-import com.babylonml.backend.tornadovm.TvmTensorOperations
+import com.babylonml.backend.inference.operations.tornadovm.TvmIntArray
 import com.babylonml.tensor.FloatTensor
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.sampling.PermutationSampler
@@ -11,6 +11,9 @@ import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
+import com.babylonml.tensor.div
+import com.babylonml.tensor.pow
+import com.babylonml.tensor.times
 
 
 class TvmTensorOperationsTest : AbstractTvmTest() {
@@ -166,7 +169,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val newTensorDimensions = source.nextInt(tensorDimensions, tensorDimensions + 4)
 
         val newShape = IntArray(newTensorDimensions) { source.nextInt(2, 7) }
-        val shape = IntArray(tensorDimensions) { newShape[newTensorDimensions - tensorDimensions + it] }
+        val shape =
+            IntArray(tensorDimensions) { newShape[newTensorDimensions - tensorDimensions + it] }
 
         val broadcastDimensionsCount = source.nextInt(1, tensorDimensions)
         val permutation = PermutationSampler.natural(tensorDimensions)
@@ -199,5 +203,135 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
                 outputArray.toHeapArray().sliceArray(outputOffset..<outputArray.size), 0.001f
             )
         }
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun ropeKernelSeqFromStartTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(2, 65) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
+
+        val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val (sin, cos) = prepareRotationArrays(headDim, seqLen)
+        val expectedResult = applyRotation(input, cos, sin)
+
+        val inputArray = input.toTvmFlatArray()
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim)
+        val startPositionArray = TvmFloatArray(1)
+        startPositionArray.set(0, 0.0f)
+
+        val inputShape = TvmIntArray.fromArray(input.shape)
+        val cosArray = cos.toTvmFlatArray()
+        val sinArray = sin.toTvmFlatArray()
+
+        TvmTensorOperations.ropeKernel(
+            inputArray, inputShape, 0, cosArray, 0, sinArray, 0,
+            startPositionArray, 0, resultArray, 0, seqLen
+        )
+
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            resultArray.toHeapArray(), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun ropeTVMSeqFromStartTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(1, 65) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(1, 65) shr 1) shl 1
+        val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val (sin, cos) = prepareRotationArrays(headDim, seqLen)
+        val expectedResult = applyRotation(input, cos, sin)
+
+        val inputArray = input.toTvmFlatArray()
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim)
+        val startPositionArray = TvmFloatArray(1)
+        startPositionArray.set(0, 0.0f)
+
+        val inputShape = IntImmutableList.of(*input.shape)
+        val cosArray = cos.toTvmFlatArray()
+        val sinArray = sin.toTvmFlatArray()
+
+        val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
+        TvmTensorOperations.addRopeKernel(
+            taskGraph, "ropeTestSeqFromStart", inputArray,
+            inputShape, 0,
+            cosArray, 0,
+            sinArray, 0,
+            startPositionArray, 0,
+            resultArray, inputShape, 0,
+            seqLen
+        )
+
+        assertExecution(taskGraph, resultArray) {
+            Assertions.assertArrayEquals(
+                expectedResult.toFlatArray(),
+                resultArray.toHeapArray(), 0.001f
+            )
+        }
+    }
+
+    private fun applyRotation(
+        input: FloatTensor,
+        cos: FloatTensor,
+        sin: FloatTensor
+    ): FloatTensor {
+        val rotatedInput = rotateInput(input)
+        Assertions.assertArrayEquals(rotatedInput.shape, input.shape)
+        return input * cos + rotatedInput * sin
+    }
+
+    private fun rotateInput(
+        input: FloatTensor,
+    ): FloatTensor {
+        val headDim = input.shape[3]
+        val input1 = input.slice(
+            0 until headDim / 2
+        )
+        val input2 = input.slice(
+            headDim / 2 until headDim
+        )
+
+        return (-1 * input2).cat(input1)
+    }
+
+    private fun prepareRotationArrays(
+        headDim: Int,
+        seqLen: Int
+    ): Pair<FloatTensor, FloatTensor> {
+        // inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        val invFreqs = 1.0f / 10_000.0f.pow(
+            FloatTensor.arrange(0, headDim, 2) / headDim
+        )
+
+        Assertions.assertEquals(invFreqs.size, headDim / 2)
+
+        //t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
+        // freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+        var freqs = FloatTensor.natural(seqLen).combineWith(invFreqs) { a, b -> a * b }
+        //emb = torch.cat((freqs, freqs), dim=-1)
+        freqs = freqs.cat(freqs)
+
+        Assertions.assertArrayEquals(freqs.shape, intArrayOf(seqLen, headDim))
+        Assertions.assertEquals(freqs.size, seqLen * headDim)
+
+        val sin = freqs.sin().unsquize(0).unsquize(2)
+        val cos = freqs.cos().unsquize(0).unsquize(2)
+
+        Assertions.assertArrayEquals(sin.shape, intArrayOf(1, seqLen, 1, headDim))
+        Assertions.assertArrayEquals(cos.shape, intArrayOf(1, seqLen, 1, headDim))
+
+        return Pair(sin, cos)
     }
 }

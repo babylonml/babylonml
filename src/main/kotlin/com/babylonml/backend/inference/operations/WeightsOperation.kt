@@ -8,7 +8,7 @@ import uk.ac.manchester.tornado.api.TaskGraph
 
 
 class WeightsOperation(
-    override val name: String?, executionContext: InferenceExecutionContext,
+    override val name: String, executionContext: InferenceExecutionContext,
     private val data: ByteArray, val shape: IntImmutableList
 ) : AbstractOperation(name, executionContext, null, null) {
     override val residentAllocations: List<IntImmutableList>

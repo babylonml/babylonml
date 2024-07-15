@@ -7,7 +7,7 @@ import com.babylonml.backend.tornadovm.TvmVectorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
 
-class AddOperation(name: String?, leftOperation: Operation, rightOperation: Operation) :
+class AddOperation(name: String, leftOperation: Operation, rightOperation: Operation) :
     AbstractOperation(name, leftOperation, rightOperation) {
 
     override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {

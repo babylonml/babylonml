@@ -18,9 +18,10 @@ import kotlin.math.max
 
 typealias TvmFloatArray = uk.ac.manchester.tornado.api.types.arrays.FloatArray
 typealias TvmByteArray = uk.ac.manchester.tornado.api.types.arrays.ByteArray
+typealias TvmIntArray = uk.ac.manchester.tornado.api.types.arrays.IntArray
 typealias TvmArray = uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray
 
-class InferenceExecutionContext {
+class InferenceExecutionContext : AutoCloseable {
     private lateinit var singlePassMemory: ContextMemory<TvmFloatArray>
     private lateinit var operationLocalMemory: ContextMemory<TvmFloatArray>
     private lateinit var residentMemory: ContextMemory<TvmByteArray>
@@ -163,7 +164,9 @@ class InferenceExecutionContext {
 
         operationLocalMemory =
             ContextMemory(
-                TvmFloatArray(operationLocalBufferLength), OPERATION_LOCAL_MEMORY_KIND, TensorPointer.DType.F32,
+                TvmFloatArray(operationLocalBufferLength),
+                OPERATION_LOCAL_MEMORY_KIND,
+                TensorPointer.DType.F32,
                 true
             )
         singlePassMemory = ContextMemory(
@@ -197,7 +200,10 @@ class InferenceExecutionContext {
         }
     }
 
-    fun allocateSinglePassMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+    fun allocateSinglePassMemory(
+        operation: Operation,
+        dimensions: IntImmutableList
+    ): TensorPointer {
         checkInitialized()
 
         return singlePassMemory.allocate(operation, dimensions) {
@@ -222,6 +228,10 @@ class InferenceExecutionContext {
             MemoryType.RESIDENT -> residentMemory.memoryBuffer
             MemoryType.INPUT -> inputMemory.memoryBuffer
         }
+    }
+
+    override fun close() {
+        executionPlan?.close()
     }
 
     private fun memoryType(address: Long): MemoryType {

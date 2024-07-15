@@ -9,7 +9,7 @@ import uk.ac.manchester.tornado.api.TaskGraph
 class InputSourceOperation(
     var value: FloatArray,
     val shape: IntImmutableList,
-    name: String?, executionContext: InferenceExecutionContext,
+    name: String, executionContext: InferenceExecutionContext,
 ) :
     AbstractOperation(name, executionContext, null, null) {
 

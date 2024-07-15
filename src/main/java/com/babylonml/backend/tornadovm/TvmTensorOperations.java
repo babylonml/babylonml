@@ -104,31 +104,33 @@ public class TvmTensorOperations {
 
         final int halfHeadDim = headDimension / 2;
 
-        for (@Parallel int batchIndex = 0; batchIndex < batchSize; batchIndex++) {
+        final int batchSequenceIterations = batchSize * sequenceSize;
+
+        for (@Parallel int batchSequenceIteration = 0; batchSequenceIteration < batchSequenceIterations; batchSequenceIteration++) {
+            final int batchIndex = batchSequenceIteration / sequenceSize;
+            final int sequenceIndex = batchSequenceIteration % sequenceSize;
             final int batchOffset = batchIndex * batchStepSize;
-            for (@Parallel int sequenceIndex = 0; sequenceIndex < sequenceSize; sequenceIndex++) {
-                final int position = (int) startPosition.get(startPositionOffset) + sequenceIndex;
-                final int currentCosOffset = headDimension * position + cosOffset;
-                final int currentSinOffset = headDimension * position + sinOffset;
+            final int position = (int) startPosition.get(startPositionOffset) + sequenceIndex;
+            final int currentCosOffset = headDimension * position + cosOffset;
+            final int currentSinOffset = headDimension * position + sinOffset;
 
-                final int sequenceOffset = batchOffset + sequenceIndex * sequenceStepSize;
-                for (@Parallel int h = 0; h < numberOfHeads; h++) {
-                    final int commonOffset = sequenceOffset + h * headDimension;
-                    final int inputTensorOffset = inputOffset + commonOffset;
-                    final int outputTensorOffset = resultOffset + commonOffset;
+            final int sequenceOffset = batchOffset + sequenceIndex * sequenceStepSize;
+            for (@Parallel int h = 0; h < numberOfHeads; h++) {
+                final int commonOffset = sequenceOffset + h * headDimension;
+                final int inputTensorOffset = inputOffset + commonOffset;
+                final int outputTensorOffset = resultOffset + commonOffset;
 
-                    for (@Parallel int i = 0; i < halfHeadDim; i++) {
-                        float cosValue = cosArray.get(currentCosOffset + i);
-                        float sinValue = sinArray.get(currentSinOffset + i);
+                for (@Parallel int i = 0; i < halfHeadDim; i++) {
+                    float cosValue = cosArray.get(currentCosOffset + i);
+                    float sinValue = sinArray.get(currentSinOffset + i);
 
-                        float inputValueOne = input.get(inputTensorOffset + i);
-                        float inputValueTwo = input.get(inputTensorOffset + halfHeadDim + i);
+                    float inputValueOne = input.get(inputTensorOffset + i);
+                    float inputValueTwo = input.get(inputTensorOffset + halfHeadDim + i);
 
-                        result.set(outputTensorOffset + i,
-                                cosValue * inputValueOne - sinValue * inputValueTwo);
-                        result.set(outputTensorOffset + i + halfHeadDim,
-                                cosValue * inputValueTwo + sinValue * inputValueOne);
-                    }
+                    result.set(outputTensorOffset + i,
+                            cosValue * inputValueOne - sinValue * inputValueTwo);
+                    result.set(outputTensorOffset + i + halfHeadDim,
+                            cosValue * inputValueTwo + sinValue * inputValueOne);
                 }
             }
         }

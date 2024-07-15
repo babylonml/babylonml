@@ -246,9 +246,9 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val source = RandomSource.ISAAC.create(seed)
 
         val bs = source.nextInt(1, 16)
-        val seqLen = (source.nextInt(1, 65) shr 1) shl 1
+        val seqLen = (source.nextInt(2, 65) shr 1) shl 1
         val numHeads = source.nextInt(1, 16)
-        val headDim = (source.nextInt(1, 65) shr 1) shl 1
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
         val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         val (sin, cos) = prepareRotationArrays(headDim, seqLen)

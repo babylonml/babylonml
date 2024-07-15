@@ -88,10 +88,11 @@ public class TvmTensorOperations {
                            @NonNull FloatArray cosArray, final int cosOffset, @NonNull FloatArray sinArray,
                            final int sinOffset, @NonNull FloatArray startPosition, int startPositionOffset,
                            @NonNull FloatArray result, final int resultOffset, int maxSequenceSize) {
-        //cos/sin array is tensor with shape [positions, headDimension]
+        //cos/sin array is tensor with shape [positions, headDimension/ 2]
         //input is tensor with shape [batchSize, sequenceSize, numHeads, headDimension]
-        //we are interested in head dimension only, so we distill all dimension into the list of
-        //[maxSequenceSize, headDimension] arrays and apply RoPE to each of them
+        //we are interested in head dimension only, so we distill all dimension into the
+        //[batchSize * maxSequenceSize, numberOfHeads, headDimension] tensors
+        // and apply RoPE to each [headDimension] tensor.
 
         final int batchSize = inputShape.get(0);
         final int sequenceSize = inputShape.get(1);
@@ -110,9 +111,10 @@ public class TvmTensorOperations {
             final int batchIndex = batchSequenceIteration / sequenceSize;
             final int sequenceIndex = batchSequenceIteration % sequenceSize;
             final int batchOffset = batchIndex * batchStepSize;
+
             final int position = (int) startPosition.get(startPositionOffset) + sequenceIndex;
-            final int currentCosOffset = headDimension * position + cosOffset;
-            final int currentSinOffset = headDimension * position + sinOffset;
+            final int currentCosOffset = halfHeadDim * position + cosOffset;
+            final int currentSinOffset = halfHeadDim * position + sinOffset;
 
             final int sequenceOffset = batchOffset + sequenceIndex * sequenceStepSize;
             for (@Parallel int h = 0; h < numberOfHeads; h++) {
@@ -155,20 +157,20 @@ public class TvmTensorOperations {
                     resultShape + ".");
         }
 
-        if (cosArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize) {
+        if (cosArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2) {
             throw new IllegalArgumentException("Cos array size for RoPE must contain values for all " +
                     "possible positions in sequence. " +
                     "Cos array size: " + cosArray.getSize() + ", last dimension of the input shape: " +
                     inputShape.getInt(inputShape.size() - 1) + ", maximum sequence size: " + maxSequenceSize +
-                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize);
+                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2);
         }
 
-        if (sinArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize) {
+        if (sinArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2) {
             throw new IllegalArgumentException("Sin array size for RoPE must contain values for all " +
                     "possible positions in sequence. " +
                     "Cos array size: " + cosArray.getSize() + ", last dimension of the input shape: " +
                     inputShape.getInt(inputShape.size() - 1) + ", maximum sequence size: " + maxSequenceSize +
-                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize);
+                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2);
         }
 
         var inputShapeArray = IntArray.fromArray(inputShape.toIntArray());

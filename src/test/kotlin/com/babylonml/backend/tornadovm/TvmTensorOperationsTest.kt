@@ -226,8 +226,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         startPositionArray.set(0, 0.0f)
 
         val inputShape = TvmIntArray.fromArray(input.shape)
-        val cosArray = cos.toTvmFlatArray()
-        val sinArray = sin.toTvmFlatArray()
+        val cosArray = cos.slice(0 until headDim / 2).toTvmFlatArray()
+        val sinArray = sin.slice(0 until headDim / 2).toTvmFlatArray()
 
         TvmTensorOperations.ropeKernel(
             inputArray, inputShape, 0, cosArray, 0, sinArray, 0,
@@ -260,8 +260,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         startPositionArray.set(0, 0.0f)
 
         val inputShape = IntImmutableList.of(*input.shape)
-        val cosArray = cos.toTvmFlatArray()
-        val sinArray = sin.toTvmFlatArray()
+        val cosArray = cos.slice(0 until headDim / 2).toTvmFlatArray()
+        val sinArray = sin.slice(0 until headDim / 2).toTvmFlatArray()
 
         val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
         TvmTensorOperations.addRopeKernel(

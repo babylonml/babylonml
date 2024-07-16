@@ -8,14 +8,21 @@ import uk.ac.manchester.tornado.api.TaskGraph
 class InputSourceOperation(
     var value: FloatArray,
     val shape: IntImmutableList,
+    private val maxShape: IntImmutableList,
     name: String, executionContext: InferenceExecutionContext,
 ) :
     AbstractOperation(name, executionContext, null, null) {
 
+    constructor(
+        value: FloatArray,
+        shape: IntImmutableList,
+        name: String, executionContext: InferenceExecutionContext
+    ) : this(value, shape, shape, name, executionContext)
+
     private var dataPointer: TensorPointer? = null
 
     override val maxResultShape: IntImmutableList
-        get() = shape
+        get() = maxShape
 
     override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {
         val dataPointer = executionContext.allocateInputMemory(this, shape)
@@ -31,8 +38,8 @@ class InputSourceOperation(
         return dataPointer
     }
 
-    override val inputAllocations: List<IntImmutableList>
-        get() = listOf(shape)
+    override val maxInputAllocations: List<IntImmutableList>
+        get() = listOf(maxShape)
 
     override fun prepareForNextExecutionPass() {
         super.prepareForNextExecutionPass()

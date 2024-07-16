@@ -10,7 +10,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 @Suppress("unused")
-class RoPEOperation(name: String, qk: Operation, startPosition: Operation) : AbstractOperation(
+class RoPEOperation(name: String,  qk: Operation, startPosition: Operation) : AbstractOperation(
     name,
     qk, startPosition
 ) {
@@ -49,10 +49,10 @@ class RoPEOperation(name: String, qk: Operation, startPosition: Operation) : Abs
                 qk.maxResultShape
             }
 
-    override val singlePassAllocations: List<IntImmutableList>
+    override val maxSinglePassAllocations: List<IntImmutableList>
         get() = listOf(maxResultShape)
 
-    override val residentF32Allocations: List<IntImmutableList>
+    override val maxResidentF32Allocations: List<IntImmutableList>
         get() {
             val maxSequenceLen = maxResultShape.getInt(1)
             val headDimension = maxResultShape.getInt(3)

@@ -60,7 +60,7 @@ class RoPEOperationTest {
         val queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
-        val expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin)
+        val expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         InferenceExecutionContext().use {
             val query = InputSourceOperation(
@@ -92,7 +92,7 @@ class RoPEOperationTest {
         var queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
-        var expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin)
+        var expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         InferenceExecutionContext().use {
             val query = InputSourceOperation(
@@ -112,7 +112,98 @@ class RoPEOperationTest {
                 Assertions.assertArrayEquals(expectedResult.toFlatArray(), result, 0.0001f)
 
                 queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
-                expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin)
+                expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
+
+                query.value = queryTensor.toFlatArray()
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun testRoPESingleExecutionSlice(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(2, 65) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
+
+        val queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
+        val startPositionValue = source.nextInt(0, maxSeqLen - seqLen + 1)
+
+        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, maxSeqLen)
+        val expectedResult = TvmTensorOperationsTest.applyRotation(
+            queryTensor, expectedCos, expectedSin,
+            startPositionValue
+        )
+
+        InferenceExecutionContext().use {
+            val query = InputSourceOperation(
+                queryTensor.toFlatArray(),
+                IntImmutableList.of(*queryTensor.shape),
+                IntImmutableList.of(bs, maxSeqLen, numHeads, headDim), "query", it
+            )
+            val startPosition = InputSourceOperation(
+                floatArrayOf(startPositionValue.toFloat()), IntImmutableList.of(1), "startPosition", it
+            )
+            val roPEOperation = RoPEOperation("rope", query, startPosition)
+
+            it.initializeExecution(roPEOperation)
+            val result = it.executePass()
+
+            Assertions.assertArrayEquals(expectedResult.toFlatArray(), result, 0.0001f)
+        }
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun testRoPEMultipleExecutionSlice(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(2, 65) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
+
+        var queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
+        val startPositionValue = source.nextInt(0, maxSeqLen - seqLen + 1)
+
+        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, maxSeqLen)
+
+        var expectedResult = TvmTensorOperationsTest.applyRotation(
+            queryTensor, expectedCos, expectedSin,
+            startPositionValue
+        )
+
+        InferenceExecutionContext().use {
+            val query = InputSourceOperation(
+                queryTensor.toFlatArray(),
+                IntImmutableList.of(*queryTensor.shape),
+                IntImmutableList.of(bs, maxSeqLen, numHeads, headDim), "query", it
+            )
+            val startPosition = InputSourceOperation(
+                floatArrayOf(startPositionValue.toFloat()), IntImmutableList.of(1), "startPosition", it
+            )
+            val roPEOperation = RoPEOperation("rope", query, startPosition)
+
+            it.initializeExecution(roPEOperation)
+
+            val iterationsCount = source.nextInt(1, 8)
+            for (iteration in 0 until iterationsCount) {
+                val result = it.executePass()
+
+                Assertions.assertArrayEquals(expectedResult.toFlatArray(), result, 0.0001f)
+
+                queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+                expectedResult = TvmTensorOperationsTest.applyRotation(
+                    queryTensor, expectedCos, expectedSin,
+                    startPositionValue
+                )
 
                 query.value = queryTensor.toFlatArray()
             }

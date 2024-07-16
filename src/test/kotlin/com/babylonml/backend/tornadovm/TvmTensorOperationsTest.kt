@@ -218,7 +218,7 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         val (sin, cos) = prepareRotationTensors(headDim, seqLen)
-        val expectedResult = applyRotation(input, cos, sin)
+        val expectedResult = applyRotation(input, cos, sin, 0)
 
         val inputOffset = source.nextInt(8)
         val cosOffset = source.nextInt(8)
@@ -251,6 +251,52 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
 
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun ropeKernelSeqSliceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(2, 16) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
+        val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
+
+        val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val (sin, cos) = prepareRotationTensors(headDim, maxSeqLen)
+
+        val startPosition = source.nextInt(0, maxSeqLen - seqLen + 1)
+        val expectedResult = applyRotation(input, cos, sin, startPosition)
+
+        val inputOffset = source.nextInt(8)
+        val cosOffset = source.nextInt(8)
+        val sinOffset = source.nextInt(8)
+        val startPositionOffset = source.nextInt(8)
+        val resultOffset = source.nextInt(8)
+
+        val inputArray = input.toTvmFlatArray(offset = inputOffset)
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
+
+        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+
+        startPositionArray.set(startPositionOffset, startPosition.toFloat())
+
+        val inputShape = TvmIntArray.fromArray(input.shape)
+        val cosArray = cos.toTvmFlatArray(offset = cosOffset)
+        val sinArray = sin.toTvmFlatArray(offset = sinOffset)
+
+        TvmTensorOperations.ropeKernel(
+            inputArray, inputShape, inputOffset, cosArray, cosOffset, sinArray, sinOffset,
+            startPositionArray, startPositionOffset, resultArray, resultOffset, seqLen
+        )
+
+        Assertions.assertArrayEquals(
+            expectedResult.toFlatArray(),
+            resultArray.toHeapArray().copyOfRange(resultOffset, resultArray.size), 0.001f
+        )
+    }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
     fun ropeTVMSeqFromStartTest(seed: Long) {
         val source = RandomSource.ISAAC.create(seed)
 
@@ -261,7 +307,7 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         val (sin, cos) = prepareRotationTensors(headDim, seqLen)
-        val expectedResult = applyRotation(input, cos, sin)
+        val expectedResult = applyRotation(input, cos, sin, 0)
 
         val inputOffset = source.nextInt(8)
         val cosOffset = source.nextInt(8)
@@ -296,6 +342,62 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
             )
         }
     }
+
+    @ParameterizedTest
+    @ArgumentsSource(SeedsArgumentsProvider::class)
+    fun ropeTVMSeqSliceTest(seed: Long) {
+        val source = RandomSource.ISAAC.create(seed)
+
+        val bs = source.nextInt(1, 16)
+        val seqLen = (source.nextInt(2, 16) shr 1) shl 1
+        val numHeads = source.nextInt(1, 16)
+        val headDim = (source.nextInt(2, 65) shr 1) shl 1
+        val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
+
+        val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
+
+        val (sin, cos) = prepareRotationTensors(headDim, maxSeqLen)
+
+        val startPosition = source.nextInt(0, maxSeqLen - seqLen + 1)
+        val expectedResult = applyRotation(input, cos, sin, startPosition)
+
+        val inputOffset = source.nextInt(8)
+        val cosOffset = source.nextInt(8)
+        val sinOffset = source.nextInt(8)
+        val startPositionOffset = source.nextInt(8)
+        val resultOffset = source.nextInt(8)
+
+        val inputArray = input.toTvmFlatArray(offset = inputOffset)
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
+
+        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+
+        startPositionArray.set(startPositionOffset, startPosition.toFloat())
+
+        val inputShape = IntImmutableList.of(*input.shape)
+        val cosArray = cos.toTvmFlatArray(offset = cosOffset)
+        val sinArray = sin.toTvmFlatArray(offset = sinOffset)
+
+        val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
+
+        TvmTensorOperations.addRopeKernel(
+            taskGraph, "ropeTVMSeqSliceTest", inputArray,
+            inputShape, inputOffset,
+            cosArray, cosOffset,
+            sinArray, sinOffset,
+            startPositionArray, startPositionOffset,
+            resultArray, inputShape, resultOffset,
+            seqLen
+        )
+
+        assertExecution(taskGraph, resultArray) {
+            Assertions.assertArrayEquals(
+                expectedResult.toFlatArray(),
+                resultArray.toHeapArray().copyOfRange(resultOffset, resultArray.size), 0.001f
+            )
+        }
+    }
+
 
     companion object {
         private fun rotateInput(
@@ -338,10 +440,25 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         fun applyRotation(
             input: FloatTensor,
             cos: FloatTensor,
-            sin: FloatTensor
+            sin: FloatTensor,
+            startPosition: Int
         ): FloatTensor {
-            val broadcastSin = sin.cat(sin).unsquize(0).unsquize(2)
-            val broadcastCos = cos.cat(cos).unsquize(0).unsquize(2)
+            val rotationShape = sin.shape
+            Assertions.assertArrayEquals(cos.shape, rotationShape)
+
+            val inputShape = input.shape
+
+            val inputSeqLen = inputShape[1]
+            val headDim = inputShape[3]
+
+            val doubleSin = sin.cat(sin)
+            val doubleCos = cos.cat(cos)
+
+            val doubleSinSlice = doubleSin.slice(startPosition until startPosition + inputSeqLen, 0 until headDim)
+            val doubleCosSlice = doubleCos.slice(startPosition until startPosition + inputSeqLen, 0 until headDim)
+
+            val broadcastSin = doubleSinSlice.unsquize(0).unsquize(2)
+            val broadcastCos = doubleCosSlice.unsquize(0).unsquize(2)
 
             val rotatedInput = rotateInput(input)
             Assertions.assertArrayEquals(rotatedInput.shape, input.shape)

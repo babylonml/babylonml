@@ -18,17 +18,17 @@ abstract class AbstractOperation(
 ) : Operation {
     final override var executionContext: InferenceExecutionContext
 
-    override val singlePassAllocations: List<IntImmutableList>
+    override val maxSinglePassAllocations: List<IntImmutableList>
         get() = emptyList()
-    override val localAllocations: List<IntImmutableList>
+    override val maxLocalAllocations: List<IntImmutableList>
         get() = emptyList()
-    override val inputAllocations: List<IntImmutableList>
+    override val maxInputAllocations: List<IntImmutableList>
         get() = emptyList()
-    override val residentInt8Allocations: List<IntImmutableList>
+    override val maxResidentInt8Allocations: List<IntImmutableList>
         get() = emptyList()
-    override val residentF16Allocations: List<IntImmutableList>
+    override val maxResidentF16Allocations: List<IntImmutableList>
         get() = emptyList()
-    override val residentF32Allocations: List<IntImmutableList>
+    override val maxResidentF32Allocations: List<IntImmutableList>
         get() = emptyList()
 
     override var nextOperation: Operation? = null

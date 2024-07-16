@@ -159,16 +159,16 @@ class InferenceExecutionContext : AutoCloseable {
             var localBufferLength = 0
 
             for (operation in operations) {
-                var allocations: List<IntImmutableList?> = operation.singlePassAllocations
+                var allocations: List<IntImmutableList?> = operation.maxSinglePassAllocations
                 singlePassBufferLength += ContextMemory.allocationsSize(allocations)
 
-                residentMemoryInt8Allocations += ContextMemory.allocationsSize(operation.residentInt8Allocations)
-                residentMemoryF32Allocations += ContextMemory.allocationsSize(operation.residentF32Allocations)
-                residentMemoryF16Allocations += ContextMemory.allocationsSize(operation.residentF16Allocations)
+                residentMemoryInt8Allocations += ContextMemory.allocationsSize(operation.maxResidentInt8Allocations)
+                residentMemoryF32Allocations += ContextMemory.allocationsSize(operation.maxResidentF32Allocations)
+                residentMemoryF16Allocations += ContextMemory.allocationsSize(operation.maxResidentF16Allocations)
 
-                inputMemoryAllocations += ContextMemory.allocationsSize(operation.inputAllocations)
+                inputMemoryAllocations += ContextMemory.allocationsSize(operation.maxInputAllocations)
 
-                allocations = operation.localAllocations
+                allocations = operation.maxLocalAllocations
                 localBufferLength += ContextMemory.allocationsSize(allocations)
             }
 
@@ -212,7 +212,7 @@ class InferenceExecutionContext : AutoCloseable {
         checkInitialized()
 
         return operationLocalMemory.allocate(operation, dimensions) {
-            operation.localAllocations
+            operation.maxLocalAllocations
         }
     }
 
@@ -220,7 +220,7 @@ class InferenceExecutionContext : AutoCloseable {
         checkInitialized()
 
         return inputMemory.allocate(operation, dimensions) {
-            operation.inputAllocations
+            operation.maxInputAllocations
         }
     }
 
@@ -231,7 +231,7 @@ class InferenceExecutionContext : AutoCloseable {
         checkInitialized()
 
         return singlePassMemory.allocate(operation, dimensions) {
-            operation.singlePassAllocations
+            operation.maxSinglePassAllocations
         }
     }
 
@@ -244,15 +244,15 @@ class InferenceExecutionContext : AutoCloseable {
 
         return when (type) {
             TensorPointer.DType.INT8 -> residentMemoryInt8.allocate(operation, dimensions) {
-                operation.residentInt8Allocations
+                operation.maxResidentInt8Allocations
             }
 
             TensorPointer.DType.F32 -> residentMemoryF32.allocate(operation, dimensions) {
-                operation.residentF32Allocations
+                operation.maxResidentF32Allocations
             }
 
             TensorPointer.DType.F16 -> residentMemoryF16.allocate(operation, dimensions) {
-                operation.residentF16Allocations
+                operation.maxResidentF16Allocations
             }
 
             else -> throw IllegalArgumentException("Unsupported tensor type: $type")

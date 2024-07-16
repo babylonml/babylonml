@@ -10,15 +10,15 @@ interface Operation {
 
     fun buildTaskGraph(taskGraph: TaskGraph): TensorPointer
 
-    val residentInt8Allocations: List<IntImmutableList>
-    val residentF16Allocations : List<IntImmutableList>
-    val residentF32Allocations : List<IntImmutableList>
+    val maxResidentInt8Allocations: List<IntImmutableList>
+    val maxResidentF16Allocations : List<IntImmutableList>
+    val maxResidentF32Allocations : List<IntImmutableList>
 
-    val singlePassAllocations: List<IntImmutableList>
+    val maxSinglePassAllocations: List<IntImmutableList>
 
-    val localAllocations: List<IntImmutableList>
+    val maxLocalAllocations: List<IntImmutableList>
 
-    val inputAllocations: List<IntImmutableList>
+    val maxInputAllocations: List<IntImmutableList>
 
     var leftPreviousOperation: Operation?
 

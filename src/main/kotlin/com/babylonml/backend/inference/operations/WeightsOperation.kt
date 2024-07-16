@@ -11,7 +11,7 @@ class WeightsOperation(
     override val name: String, executionContext: InferenceExecutionContext,
     private val data: ByteArray, val shape: IntImmutableList
 ) : AbstractOperation(name, executionContext, null, null) {
-    override val residentInt8Allocations: List<IntImmutableList>
+    override val maxResidentInt8Allocations: List<IntImmutableList>
         get() = listOf(shape)
 
     override val maxResultShape: IntImmutableList

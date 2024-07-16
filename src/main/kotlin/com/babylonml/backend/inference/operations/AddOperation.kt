@@ -31,7 +31,7 @@ class AddOperation(name: String, leftOperation: Operation, rightOperation: Opera
         }
     }
 
-    override val singlePassAllocations: List<IntImmutableList>
+    override val maxSinglePassAllocations: List<IntImmutableList>
         get() = listOf(maxResultShape)
 
     override val maxResultShape: IntImmutableList by lazy {

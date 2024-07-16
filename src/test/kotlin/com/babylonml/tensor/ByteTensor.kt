@@ -15,7 +15,7 @@ class ByteTensor internal constructor(val shape: IntArray, private val data: Arr
     }
 
     private fun doAdd(other: FloatTensor): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) + other.get(indexes))
         }

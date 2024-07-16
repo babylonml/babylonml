@@ -4,6 +4,7 @@ import com.babylonml.backend.common.CommonTensorOperations;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import org.jspecify.annotations.NonNull;
 import uk.ac.manchester.tornado.api.TaskGraph;
+import uk.ac.manchester.tornado.api.annotations.Parallel;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.types.arrays.FloatArray;
 import uk.ac.manchester.tornado.api.types.arrays.IntArray;
@@ -48,15 +49,15 @@ public class TvmTensorOperations {
         var inputShapeArray = IntArray.fromArray(inputShape.toIntArray());
         var outputShapeArray = IntArray.fromArray(outputShape.toIntArray());
 
-        taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputShapeArray, outputShapeArray);
+        taskGraph.transferToDevice(DataTransferMode.FIRST_EXECUTION, inputShapeArray, outputShapeArray);
         taskGraph.task(TvmCommons.generateName(prefix + "-broadcastKernel"),
                 TvmTensorOperations::broadcastKernel,
                 input, inputShapeArray, inputOffset, output, outputOffset, outputStride, outputShapeArray);
     }
 
-    private static void broadcastKernel(@NonNull FloatArray input, @NonNull IntArray inputShape, int inputOffset,
-                                        @NonNull FloatArray output, int outputOffset, int outputStrideWidth,
-                                        @NonNull IntArray outputShape) {
+    static void broadcastKernel(@NonNull FloatArray input, @NonNull IntArray inputShape, int inputOffset,
+                                @NonNull FloatArray output, int outputOffset, int outputStrideWidth,
+                                @NonNull IntArray outputShape) {
         final int outputShapeSize = outputShape.getSize();
         for (int outputIndex = 0; outputIndex < outputStrideWidth; outputIndex++) {
             int currentOutputStrideWidth = 1;
@@ -81,5 +82,98 @@ public class TvmTensorOperations {
 
             output.set(outputOffset + outputIndex, input.get(inputOffset + inputIndex));
         }
+    }
+
+    static void ropeKernel(@NonNull FloatArray input, @NonNull IntArray inputShape, final int inputOffset,
+                           @NonNull FloatArray cosArray, final int cosOffset, @NonNull FloatArray sinArray,
+                           final int sinOffset, @NonNull IntArray startPosition, int startPositionOffset,
+                           @NonNull FloatArray result, final int resultOffset, int maxSequenceSize) {
+        //cos/sin array is tensor with shape [positions, headDimension/ 2]
+        //input is tensor with shape [batchSize, sequenceSize, numHeads, headDimension]
+        //we are interested in head dimension only, so we distill all dimension into the
+        //[batchSize * maxSequenceSize, numberOfHeads, headDimension] tensors
+        // and apply RoPE to each [headDimension] tensor.
+
+        final int batchSize = inputShape.get(0);
+        final int sequenceSize = inputShape.get(1);
+
+        final int numberOfHeads = inputShape.get(2);
+        final int headDimension = inputShape.get(3);
+
+        final int sequenceStepSize = numberOfHeads * headDimension;
+        final int batchStepSize = sequenceStepSize * sequenceSize;
+
+        final int halfHeadDim = headDimension / 2;
+
+        final int batchSequenceIterations = batchSize * sequenceSize;
+
+        for (@Parallel int batchSequenceIteration = 0; batchSequenceIteration < batchSequenceIterations; batchSequenceIteration++) {
+            final int batchIndex = batchSequenceIteration / sequenceSize;
+            final int sequenceIndex = batchSequenceIteration % sequenceSize;
+            final int batchOffset = batchIndex * batchStepSize;
+
+            final int position = startPosition.get(startPositionOffset) + sequenceIndex;
+            final int currentCosOffset = halfHeadDim * position + cosOffset;
+            final int currentSinOffset = halfHeadDim * position + sinOffset;
+
+            final int sequenceOffset = batchOffset + sequenceIndex * sequenceStepSize;
+            for (@Parallel int h = 0; h < numberOfHeads; h++) {
+                final int commonOffset = sequenceOffset + h * headDimension;
+                final int inputTensorOffset = inputOffset + commonOffset;
+                final int outputTensorOffset = resultOffset + commonOffset;
+
+                for (@Parallel int i = 0; i < halfHeadDim; i++) {
+                    float cosValue = cosArray.get(currentCosOffset + i);
+                    float sinValue = sinArray.get(currentSinOffset + i);
+
+                    float inputValueOne = input.get(inputTensorOffset + i);
+                    float inputValueTwo = input.get(inputTensorOffset + halfHeadDim + i);
+
+                    result.set(outputTensorOffset + i,
+                            cosValue * inputValueOne - sinValue * inputValueTwo);
+                    result.set(outputTensorOffset + i + halfHeadDim,
+                            cosValue * inputValueTwo + sinValue * inputValueOne);
+                }
+            }
+        }
+    }
+
+    public static void addRopeKernel(TaskGraph taskGraph, String name,
+                                     @NonNull FloatArray input, @NonNull IntImmutableList inputShape,
+                                     final int inputOffset,
+                                     @NonNull FloatArray cosArray, final int cosOffset,
+                                     @NonNull FloatArray sinArray, final int sinOffset,
+                                     @NonNull IntArray startPosition, int startPositionOffset,
+                                     @NonNull FloatArray result, @NonNull IntImmutableList resultShape,
+                                     final int resultOffset, int maxSequenceSize) {
+        if (inputShape.size() != 4) {
+            throw new IllegalArgumentException("Input shape must have rank 4 (batch size, sequence size, " +
+                    "num heads, head dimension). Input shape: " + inputShape + ".");
+        }
+        if (!inputShape.equals(resultShape)) {
+            throw new IllegalArgumentException("Input and result shapes must be the same. Input shape: " +
+                    inputShape + ", result shape: " +
+                    resultShape + ".");
+        }
+        var sequenceSize = inputShape.getInt(1);
+        if (sequenceSize > maxSequenceSize) {
+            throw new IllegalArgumentException("Sequence size must be less or equal to max sequence size. " +
+                    "Sequence size: " + sequenceSize + ", max sequence size: " + maxSequenceSize + ".");
+        }
+        if (sequenceSize % 2 != 0) {
+            throw new IllegalArgumentException("Sequence size must be even. Sequence size: " + sequenceSize + ".");
+        }
+        var headDimension = inputShape.getInt(3);
+        if (headDimension % 2 != 0) {
+            throw new IllegalArgumentException("Head dimension must be even. Head dimension: " + headDimension + ".");
+        }
+
+        var inputShapeArray = IntArray.fromArray(inputShape.toIntArray());
+        taskGraph.transferToDevice(DataTransferMode.FIRST_EXECUTION, inputShapeArray);
+
+        taskGraph.task(TvmCommons.generateName(name),
+                TvmTensorOperations::ropeKernel,
+                input, inputShapeArray, inputOffset, cosArray, cosOffset, sinArray, sinOffset,
+                startPosition, startPositionOffset, result, resultOffset, maxSequenceSize);
     }
 }

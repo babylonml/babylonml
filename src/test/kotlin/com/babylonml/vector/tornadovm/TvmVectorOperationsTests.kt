@@ -2,7 +2,7 @@ package com.babylonml.vector.tornadovm
 
 import com.babylonml.AbstractTvmTest
 import com.babylonml.SeedsArgumentsProvider
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
+import com.babylonml.backend.inference.operations.TvmFloatArray
 import com.babylonml.backend.tornadovm.TvmVectorOperations
 import com.babylonml.vector.FloatVector
 import org.apache.commons.rng.simple.RandomSource

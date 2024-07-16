@@ -1,6 +1,6 @@
 package com.babylonml.vector
 
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
+import com.babylonml.backend.inference.operations.TvmFloatArray
 import com.babylonml.matrix.FloatMatrix
 import org.apache.commons.rng.UniformRandomProvider
 import kotlin.math.exp

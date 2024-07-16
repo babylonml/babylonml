@@ -1,19 +1,35 @@
 package com.babylonml.tensor
 
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
+import com.babylonml.backend.inference.operations.TvmFloatArray
 import org.apache.commons.rng.UniformRandomProvider
+import kotlin.math.pow
 
+class FloatTensor {
+    private val data: Array<Any>
 
-class FloatTensor internal constructor(val shape: IntArray, private val data: Array<Any>) {
-    constructor(shape: IntArray) : this(shape, createData(shape))
+    val shape: IntArray
+    val size: Int
+
+    constructor(vararg shape: Int) : this(shape, createData(shape))
+
+    internal constructor(shape: IntArray, data: Array<Any>) {
+        for (dimension in shape) {
+            if (dimension <= 0) {
+                throw IllegalArgumentException("All dimensions must be positive")
+            }
+        }
+
+        this.shape = shape
+        this.data = data
+        this.size = calculateSize(shape)
+    }
 
     internal fun enumerateIndexes(): Sequence<IntArray> {
         return doEnumerateIndexes(shape)
     }
 
-
     operator fun times(value: Float): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) * value)
@@ -22,8 +38,25 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         return result
     }
 
+    fun combineWith(
+        other: FloatTensor,
+        producer: (firstItem: Float, secondItem: Float) -> Float
+    ): FloatTensor {
+        val result = FloatTensor(*(shape + other.shape))
+
+        val resultIndexes = result.enumerateIndexes().iterator()
+        for (indexes in enumerateIndexes()) {
+            for (otherIndexes in other.enumerateIndexes()) {
+                result.set(resultIndexes.next(), producer(get(indexes), other.get(otherIndexes)))
+            }
+
+        }
+
+        return result
+    }
+
     operator fun times(other: Int): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) * other)
@@ -33,7 +66,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     }
 
     operator fun div(other: Int): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) / other)
@@ -43,7 +76,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     }
 
     operator fun div(other: Float): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) / other)
@@ -64,7 +97,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     }
 
     private fun doMinus(second: FloatTensor): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) - second.get(indexes))
@@ -74,15 +107,14 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
 
     }
 
-    @Suppress("unused")
-    infix fun hdm(other: FloatTensor): FloatTensor {
+    operator fun times(other: FloatTensor): FloatTensor {
         val (first, second) = broadcast(this, other)
 
-        return first.doHadamard(second)
+        return first.doTimes(second)
     }
 
-    private fun doHadamard(second: FloatTensor): FloatTensor {
-        val result = FloatTensor(shape)
+    private fun doTimes(second: FloatTensor): FloatTensor {
+        val result = FloatTensor(*shape)
 
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) * second.get(indexes))
@@ -92,7 +124,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     }
 
     private fun doAdd(other: FloatTensor): FloatTensor {
-        val result = FloatTensor(shape)
+        val result = FloatTensor(*shape)
         for (indexes in enumerateIndexes()) {
             result.set(indexes, get(indexes) + other.get(indexes))
         }
@@ -108,10 +140,6 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     internal fun set(indexes: IntArray, value: Float) {
         doSet(indexes, data, value)
     }
-
-
-    val size = calculateSize(shape)
-
 
     fun broadcast(vararg newShape: Int, till: Int = shape.size): FloatTensor {
         if (newShape.size < shape.size) {
@@ -149,7 +177,8 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             }
         }
 
-        for ((index, dimensions) in modifiedCurrentShape.zip(modifiedNewShape).withIndex().reversed()) {
+        for ((index, dimensions) in modifiedCurrentShape.zip(modifiedNewShape).withIndex()
+            .reversed()) {
             val currentDimension = dimensions.first
             val newDimension = dimensions.second
 
@@ -207,7 +236,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             }
         }
 
-        val tensor = FloatTensor(modifiedNewShape)
+        val tensor = FloatTensor(*modifiedNewShape)
 
         for (index in enumerateIndexes()) {
             val reducedIndex = tensor.reducedIndex(index)
@@ -237,6 +266,93 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         return FloatTensor(newShape, newData)
     }
 
+    fun unsquize(index: Int): FloatTensor {
+        val newShape = shape.toMutableList()
+        newShape.add(index, 1)
+
+        val result = FloatTensor(*newShape.toIntArray())
+        for (indexes in enumerateIndexes()) {
+            val newIndex = indexes.toMutableList()
+            newIndex.add(index, 0)
+            result.set(newIndex.toIntArray(), get(indexes))
+        }
+
+        return result
+    }
+
+    fun slice(vararg slices: IntRange): FloatTensor {
+        val broadcastSlices = if (slices.size < shape.size) {
+            val diff = shape.size - slices.size
+            val prefix = Array(diff) {
+                0 until shape[it]
+            }
+            prefix + slices
+        } else {
+            slices
+        }
+
+        val newShape = IntArray(broadcastSlices.size) {
+            broadcastSlices[it].endInclusive - broadcastSlices[it].start + 1
+        }
+
+        val result = FloatTensor(*newShape)
+
+        for (indexes in result.enumerateIndexes()) {
+            val originalIndexes = IntArray(shape.size) {
+                broadcastSlices[it].start + indexes[it]
+            }
+
+            result.set(indexes, get(originalIndexes))
+        }
+
+        return result
+    }
+
+    fun cat(tensor: FloatTensor, dim: Int = shape.size - 1): FloatTensor {
+        val newShape = shape.copyOf()
+
+        newShape[dim] += tensor.shape[dim]
+        val result = FloatTensor(*newShape)
+
+        for (indexes in result.enumerateIndexes()) {
+            val value = if (indexes[dim] < shape[dim]) {
+                get(indexes)
+            } else {
+                tensor.get(indexes.mapIndexed { index, value ->
+                    if (index == dim) {
+                        value - shape[index]
+                    } else {
+                        value
+                    }
+                }.toIntArray())
+            }
+
+            result.set(indexes, value)
+        }
+
+        return result
+    }
+
+    fun sin(): FloatTensor {
+        val result = FloatTensor(*shape)
+
+        for (indexes in enumerateIndexes()) {
+            result.set(indexes, kotlin.math.sin(get(indexes)))
+        }
+
+        return result
+    }
+
+    fun cos(): FloatTensor {
+        val result = FloatTensor(*shape)
+
+        for (indexes in enumerateIndexes()) {
+            result.set(indexes, kotlin.math.cos(get(indexes)))
+        }
+
+        return result
+    }
+
     fun toFlatArray(): FloatArray {
         val result = FloatArray(size)
 
@@ -256,7 +372,8 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
     }
 
     private fun reducedIndex(indexes: IntArray): IntArray {
-        return indexes.mapIndexed() { index, value -> if (value >= shape[index]) 0 else value }.toIntArray()
+        return indexes.mapIndexed() { index, value -> if (value >= shape[index]) 0 else value }
+            .toIntArray()
     }
 
     private fun flattenIndex(indexes: IntArray): Int {
@@ -270,6 +387,10 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
 
         return result
 
+    }
+
+    override fun toString(): String {
+        return "FloatTensor(${shape.joinToString(",", "[", "])")}"
     }
 
     companion object {
@@ -329,7 +450,7 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
         private fun calculateSize(shape: IntArray) = shape.reduce { acc, i -> acc * i }
 
         fun random(source: UniformRandomProvider, vararg shape: Int): FloatTensor {
-            val result = FloatTensor(shape)
+            val result = FloatTensor(*shape)
 
             for (indexes in result.enumerateIndexes()) {
                 result.set(indexes, source.nextFloat(-1.0f, 1.0f))
@@ -338,10 +459,9 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             return result
         }
 
-        @Suppress("unused")
         fun natural(vararg shape: Int): FloatTensor {
-            val result = FloatTensor(shape)
-            var i = 0
+            val result = FloatTensor(*shape)
+            var i = 1
 
             for (indexes in result.enumerateIndexes()) {
                 result.set(indexes, i.toFloat())
@@ -353,10 +473,20 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
 
         @Suppress("unused")
         fun constant(value: Float, vararg shape: Int): FloatTensor {
-            val result = FloatTensor(shape)
+            val result = FloatTensor(*shape)
 
             for (indexes in result.enumerateIndexes()) {
                 result.set(indexes, value)
+            }
+
+            return result
+        }
+
+        fun arrange(start: Int = 0, end: Int, step: Int = 1): FloatTensor {
+            val result = FloatTensor((end - start) / step)
+
+            for (i in start until end step step) {
+                result.set(intArrayOf((i - start) / step), i.toFloat())
             }
 
             return result
@@ -382,20 +512,98 @@ class FloatTensor internal constructor(val shape: IntArray, private val data: Ar
             }
         }
 
-        private fun broadcast(first: FloatTensor, second: FloatTensor): Pair<FloatTensor, FloatTensor> {
+        private fun broadcast(
+            first: FloatTensor,
+            second: FloatTensor
+        ): Pair<FloatTensor, FloatTensor> {
             val firstShape = first.shape
             val secondShape = second.shape
 
-            val maxShape = if (firstShape.size > secondShape.size) {
-                firstShape
-            } else {
-                secondShape
+            val candidateIndex = broadcastCandidate(firstShape, secondShape)
+            if (candidateIndex == 0) {
+                return Pair(first, second)
             }
 
-            val firstBroadcast = first.broadcast(*maxShape)
-            val secondBroadcast = second.broadcast(*maxShape)
+            return if (candidateIndex == 2) {
+                Pair(
+                    first,
+                    second.broadcast(*firstShape)
+                )
+            } else {
+                Pair(
+                    first.broadcast(*secondShape),
+                    second
+                )
+            }
+        }
 
-            return Pair(firstBroadcast, secondBroadcast)
+        private fun broadcastCandidate(firstShape: IntArray, secondShape: IntArray): Int {
+            var candidateIndex = 0
+
+            val (firstModifiedShape, secondModifiedShape) = if (firstShape.size > secondShape.size) {
+                candidateIndex = 2
+
+                Pair(firstShape,
+                    IntArray(firstShape.size) {
+                        if (it < firstShape.size - secondShape.size) {
+                            1
+                        } else {
+                            secondShape[it - firstShape.size + secondShape.size]
+                        }
+                    })
+
+            } else if (secondShape.size > firstShape.size) {
+                candidateIndex = 1
+
+                Pair(
+                    IntArray(secondShape.size) {
+                        if (it < secondShape.size - firstShape.size) {
+                            1
+                        } else {
+                            firstShape[it - secondShape.size + firstShape.size]
+                        }
+                    },
+                    secondShape
+                )
+            } else {
+                Pair(firstShape, secondShape)
+            }
+
+            for ((firstDimension, secondDimension) in firstModifiedShape.zip(secondModifiedShape)) {
+                if (firstDimension != secondDimension) {
+                    if (firstDimension == 1) {
+                        if (candidateIndex == 2) {
+                            throw IllegalArgumentException(
+                                "Cannot broadcast shape ${firstShape.joinToString(",", "[", "]")} " +
+                                        "to ${secondShape.joinToString(",", "[", "]")}"
+                            )
+                        }
+                        candidateIndex = 1
+                    } else if (secondDimension == 1) {
+                        if (candidateIndex == 1) {
+                            throw IllegalArgumentException(
+                                "Cannot broadcast shape ${secondShape.joinToString(",", "[", "]")} " +
+                                        "to ${firstShape.joinToString(",", "[", "]")}"
+                            )
+                        }
+                        candidateIndex = 2
+                    } else {
+                        if (candidateIndex <= 1) {
+                            throw IllegalArgumentException(
+                                "Cannot broadcast shape ${firstShape.joinToString(",", "[", "]")} " +
+                                        "to ${secondShape.joinToString(",", "[", "]")}"
+                            )
+                        } else {
+                            throw IllegalArgumentException(
+                                "Cannot broadcast shape ${secondShape.joinToString(",", "[", "]")} " +
+                                        "to ${firstShape.joinToString(",", "[", "]")}"
+                            )
+                        }
+                    }
+                }
+            }
+
+            return candidateIndex
         }
     }
 }
@@ -409,10 +617,20 @@ operator fun Float.times(other: FloatTensor): FloatTensor {
 }
 
 operator fun Float.div(other: FloatTensor): FloatTensor {
-    val result = FloatTensor(other.shape)
+    val result = FloatTensor(*other.shape)
 
     for (indexes in other.enumerateIndexes()) {
-        result.set(indexes, this / result.get(indexes))
+        result.set(indexes, this / other.get(indexes))
+    }
+
+    return result
+}
+
+fun Float.pow(tensor: FloatTensor): FloatTensor {
+    val result = FloatTensor(*tensor.shape)
+
+    for (indexes in tensor.enumerateIndexes()) {
+        result.set(indexes, this.pow(tensor.get(indexes)))
     }
 
     return result

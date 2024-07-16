@@ -263,30 +263,36 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val (sin, cos) = prepareRotationTensors(headDim, seqLen)
         val expectedResult = applyRotation(input, cos, sin)
 
-        val inputArray = input.toTvmFlatArray()
-        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim)
-        val startPositionArray = TvmFloatArray(1)
-        startPositionArray.set(0, 0.0f)
+        val inputOffset = source.nextInt(8)
+        val cosOffset = source.nextInt(8)
+        val sinOffset = source.nextInt(8)
+        val startPositionOffset = source.nextInt(8)
+        val resultOffset = source.nextInt(8)
+
+        val inputArray = input.toTvmFlatArray(offset = inputOffset)
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
+        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+        startPositionArray.set(startPositionOffset, 0.0f)
 
         val inputShape = IntImmutableList.of(*input.shape)
-        val cosArray = cos.toTvmFlatArray()
-        val sinArray = sin.toTvmFlatArray()
+        val cosArray = cos.toTvmFlatArray(offset = cosOffset)
+        val sinArray = sin.toTvmFlatArray(offset = sinOffset)
 
         val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
         TvmTensorOperations.addRopeKernel(
-            taskGraph, "ropeTestSeqFromStart", inputArray,
-            inputShape, 0,
-            cosArray, 0,
-            sinArray, 0,
-            startPositionArray, 0,
-            resultArray, inputShape, 0,
+            taskGraph, "ropeTVMSeqFromStartTest", inputArray,
+            inputShape, inputOffset,
+            cosArray, cosOffset,
+            sinArray, sinOffset,
+            startPositionArray, startPositionOffset,
+            resultArray, inputShape, resultOffset,
             seqLen
         )
 
         assertExecution(taskGraph, resultArray) {
             Assertions.assertArrayEquals(
                 expectedResult.toFlatArray(),
-                resultArray.toHeapArray(), 0.001f
+                resultArray.toHeapArray().copyOfRange(resultOffset, resultArray.size), 0.001f
             )
         }
     }

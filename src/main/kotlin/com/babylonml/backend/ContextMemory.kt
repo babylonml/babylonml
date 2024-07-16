@@ -1,77 +1,70 @@
-package com.babylonml.backend.inference.tornadovm;
+package com.babylonml.backend
 
-import com.babylonml.backend.common.TensorPointer;
-import com.babylonml.backend.inference.operations.AbstractOperation;
-import it.unimi.dsi.fastutil.Function;
-import it.unimi.dsi.fastutil.ints.IntImmutableList;
-import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray;
+import com.babylonml.backend.operations.AbstractOperation
+import com.babylonml.backend.tensor.common.TensorPointer
+import com.babylonml.backend.tensor.common.TensorPointer.MemoryKind
+import it.unimi.dsi.fastutil.Function
+import it.unimi.dsi.fastutil.ints.IntImmutableList
+import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray
+import java.util.*
 
-import java.util.IdentityHashMap;
-import java.util.List;
+class ContextMemory<T : TornadoNativeArray>(
+    val memoryBuffer: T,
+    private val memoryKind: MemoryKind,
+    private val memoryType: TensorPointer.DType,
+    private val trackMemoryAllocation: Boolean
+) {
+    private val consumedMemory = IdentityHashMap<AbstractOperation, LongArray>()
+    private var offset = 0
 
-public final class ContextMemory<T extends TornadoNativeArray> {
-    private final IdentityHashMap<AbstractOperation, long[]> consumedMemory = new IdentityHashMap<>();
-    private final T memoryBuffer;
-    private int offset;
-    private final boolean trackMemoryAllocation;
-    private final TensorPointer.MemoryKind memoryKind;
-    private final TensorPointer.DType memoryType;
-
-    public ContextMemory(T memoryBuffer, TensorPointer.MemoryKind memoryKind, TensorPointer.DType memoryType,
-                         boolean trackMemoryAllocation) {
-        this.memoryBuffer = memoryBuffer;
-        this.memoryKind = memoryKind;
-        this.trackMemoryAllocation = trackMemoryAllocation;
-        this.memoryType = memoryType;
-    }
-
-    public TensorPointer allocate(AbstractOperation operation, IntImmutableList dimensions,
-                                  Function<AbstractOperation, List<IntImmutableList>> expectedAllocations) {
-        var length = 1;
-        for (var dimension : dimensions) {
-            length *= dimension;
+    fun allocate(
+        operation: AbstractOperation, dimensions: IntImmutableList,
+        expectedAllocations: Function<AbstractOperation, List<IntImmutableList>>
+    ): TensorPointer {
+        var length = 1
+        for (i in 0 until dimensions.size) {
+            length *= dimensions.getInt(i)
         }
 
         if (trackMemoryAllocation) {
-            var allocationsSize = allocationsSize(expectedAllocations.apply(operation));
-            var allocated = consumedMemory.computeIfAbsent(operation, (_) -> new long[1]);
+            val allocationsSize = allocationsSize(expectedAllocations.apply(operation))
+            val allocated =
+                consumedMemory.computeIfAbsent(operation) { _: AbstractOperation -> LongArray(1) }
 
-            if (length + allocated[0] > allocationsSize) {
-                throw new IllegalStateException("Memory allocation exceeded the required memory size for operation "
-                        + operation);
+            check(length + allocated[0] <= allocationsSize) {
+                ("Memory allocation exceeded the required memory size for operation "
+                        + operation)
             }
 
-            allocated[0] += length;
+            allocated[0] += length.toLong()
         }
 
-        if (offset + length > memoryBuffer.getSize()) {
-            throw new IllegalStateException("Memory allocation exceeded the required memory size for operation "
-                    + operation);
+        check(offset + length <= memoryBuffer.size) {
+            ("Memory allocation exceeded the required memory size for operation "
+                    + operation)
         }
 
-        var address = offset;
-        offset += length;
+        val address = offset
+        offset += length
 
-        return new TensorPointer(address, dimensions, memoryType, memoryKind);
+        return TensorPointer(address.toLong(), dimensions, memoryType, memoryKind)
     }
 
-    public T getMemoryBuffer() {
-        return memoryBuffer;
-    }
+    companion object {
+        fun allocationsSize(allocations: List<IntImmutableList>): Int {
+            var sum = 0
 
-    public static int allocationsSize(List<IntImmutableList> allocations) {
-        var sum = 0;
+            for (allocation in allocations) {
+                var size = 1
 
-        for (var allocation : allocations) {
-            var size = 1;
+                for (i in 0 until allocation.size) {
+                    size *= allocation.getInt(i)
+                }
 
-            for (int j : allocation) {
-                size *= j;
+                sum += size
             }
 
-            sum += size;
+            return sum
         }
-
-        return sum;
     }
 }

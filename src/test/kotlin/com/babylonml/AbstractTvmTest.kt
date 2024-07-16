@@ -1,7 +1,7 @@
 package com.babylonml
 
-import com.babylonml.backend.inference.operations.TvmArray
-import com.babylonml.backend.inference.operations.TvmFloatArray
+import com.babylonml.backend.TvmArray
+import com.babylonml.backend.TvmFloatArray
 import uk.ac.manchester.tornado.api.TaskGraph
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan
 import uk.ac.manchester.tornado.api.enums.DataTransferMode

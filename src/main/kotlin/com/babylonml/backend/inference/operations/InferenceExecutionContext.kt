@@ -1,8 +1,7 @@
-package com.babylonml.backend.inference.operations.tornadovm
+package com.babylonml.backend.inference.operations
 
 import com.babylonml.backend.common.CommonTensorOperations
 import com.babylonml.backend.common.TensorPointer
-import com.babylonml.backend.inference.operations.Operation
 import com.babylonml.backend.inference.tornadovm.ContextMemory
 import com.babylonml.backend.tornadovm.TvmCommons
 import com.babylonml.backend.tornadovm.TvmVectorOperations
@@ -12,7 +11,8 @@ import uk.ac.manchester.tornado.api.TaskGraph
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan
 import uk.ac.manchester.tornado.api.enums.DataTransferMode
 import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException
-import java.util.*
+import java.util.ArrayList
+import java.util.HashSet
 import kotlin.math.max
 
 typealias TvmFloatArray = uk.ac.manchester.tornado.api.types.arrays.FloatArray
@@ -20,6 +20,7 @@ typealias TvmByteArray = uk.ac.manchester.tornado.api.types.arrays.ByteArray
 typealias TvmIntArray = uk.ac.manchester.tornado.api.types.arrays.IntArray
 typealias TvmHalfFloatArray = uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray
 typealias TvmArray = uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray
+
 
 class InferenceExecutionContext : AutoCloseable {
     private lateinit var singlePassMemory: ContextMemory<TvmFloatArray>
@@ -29,16 +30,17 @@ class InferenceExecutionContext : AutoCloseable {
     private lateinit var residentMemoryF16: ContextMemory<TvmHalfFloatArray>
     private lateinit var residentMemoryF32: ContextMemory<TvmFloatArray>
 
-    private lateinit var inputMemory: ContextMemory<TvmFloatArray>
+    private lateinit var inputMemoryF32: ContextMemory<TvmFloatArray>
+    private lateinit var inputMemoryI32: ContextMemory<TvmIntArray>
 
-    private lateinit var terminalOperation: Operation
-    private val stages = ArrayList<List<Operation>>()
+    private lateinit var terminalOperation: AbstractOperation
+    private val stages = ArrayList<List<AbstractOperation>>()
 
     private var taskGraph: ImmutableTaskGraph? = null
     private var executionPlan: TornadoExecutionPlan? = null
     private var executionResult: TvmFloatArray? = null
 
-    fun initializeExecution(terminalOperation: Operation) {
+    fun initializeExecution(terminalOperation: AbstractOperation) {
         checkInitialized()
 
         this.terminalOperation = terminalOperation
@@ -73,7 +75,7 @@ class InferenceExecutionContext : AutoCloseable {
                 residentMemoryF32.memoryBuffer
             )
 
-            taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputMemory.memoryBuffer)
+            taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputMemoryF32.memoryBuffer)
             val resultPointer = terminalOperation.buildTaskGraph(taskGraph)
 
             val executionResult = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
@@ -105,7 +107,7 @@ class InferenceExecutionContext : AutoCloseable {
     }
 
     private fun splitExecutionGraphByStages() {
-        val operations = ArrayList<Operation>()
+        val operations = ArrayList<AbstractOperation>()
         operations.add(terminalOperation)
 
         splitExecutionGraphByStages(operations)
@@ -116,11 +118,11 @@ class InferenceExecutionContext : AutoCloseable {
     /**
      * Split the execution graph into layers starting from the passed operations.
      */
-    private fun splitExecutionGraphByStages(operations: List<Operation>) {
+    private fun splitExecutionGraphByStages(operations: List<AbstractOperation>) {
         stages.add(operations)
 
-        val nextStageOperations = ArrayList<Operation>()
-        val visitedOperations = HashSet<Operation>()
+        val nextStageOperations = ArrayList<AbstractOperation>()
+        val visitedOperations = HashSet<AbstractOperation>()
 
         for (operation in operations) {
             val previousLeftOperation = operation.leftPreviousOperation
@@ -149,7 +151,9 @@ class InferenceExecutionContext : AutoCloseable {
     private fun initializeBuffers() {
         var singlePassBufferLength = 0
         var operationLocalBufferLength = 0
-        var inputMemoryAllocations = 0
+
+        var inputF32MemoryAllocations = 0
+        var inputI8MemoryAllocations = 0
 
         var residentMemoryInt8Allocations = 0
         var residentMemoryF32Allocations = 0
@@ -166,7 +170,8 @@ class InferenceExecutionContext : AutoCloseable {
                 residentMemoryF32Allocations += ContextMemory.allocationsSize(operation.maxResidentF32Allocations)
                 residentMemoryF16Allocations += ContextMemory.allocationsSize(operation.maxResidentF16Allocations)
 
-                inputMemoryAllocations += ContextMemory.allocationsSize(operation.maxInputAllocations)
+                inputF32MemoryAllocations += ContextMemory.allocationsSize(operation.maxF32InputAllocations)
+                inputI8MemoryAllocations += ContextMemory.allocationsSize(operation.maxI32InputAllocations)
 
                 allocations = operation.maxLocalAllocations
                 localBufferLength += ContextMemory.allocationsSize(allocations)
@@ -201,14 +206,18 @@ class InferenceExecutionContext : AutoCloseable {
             true
         )
 
-        inputMemory = ContextMemory(
-            TvmFloatArray(inputMemoryAllocations), TensorPointer.MemoryKind.INPUT, TensorPointer.DType.F32,
+        inputMemoryF32 = ContextMemory(
+            TvmFloatArray(inputF32MemoryAllocations), TensorPointer.MemoryKind.INPUT, TensorPointer.DType.F32,
+            true
+        )
+        inputMemoryI32 = ContextMemory(
+            TvmIntArray(inputI8MemoryAllocations), TensorPointer.MemoryKind.INPUT, TensorPointer.DType.INT32,
             true
         )
     }
 
     @Suppress("unused")
-    fun allocateLocalMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+    fun allocateLocalMemory(operation: AbstractOperation, dimensions: IntImmutableList): TensorPointer {
         checkInitialized()
 
         return operationLocalMemory.allocate(operation, dimensions) {
@@ -216,16 +225,29 @@ class InferenceExecutionContext : AutoCloseable {
         }
     }
 
-    fun allocateInputMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+    fun allocateInputMemory(
+        operation: AbstractOperation,
+        dimensions: IntImmutableList,
+        type: TensorPointer.DType
+    ): TensorPointer {
         checkInitialized()
 
-        return inputMemory.allocate(operation, dimensions) {
-            operation.maxInputAllocations
+        if (type == TensorPointer.DType.F32) {
+            return inputMemoryF32.allocate(operation, dimensions) {
+                operation.maxF32InputAllocations
+            }
         }
+        if (type == TensorPointer.DType.INT32) {
+            return inputMemoryI32.allocate(operation, dimensions) {
+                operation.maxI32InputAllocations
+            }
+        }
+
+        throw IllegalArgumentException("Unsupported tensor type: $type")
     }
 
     fun allocateSinglePassMemory(
-        operation: Operation,
+        operation: AbstractOperation,
         dimensions: IntImmutableList
     ): TensorPointer {
         checkInitialized()
@@ -236,7 +258,7 @@ class InferenceExecutionContext : AutoCloseable {
     }
 
     fun allocateResidentMemory(
-        operation: Operation,
+        operation: AbstractOperation,
         dimensions: IntImmutableList,
         type: TensorPointer.DType
     ): TensorPointer {
@@ -278,10 +300,18 @@ class InferenceExecutionContext : AutoCloseable {
             }
 
             TensorPointer.MemoryKind.INPUT -> {
-                if (pointer.dtype == TensorPointer.DType.F32) {
-                    inputMemory.memoryBuffer
-                } else {
-                    throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                when (pointer.dtype) {
+                    TensorPointer.DType.F32 -> {
+                        inputMemoryF32.memoryBuffer
+                    }
+
+                    TensorPointer.DType.INT32 -> {
+                        inputMemoryI32.memoryBuffer
+                    }
+
+                    else -> {
+                        throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                    }
                 }
             }
 

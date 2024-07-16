@@ -8,6 +8,7 @@ public record TensorPointer(long pointer, IntImmutableList shape, DType dtype, M
     public enum DType {
         F32,
         F16,
+        INT32,
         INT8,
         NONE
     }

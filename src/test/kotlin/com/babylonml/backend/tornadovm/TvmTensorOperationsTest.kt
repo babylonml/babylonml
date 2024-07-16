@@ -2,8 +2,8 @@ package com.babylonml.backend.tornadovm
 
 import com.babylonml.AbstractTvmTest
 import com.babylonml.SeedsArgumentsProvider
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
-import com.babylonml.backend.inference.operations.tornadovm.TvmIntArray
+import com.babylonml.backend.inference.operations.TvmFloatArray
+import com.babylonml.backend.inference.operations.TvmIntArray
 import com.babylonml.tensor.FloatTensor
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.sampling.PermutationSampler
@@ -230,8 +230,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val inputArray = input.toTvmFlatArray(offset = inputOffset)
         val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
 
-        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
-        startPositionArray.set(startPositionOffset, 0.0f)
+        val startPositionArray = TvmIntArray(1 + startPositionOffset)
+        startPositionArray.set(startPositionOffset, 0)
 
         val inputShape = TvmIntArray.fromArray(input.shape)
         val cosArray = cos.toTvmFlatArray(offset = cosOffset)
@@ -276,9 +276,9 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val inputArray = input.toTvmFlatArray(offset = inputOffset)
         val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
 
-        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+        val startPositionArray = TvmIntArray(1 + startPositionOffset)
 
-        startPositionArray.set(startPositionOffset, startPosition.toFloat())
+        startPositionArray.set(startPositionOffset, startPosition)
 
         val inputShape = TvmIntArray.fromArray(input.shape)
         val cosArray = cos.toTvmFlatArray(offset = cosOffset)
@@ -317,8 +317,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
 
         val inputArray = input.toTvmFlatArray(offset = inputOffset)
         val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
-        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
-        startPositionArray.set(startPositionOffset, 0.0f)
+        val startPositionArray = TvmIntArray(1 + startPositionOffset)
+        startPositionArray.set(startPositionOffset, 0)
 
         val inputShape = IntImmutableList.of(*input.shape)
         val cosArray = cos.toTvmFlatArray(offset = cosOffset)
@@ -370,9 +370,9 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val inputArray = input.toTvmFlatArray(offset = inputOffset)
         val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
 
-        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+        val startPositionArray = TvmIntArray(1 + startPositionOffset)
 
-        startPositionArray.set(startPositionOffset, startPosition.toFloat())
+        startPositionArray.set(startPositionOffset, startPosition)
 
         val inputShape = IntImmutableList.of(*input.shape)
         val cosArray = cos.toTvmFlatArray(offset = cosOffset)

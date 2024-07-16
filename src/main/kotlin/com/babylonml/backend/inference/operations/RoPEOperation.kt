@@ -1,7 +1,6 @@
 package com.babylonml.backend.inference.operations
 
 import com.babylonml.backend.common.TensorPointer
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import com.babylonml.backend.tornadovm.TvmTensorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
@@ -9,8 +8,7 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 
-@Suppress("unused")
-class RoPEOperation(name: String,  qk: Operation, startPosition: Operation) : AbstractOperation(
+class RoPEOperation(name: String, qk: AbstractOperation, startPosition: AbstractOperation) : AbstractOperation(
     name,
     qk, startPosition
 ) {
@@ -34,7 +32,7 @@ class RoPEOperation(name: String,  qk: Operation, startPosition: Operation) : Ab
             qkPointer.floatBuffer(), qkPointer.shape, qkPointer.offset(),
             cosPointer.floatBuffer(), cosPointer.offset(),
             sinPointer.floatBuffer(), sinPointer.offset(),
-            startPositionPointer.floatBuffer(), startPositionPointer.offset(),
+            startPositionPointer.intBuffer(), startPositionPointer.offset(),
             resultPointer.floatBuffer(), resultPointer.shape,
             resultPointer.offset(),
             maxSeqLen

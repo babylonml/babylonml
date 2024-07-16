@@ -1,8 +1,6 @@
 package com.babylonml.backend.inference.operations
 
 import com.babylonml.SeedsArgumentsProvider
-import com.babylonml.backend.inference.operations.tornadovm.InferenceExecutionContext
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import com.babylonml.backend.tornadovm.TvmTensorOperationsTest
 import com.babylonml.tensor.FloatTensor
 import it.unimi.dsi.fastutil.ints.IntImmutableList
@@ -24,12 +22,12 @@ class RoPEOperationTest {
         val queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
         InferenceExecutionContext().use {
-            val query = InputSourceOperation(
+            val query = F32InputSourceOperation(
                 queryTensor.toFlatArray(),
                 IntImmutableList.of(*queryTensor.shape), "query", it
             )
-            val startPosition = InputSourceOperation(
-                floatArrayOf(0.0f), IntImmutableList.of(1), "startPosition", it
+            val startPosition = I32InputSourceOperation(
+                intArrayOf(0), IntImmutableList.of(1), "startPosition", it
             )
 
             val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
@@ -63,12 +61,12 @@ class RoPEOperationTest {
         val expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         InferenceExecutionContext().use {
-            val query = InputSourceOperation(
+            val query = F32InputSourceOperation(
                 queryTensor.toFlatArray(),
                 IntImmutableList.of(*queryTensor.shape), "query", it
             )
-            val startPosition = InputSourceOperation(
-                floatArrayOf(0.0f), IntImmutableList.of(1), "startPosition", it
+            val startPosition = I32InputSourceOperation(
+                intArrayOf(0), IntImmutableList.of(1), "startPosition", it
             )
             val roPEOperation = RoPEOperation("rope", query, startPosition)
 
@@ -95,12 +93,12 @@ class RoPEOperationTest {
         var expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         InferenceExecutionContext().use {
-            val query = InputSourceOperation(
+            val query = F32InputSourceOperation(
                 queryTensor.toFlatArray(),
                 IntImmutableList.of(*queryTensor.shape), "query", it
             )
-            val startPosition = InputSourceOperation(
-                floatArrayOf(0.0f), IntImmutableList.of(1), "startPosition", it
+            val startPosition = I32InputSourceOperation(
+                intArrayOf(0), IntImmutableList.of(1), "startPosition", it
             )
             val roPEOperation = RoPEOperation("rope", query, startPosition)
 
@@ -141,13 +139,13 @@ class RoPEOperationTest {
         )
 
         InferenceExecutionContext().use {
-            val query = InputSourceOperation(
+            val query = F32InputSourceOperation(
                 queryTensor.toFlatArray(),
                 IntImmutableList.of(*queryTensor.shape),
                 IntImmutableList.of(bs, maxSeqLen, numHeads, headDim), "query", it
             )
-            val startPosition = InputSourceOperation(
-                floatArrayOf(startPositionValue.toFloat()), IntImmutableList.of(1), "startPosition", it
+            val startPosition = I32InputSourceOperation(
+                intArrayOf(startPositionValue), IntImmutableList.of(1), "startPosition", it
             )
             val roPEOperation = RoPEOperation("rope", query, startPosition)
 
@@ -181,13 +179,13 @@ class RoPEOperationTest {
         )
 
         InferenceExecutionContext().use {
-            val query = InputSourceOperation(
+            val query = F32InputSourceOperation(
                 queryTensor.toFlatArray(),
                 IntImmutableList.of(*queryTensor.shape),
                 IntImmutableList.of(bs, maxSeqLen, numHeads, headDim), "query", it
             )
-            val startPosition = InputSourceOperation(
-                floatArrayOf(startPositionValue.toFloat()), IntImmutableList.of(1), "startPosition", it
+            val startPosition = I32InputSourceOperation(
+                intArrayOf(startPositionValue), IntImmutableList.of(1), "startPosition", it
             )
             val roPEOperation = RoPEOperation("rope", query, startPosition)
 

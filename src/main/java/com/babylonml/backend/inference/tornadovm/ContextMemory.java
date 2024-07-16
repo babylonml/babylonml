@@ -1,7 +1,7 @@
 package com.babylonml.backend.inference.tornadovm;
 
 import com.babylonml.backend.common.TensorPointer;
-import com.babylonml.backend.inference.operations.Operation;
+import com.babylonml.backend.inference.operations.AbstractOperation;
 import it.unimi.dsi.fastutil.Function;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray;
@@ -10,7 +10,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 
 public final class ContextMemory<T extends TornadoNativeArray> {
-    private final IdentityHashMap<Operation, long[]> consumedMemory = new IdentityHashMap<>();
+    private final IdentityHashMap<AbstractOperation, long[]> consumedMemory = new IdentityHashMap<>();
     private final T memoryBuffer;
     private int offset;
     private final boolean trackMemoryAllocation;
@@ -25,8 +25,8 @@ public final class ContextMemory<T extends TornadoNativeArray> {
         this.memoryType = memoryType;
     }
 
-    public TensorPointer allocate(Operation operation, IntImmutableList dimensions,
-                                  Function<Operation, List<IntImmutableList>> expectedAllocations) {
+    public TensorPointer allocate(AbstractOperation operation, IntImmutableList dimensions,
+                                  Function<AbstractOperation, List<IntImmutableList>> expectedAllocations) {
         var length = 1;
         for (var dimension : dimensions) {
             length *= dimension;

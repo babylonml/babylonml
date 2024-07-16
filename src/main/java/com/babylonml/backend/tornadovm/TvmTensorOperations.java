@@ -86,7 +86,7 @@ public class TvmTensorOperations {
 
     static void ropeKernel(@NonNull FloatArray input, @NonNull IntArray inputShape, final int inputOffset,
                            @NonNull FloatArray cosArray, final int cosOffset, @NonNull FloatArray sinArray,
-                           final int sinOffset, @NonNull FloatArray startPosition, int startPositionOffset,
+                           final int sinOffset, @NonNull IntArray startPosition, int startPositionOffset,
                            @NonNull FloatArray result, final int resultOffset, int maxSequenceSize) {
         //cos/sin array is tensor with shape [positions, headDimension/ 2]
         //input is tensor with shape [batchSize, sequenceSize, numHeads, headDimension]
@@ -112,7 +112,7 @@ public class TvmTensorOperations {
             final int sequenceIndex = batchSequenceIteration % sequenceSize;
             final int batchOffset = batchIndex * batchStepSize;
 
-            final int position = (int) startPosition.get(startPositionOffset) + sequenceIndex;
+            final int position = startPosition.get(startPositionOffset) + sequenceIndex;
             final int currentCosOffset = halfHeadDim * position + cosOffset;
             final int currentSinOffset = halfHeadDim * position + sinOffset;
 
@@ -143,7 +143,7 @@ public class TvmTensorOperations {
                                      final int inputOffset,
                                      @NonNull FloatArray cosArray, final int cosOffset,
                                      @NonNull FloatArray sinArray, final int sinOffset,
-                                     @NonNull FloatArray startPosition, int startPositionOffset,
+                                     @NonNull IntArray startPosition, int startPositionOffset,
                                      @NonNull FloatArray result, @NonNull IntImmutableList resultShape,
                                      final int resultOffset, int maxSequenceSize) {
         if (inputShape.size() != 4) {

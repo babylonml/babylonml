@@ -18,11 +18,16 @@ class RoPEOperation(name: String, qk: Operation, startPosition: Operation) : Abs
         val qkPointer = leftPreviousOperation!!.buildTaskGraph(taskGraph)
         val startPositionPointer = rightPreviousOperation!!.buildTaskGraph(taskGraph)
 
-        val cosPointer = buildCosTensor()
-        val sinPointer = buildSinTensor()
+        val headDimension = qkPointer.shape.getInt(3)
+        val maxSeqLen = maxResultShape.getInt(1)
 
-        val resultPointer = executionContext.allocateResidentMemory(this, qkPointer.shape)
-        val maxSequenceSize = maxResultShape.getInt(1)
+        val invFreqs = generateInvFreqs(headDimension)
+        val cosPointer = buildCosTensor(maxSeqLen, headDimension, invFreqs)
+        val sinPointer = buildSinTensor(maxSeqLen, headDimension, invFreqs)
+
+        val resultPointer = executionContext.allocateSinglePassMemory(
+            this, qkPointer.shape
+        )
 
         TvmTensorOperations.addRopeKernel(
             taskGraph, getTaskName(),
@@ -32,7 +37,7 @@ class RoPEOperation(name: String, qk: Operation, startPosition: Operation) : Abs
             startPositionPointer.floatBuffer(), startPositionPointer.offset(),
             resultPointer.floatBuffer(), resultPointer.shape,
             resultPointer.offset(),
-            maxSequenceSize
+            maxSeqLen
         )
 
         return resultPointer
@@ -40,82 +45,100 @@ class RoPEOperation(name: String, qk: Operation, startPosition: Operation) : Abs
 
     override val maxResultShape: IntImmutableList
             by lazy {
+                //[bs, seqLen, numHeads, headDim]
                 qk.maxResultShape
             }
 
     override val singlePassAllocations: List<IntImmutableList>
         get() = listOf(maxResultShape)
-    override val localAllocations: List<IntImmutableList>
-        get() = emptyList()
-    override val inputAllocations: List<IntImmutableList>
+
+    override val residentF32Allocations: List<IntImmutableList>
         get() {
-            val maxShape = maxResultShape
-            val seqLen = maxShape.getInt(maxShape.size - 2)
-            val dim = maxShape.getInt(maxShape.size - 1)
+            val maxSequenceLen = maxResultShape.getInt(1)
+            val headDimension = maxResultShape.getInt(3)
 
             return listOf(
-                IntImmutableList.of(seqLen, dim),
-                IntImmutableList.of(seqLen, dim)
+                IntImmutableList.of(maxSequenceLen, headDimension / 2),
+                IntImmutableList.of(maxSequenceLen, headDimension / 2)
             )
         }
 
-    private fun buildCosTensor(): TensorPointer {
-        val seqLen = maxResultShape.getInt(maxResultShape.size - 2)
-        val dim = maxResultShape.getInt(maxResultShape.size - 1)
+    private fun buildCosTensor(maxSeqLen: Int, headDimension: Int, invFreqs: FloatArray): TensorPointer {
         val cosPointer =
-            executionContext.allocateResidentMemory(this, IntImmutableList.of(dim))
+            executionContext.allocateResidentMemory(
+                this, IntImmutableList.of(maxSeqLen, headDimension / 2),
+                TensorPointer.DType.F32
+            )
 
-        val buffer = cosPointer.buffer() as TvmFloatArray
-
-        fillCosTensor(seqLen, dim, buffer)
-
+        fillCosTensor(maxSeqLen, headDimension, invFreqs, cosPointer.floatBuffer(), cosPointer.offset())
         return cosPointer
     }
 
+    internal fun generateInvFreqs(headDimension: Int): FloatArray {
+        val halfDimension = headDimension / 2
+        val invFreqs = FloatArray(halfDimension)
+
+        for (j in 0 until halfDimension) {
+            invFreqs[j] = (1.0 / 10_000.toDouble().pow(2.0 * j.toDouble() / headDimension.toDouble())).toFloat()
+        }
+
+        return invFreqs
+    }
+
     internal fun fillCosTensor(
-        seqLen: Int,
-        dim: Int,
-        buffer: TvmFloatArray
+        maxSequenceLen: Int,
+        headDimension: Int,
+        invFreqs: FloatArray,
+        buffer: TvmFloatArray,
+        offset: Int
     ) {
-        for (j in 0 until dim / 2) {
-            val invFreq = 1.0 / 10_000.toDouble().pow(2 * j / dim)
+        val halfDimension = headDimension / 2
+        var position = 0
 
-            for (i in 1..seqLen) {
-                val cosValue = (i * cos(invFreq)).toFloat()
+        for (i in 0 until maxSequenceLen) {
+            for (j in 0 until halfDimension) {
+                val invFreq = invFreqs[j]
+                val cosValue = cos(i.toDouble() * invFreq).toFloat()
 
-                buffer[j] = cosValue
-                buffer[j + dim / 2] = cosValue
+                buffer[position + offset] = cosValue
+                position += 1
             }
         }
     }
 
-    private fun buildSinTensor(): TensorPointer {
-        val seqLen = maxResultShape.getInt(maxResultShape.size - 2)
-        val dimension = maxResultShape.getInt(maxResultShape.size - 1)
-        val sinPointer =
-            executionContext.allocateResidentMemory(this, IntImmutableList.of(dimension))
+    private fun buildSinTensor(
+        maxSequenceLen: Int,
+        headDimension: Int,
+        invFreqs: FloatArray
+    ): TensorPointer {
 
-        val buffer = sinPointer.buffer() as TvmFloatArray
-        return fillSinTensor(seqLen, dimension, buffer, sinPointer)
+        val sinPointer = executionContext.allocateResidentMemory(
+            this,
+            IntImmutableList.of(maxSequenceLen, headDimension / 2), TensorPointer.DType.F32
+        )
+
+        fillSinTensor(maxSequenceLen, headDimension, invFreqs, sinPointer.floatBuffer(), sinPointer.offset())
+        return sinPointer
     }
 
     internal fun fillSinTensor(
-        seqLen: Int,
-        dim: Int,
+        maxSequenceLen: Int,
+        headDimension: Int,
+        invFreqs: FloatArray,
         buffer: TvmFloatArray,
-        sinPointer: TensorPointer
-    ): TensorPointer {
-        for (j in 0 until dim / 2) {
-            val invFreq = 1.0 / 10_000.toDouble().pow(2 * j / dim)
+        offset: Int
+    ) {
+        val halfDimension = headDimension / 2
+        var position = 0
 
-            for (i in 1..seqLen) {
-                val sinValue = (i * sin(invFreq)).toFloat()
+        for (i in 0 until maxSequenceLen) {
+            for (j in 0 until halfDimension) {
+                val invFreq = invFreqs[j]
+                val sinValue = sin(i.toDouble() * invFreq).toFloat()
 
-                buffer[j] = sinValue
-                buffer[j + dim / 2] = sinValue
+                buffer[offset + position] = sinValue
+                position += 1
             }
         }
-
-        return sinPointer
     }
 }

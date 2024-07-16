@@ -150,27 +150,22 @@ public class TvmTensorOperations {
             throw new IllegalArgumentException("Input shape must have rank 4 (batch size, sequence size, " +
                     "num heads, head dimension). Input shape: " + inputShape + ".");
         }
-
         if (!inputShape.equals(resultShape)) {
             throw new IllegalArgumentException("Input and result shapes must be the same. Input shape: " +
                     inputShape + ", result shape: " +
                     resultShape + ".");
         }
-
-        if (cosArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2) {
-            throw new IllegalArgumentException("Cos array size for RoPE must contain values for all " +
-                    "possible positions in sequence. " +
-                    "Cos array size: " + cosArray.getSize() + ", last dimension of the input shape: " +
-                    inputShape.getInt(inputShape.size() - 1) + ", maximum sequence size: " + maxSequenceSize +
-                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2);
+        var sequenceSize = inputShape.getInt(1);
+        if (sequenceSize > maxSequenceSize) {
+            throw new IllegalArgumentException("Sequence size must be less or equal to max sequence size. " +
+                    "Sequence size: " + sequenceSize + ", max sequence size: " + maxSequenceSize + ".");
         }
-
-        if (sinArray.getSize() != inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2) {
-            throw new IllegalArgumentException("Sin array size for RoPE must contain values for all " +
-                    "possible positions in sequence. " +
-                    "Cos array size: " + cosArray.getSize() + ", last dimension of the input shape: " +
-                    inputShape.getInt(inputShape.size() - 1) + ", maximum sequence size: " + maxSequenceSize +
-                    ". Expected size : " + inputShape.getInt(inputShape.size() - 1) * maxSequenceSize / 2);
+        if (sequenceSize % 2 != 0) {
+            throw new IllegalArgumentException("Sequence size must be even. Sequence size: " + sequenceSize + ".");
+        }
+        var headDimension = inputShape.getInt(3);
+        if (headDimension % 2 != 0) {
+            throw new IllegalArgumentException("Head dimension must be even. Head dimension: " + headDimension + ".");
         }
 
         var inputShapeArray = IntArray.fromArray(inputShape.toIntArray());

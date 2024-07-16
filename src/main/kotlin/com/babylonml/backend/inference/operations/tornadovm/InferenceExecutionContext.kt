@@ -6,7 +6,6 @@ import com.babylonml.backend.inference.operations.Operation
 import com.babylonml.backend.inference.tornadovm.ContextMemory
 import com.babylonml.backend.tornadovm.TvmCommons
 import com.babylonml.backend.tornadovm.TvmVectorOperations
-import com.babylonml.backend.training.execution.TrainingExecutionContext
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.ImmutableTaskGraph
 import uk.ac.manchester.tornado.api.TaskGraph
@@ -19,12 +18,17 @@ import kotlin.math.max
 typealias TvmFloatArray = uk.ac.manchester.tornado.api.types.arrays.FloatArray
 typealias TvmByteArray = uk.ac.manchester.tornado.api.types.arrays.ByteArray
 typealias TvmIntArray = uk.ac.manchester.tornado.api.types.arrays.IntArray
+typealias TvmHalfFloatArray = uk.ac.manchester.tornado.api.types.arrays.HalfFloatArray
 typealias TvmArray = uk.ac.manchester.tornado.api.types.arrays.TornadoNativeArray
 
 class InferenceExecutionContext : AutoCloseable {
     private lateinit var singlePassMemory: ContextMemory<TvmFloatArray>
     private lateinit var operationLocalMemory: ContextMemory<TvmFloatArray>
-    private lateinit var residentMemory: ContextMemory<TvmByteArray>
+
+    private lateinit var residentMemoryInt8: ContextMemory<TvmByteArray>
+    private lateinit var residentMemoryF16: ContextMemory<TvmHalfFloatArray>
+    private lateinit var residentMemoryF32: ContextMemory<TvmFloatArray>
+
     private lateinit var inputMemory: ContextMemory<TvmFloatArray>
 
     private lateinit var terminalOperation: Operation
@@ -64,7 +68,9 @@ class InferenceExecutionContext : AutoCloseable {
                 DataTransferMode.FIRST_EXECUTION,
                 operationLocalMemory.memoryBuffer,
                 singlePassMemory.memoryBuffer,
-                residentMemory.memoryBuffer
+                residentMemoryInt8.memoryBuffer,
+                residentMemoryF16.memoryBuffer,
+                residentMemoryF32.memoryBuffer
             )
 
             taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputMemory.memoryBuffer)
@@ -74,8 +80,8 @@ class InferenceExecutionContext : AutoCloseable {
             TvmVectorOperations.addCopyVectorTask(
                 taskGraph,
                 TvmCommons.generateName("copyResult"),
-                getMemoryBuffer(resultPointer.pointer),
-                TrainingExecutionContext.addressOffset(resultPointer.pointer),
+                getMemoryBuffer(resultPointer),
+                resultPointer.pointer.toInt(),
                 executionResult,
                 0,
                 executionResult.size
@@ -143,8 +149,11 @@ class InferenceExecutionContext : AutoCloseable {
     private fun initializeBuffers() {
         var singlePassBufferLength = 0
         var operationLocalBufferLength = 0
-        var residentMemoryAllocations = 0
         var inputMemoryAllocations = 0
+
+        var residentMemoryInt8Allocations = 0
+        var residentMemoryF32Allocations = 0
+        var residentMemoryF16Allocations = 0
 
         for (operations in stages) {
             var localBufferLength = 0
@@ -152,7 +161,11 @@ class InferenceExecutionContext : AutoCloseable {
             for (operation in operations) {
                 var allocations: List<IntImmutableList?> = operation.singlePassAllocations
                 singlePassBufferLength += ContextMemory.allocationsSize(allocations)
-                residentMemoryAllocations += ContextMemory.allocationsSize(operation.residentAllocations)
+
+                residentMemoryInt8Allocations += ContextMemory.allocationsSize(operation.residentInt8Allocations)
+                residentMemoryF32Allocations += ContextMemory.allocationsSize(operation.residentF32Allocations)
+                residentMemoryF16Allocations += ContextMemory.allocationsSize(operation.residentF16Allocations)
+
                 inputMemoryAllocations += ContextMemory.allocationsSize(operation.inputAllocations)
 
                 allocations = operation.localAllocations
@@ -165,20 +178,31 @@ class InferenceExecutionContext : AutoCloseable {
         operationLocalMemory =
             ContextMemory(
                 TvmFloatArray(operationLocalBufferLength),
-                OPERATION_LOCAL_MEMORY_KIND,
+                TensorPointer.MemoryKind.OPERATION_LOCAL,
                 TensorPointer.DType.F32,
                 true
             )
+
         singlePassMemory = ContextMemory(
-            TvmFloatArray(singlePassBufferLength), SINGLE_PASS_MEMORY_KIND, TensorPointer.DType.F32,
+            TvmFloatArray(singlePassBufferLength), TensorPointer.MemoryKind.SINGLE_PASS, TensorPointer.DType.F32,
             true
         )
-        residentMemory = ContextMemory(
-            TvmByteArray(residentMemoryAllocations), RESIDENT_MEMORY_KIND, TensorPointer.DType.INT8,
+
+        residentMemoryInt8 = ContextMemory(
+            TvmByteArray(residentMemoryInt8Allocations), TensorPointer.MemoryKind.RESIDENT, TensorPointer.DType.INT8,
             true
         )
+        residentMemoryF32 = ContextMemory(
+            TvmFloatArray(residentMemoryF32Allocations), TensorPointer.MemoryKind.RESIDENT, TensorPointer.DType.F32,
+            true
+        )
+        residentMemoryF16 = ContextMemory(
+            TvmHalfFloatArray(residentMemoryF16Allocations), TensorPointer.MemoryKind.RESIDENT, TensorPointer.DType.F16,
+            true
+        )
+
         inputMemory = ContextMemory(
-            TvmFloatArray(inputMemoryAllocations), INPUT_MEMORY_KIND, TensorPointer.DType.F32,
+            TvmFloatArray(inputMemoryAllocations), TensorPointer.MemoryKind.INPUT, TensorPointer.DType.F32,
             true
         )
     }
@@ -211,22 +235,66 @@ class InferenceExecutionContext : AutoCloseable {
         }
     }
 
-    fun allocateResidentMemory(operation: Operation, dimensions: IntImmutableList): TensorPointer {
+    fun allocateResidentMemory(
+        operation: Operation,
+        dimensions: IntImmutableList,
+        type: TensorPointer.DType
+    ): TensorPointer {
         checkInitialized()
 
-        return residentMemory.allocate(operation, dimensions) {
-            operation.residentAllocations
+        return when (type) {
+            TensorPointer.DType.INT8 -> residentMemoryInt8.allocate(operation, dimensions) {
+                operation.residentInt8Allocations
+            }
+
+            TensorPointer.DType.F32 -> residentMemoryF32.allocate(operation, dimensions) {
+                operation.residentF32Allocations
+            }
+
+            TensorPointer.DType.F16 -> residentMemoryF16.allocate(operation, dimensions) {
+                operation.residentF16Allocations
+            }
+
+            else -> throw IllegalArgumentException("Unsupported tensor type: $type")
         }
     }
 
-    fun getMemoryBuffer(address: Long): TvmArray {
-        val memoryType = memoryType(address)
+    fun getMemoryBuffer(pointer: TensorPointer): TvmArray {
+        return when (pointer.memoryKind) {
+            TensorPointer.MemoryKind.SINGLE_PASS -> {
+                if (pointer.dtype == TensorPointer.DType.F32) {
+                    singlePassMemory.memoryBuffer
+                } else {
+                    throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                }
+            }
 
-        return when (memoryType) {
-            MemoryType.SINGLE_PASS -> singlePassMemory.memoryBuffer
-            MemoryType.OPERATION_LOCAL -> operationLocalMemory.memoryBuffer
-            MemoryType.RESIDENT -> residentMemory.memoryBuffer
-            MemoryType.INPUT -> inputMemory.memoryBuffer
+            TensorPointer.MemoryKind.OPERATION_LOCAL -> {
+                if (pointer.dtype == TensorPointer.DType.F32) {
+                    operationLocalMemory.memoryBuffer
+                } else {
+                    throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                }
+            }
+
+            TensorPointer.MemoryKind.INPUT -> {
+                if (pointer.dtype == TensorPointer.DType.F32) {
+                    inputMemory.memoryBuffer
+                } else {
+                    throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                }
+            }
+
+            TensorPointer.MemoryKind.RESIDENT -> {
+                when (pointer.dtype) {
+                    TensorPointer.DType.INT8 -> residentMemoryInt8.memoryBuffer
+                    TensorPointer.DType.F32 -> residentMemoryF32.memoryBuffer
+                    TensorPointer.DType.F16 -> residentMemoryF16.memoryBuffer
+                    else -> throw IllegalArgumentException("Unsupported tensor type: ${pointer.dtype}")
+                }
+            }
+
+            else -> throw IllegalArgumentException("Unsupported memory kind: ${pointer.memoryKind}")
         }
     }
 
@@ -234,45 +302,5 @@ class InferenceExecutionContext : AutoCloseable {
         executionPlan?.close()
     }
 
-    private fun memoryType(address: Long): MemoryType {
-        require(!ContextMemory.isNull(address)) { "Provided address is null" }
 
-        val memoryKind = (address ushr 61).toByte()
-        if (memoryKind == SINGLE_PASS_MEMORY_KIND) {
-            return MemoryType.SINGLE_PASS
-        }
-
-        if (memoryKind == OPERATION_LOCAL_MEMORY_KIND) {
-            return MemoryType.OPERATION_LOCAL
-        }
-
-        if (memoryKind == RESIDENT_MEMORY_KIND) {
-            return MemoryType.RESIDENT
-        }
-
-        if (memoryKind == INPUT_MEMORY_KIND) {
-            return MemoryType.INPUT
-        }
-
-        throw IllegalArgumentException("Unknown memory kind : $memoryKind")
-    }
-
-    private enum class MemoryType {
-        SINGLE_PASS,
-        OPERATION_LOCAL,
-        RESIDENT,
-        INPUT
-    }
-
-    companion object {
-        private const val SINGLE_PASS_MEMORY_KIND: Byte = 1
-        private const val OPERATION_LOCAL_MEMORY_KIND: Byte = 2
-        private const val RESIDENT_MEMORY_KIND: Byte = 3
-        private const val INPUT_MEMORY_KIND: Byte = 4
-
-
-        fun addressOffset(address: Long): Int {
-            return ContextMemory.addressOffset(address)
-        }
-    }
 }

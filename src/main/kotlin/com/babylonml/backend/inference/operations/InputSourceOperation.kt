@@ -2,7 +2,6 @@ package com.babylonml.backend.inference.operations
 
 import com.babylonml.backend.common.TensorPointer
 import com.babylonml.backend.inference.operations.tornadovm.InferenceExecutionContext
-import com.babylonml.backend.inference.operations.tornadovm.TvmFloatArray
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.TaskGraph
 
@@ -21,20 +20,16 @@ class InputSourceOperation(
     override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {
         val dataPointer = executionContext.allocateInputMemory(this, shape)
 
-        val buffer = dataPointer.buffer() as TvmFloatArray
+        val buffer = dataPointer.floatBuffer()
+        val offset = dataPointer.offset()
+
         for (i in value.indices) {
-            buffer[i] = value[i]
+            buffer[i + offset] = value[i]
         }
         this.dataPointer = dataPointer
 
         return dataPointer
     }
-
-    override val singlePassAllocations: List<IntImmutableList>
-        get() = emptyList()
-
-    override val localAllocations: List<IntImmutableList>
-        get() = emptyList()
 
     override val inputAllocations: List<IntImmutableList>
         get() = listOf(shape)
@@ -42,12 +37,13 @@ class InputSourceOperation(
     override fun prepareForNextExecutionPass() {
         super.prepareForNextExecutionPass()
 
-        if (dataPointer != null) {
-            val buffer = dataPointer!!.buffer() as TvmFloatArray
+        dataPointer?.let {
+            val buffer = it.floatBuffer()
+            val offset = it.offset()
+
             for (i in value.indices) {
-                buffer[i] = value[i]
+                buffer[i + offset] = value[i]
             }
         }
-
     }
 }

@@ -14,10 +14,10 @@ public final class ContextMemory<T extends TornadoNativeArray> {
     private final T memoryBuffer;
     private int offset;
     private final boolean trackMemoryAllocation;
-    private final byte memoryKind;
+    private final TensorPointer.MemoryKind memoryKind;
     private final TensorPointer.DType memoryType;
 
-    public ContextMemory(T memoryBuffer, byte memoryKind, TensorPointer.DType memoryType,
+    public ContextMemory(T memoryBuffer, TensorPointer.MemoryKind memoryKind, TensorPointer.DType memoryType,
                          boolean trackMemoryAllocation) {
         this.memoryBuffer = memoryBuffer;
         this.memoryKind = memoryKind;
@@ -49,31 +49,14 @@ public final class ContextMemory<T extends TornadoNativeArray> {
                     + operation);
         }
 
-        var address = address(memoryKind, offset);
+        var address = offset;
         offset += length;
 
-        return new TensorPointer(address, dimensions, memoryType);
+        return new TensorPointer(address, dimensions, memoryType, memoryKind);
     }
 
     public T getMemoryBuffer() {
         return memoryBuffer;
-    }
-
-
-    public static int addressOffset(long address) {
-        if (isNull(address)) {
-            throw new IllegalArgumentException("Provided address is null");
-        }
-
-        return (int) address;
-    }
-
-    public static long address(int memoryType, int offset) {
-        return ((long) memoryType << 61) | offset;
-    }
-
-    public static boolean isNull(long address) {
-        return address == 0;
     }
 
     public static int allocationsSize(List<IntImmutableList> allocations) {

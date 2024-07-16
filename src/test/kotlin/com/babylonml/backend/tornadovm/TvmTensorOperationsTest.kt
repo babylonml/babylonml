@@ -217,26 +217,35 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
 
         val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
-        val (sin, cos) = prepareRotationArrays(headDim, seqLen)
+        val (sin, cos) = prepareRotationTensors(headDim, seqLen)
         val expectedResult = applyRotation(input, cos, sin)
 
-        val inputArray = input.toTvmFlatArray()
-        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim)
-        val startPositionArray = TvmFloatArray(1)
-        startPositionArray.set(0, 0.0f)
+        val inputOffset = source.nextInt(8)
+        val cosOffset = source.nextInt(8)
+        val sinOffset = source.nextInt(8)
+        val startPositionOffset = source.nextInt(8)
+        val resultOffset = source.nextInt(8)
+
+
+        val inputArray = input.toTvmFlatArray(offset = inputOffset)
+        val resultArray = TvmFloatArray(bs * seqLen * numHeads * headDim + resultOffset)
+
+        val startPositionArray = TvmFloatArray(1 + startPositionOffset)
+        startPositionArray.set(startPositionOffset, 0.0f)
 
         val inputShape = TvmIntArray.fromArray(input.shape)
-        val cosArray = cos.slice(0 until headDim / 2).toTvmFlatArray()
-        val sinArray = sin.slice(0 until headDim / 2).toTvmFlatArray()
+        val cosArray = cos.toTvmFlatArray(offset = cosOffset)
+        val sinArray = sin.toTvmFlatArray(offset = sinOffset)
+
 
         TvmTensorOperations.ropeKernel(
-            inputArray, inputShape, 0, cosArray, 0, sinArray, 0,
-            startPositionArray, 0, resultArray, 0, seqLen
+            inputArray, inputShape, inputOffset, cosArray, cosOffset, sinArray, sinOffset,
+            startPositionArray, startPositionOffset, resultArray, resultOffset, seqLen
         )
 
         Assertions.assertArrayEquals(
             expectedResult.toFlatArray(),
-            resultArray.toHeapArray(), 0.001f
+            resultArray.toHeapArray().copyOfRange(resultOffset, resultArray.size), 0.001f
         )
     }
 
@@ -251,7 +260,7 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         val headDim = (source.nextInt(2, 65) shr 1) shl 1
         val input = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
-        val (sin, cos) = prepareRotationArrays(headDim, seqLen)
+        val (sin, cos) = prepareRotationTensors(headDim, seqLen)
         val expectedResult = applyRotation(input, cos, sin)
 
         val inputArray = input.toTvmFlatArray()
@@ -260,8 +269,8 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         startPositionArray.set(0, 0.0f)
 
         val inputShape = IntImmutableList.of(*input.shape)
-        val cosArray = cos.slice(0 until headDim / 2).toTvmFlatArray()
-        val sinArray = sin.slice(0 until headDim / 2).toTvmFlatArray()
+        val cosArray = cos.toTvmFlatArray()
+        val sinArray = sin.toTvmFlatArray()
 
         val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
         TvmTensorOperations.addRopeKernel(
@@ -282,56 +291,56 @@ class TvmTensorOperationsTest : AbstractTvmTest() {
         }
     }
 
-    private fun applyRotation(
-        input: FloatTensor,
-        cos: FloatTensor,
-        sin: FloatTensor
-    ): FloatTensor {
-        val rotatedInput = rotateInput(input)
-        Assertions.assertArrayEquals(rotatedInput.shape, input.shape)
-        return input * cos + rotatedInput * sin
-    }
+    companion object {
+        private fun rotateInput(
+            input: FloatTensor,
+        ): FloatTensor {
+            val headDim = input.shape[3]
+            val input1 = input.slice(
+                0 until headDim / 2
+            )
+            val input2 = input.slice(
+                headDim / 2 until headDim
+            )
 
-    private fun rotateInput(
-        input: FloatTensor,
-    ): FloatTensor {
-        val headDim = input.shape[3]
-        val input1 = input.slice(
-            0 until headDim / 2
-        )
-        val input2 = input.slice(
-            headDim / 2 until headDim
-        )
+            return (-1 * input2).cat(input1)
+        }
 
-        return (-1 * input2).cat(input1)
-    }
+        fun prepareRotationTensors(
+            headDim: Int,
+            seqLen: Int
+        ): Pair<FloatTensor, FloatTensor> {
+            // inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+            val invFreqs = 1.0f / 10_000.0f.pow(
+                FloatTensor.arrange(0, headDim, 2) / headDim
+            )
 
-    private fun prepareRotationArrays(
-        headDim: Int,
-        seqLen: Int
-    ): Pair<FloatTensor, FloatTensor> {
-        // inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
-        val invFreqs = 1.0f / 10_000.0f.pow(
-            FloatTensor.arrange(0, headDim, 2) / headDim
-        )
+            Assertions.assertEquals(invFreqs.size, headDim / 2)
 
-        Assertions.assertEquals(invFreqs.size, headDim / 2)
+            //t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
+            // freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+            val freqs = FloatTensor.arrange(end = seqLen).combineWith(invFreqs) { a, b -> a * b }
 
-        //t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
-        // freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        var freqs = FloatTensor.natural(seqLen).combineWith(invFreqs) { a, b -> a * b }
-        //emb = torch.cat((freqs, freqs), dim=-1)
-        freqs = freqs.cat(freqs)
+            Assertions.assertArrayEquals(freqs.shape, intArrayOf(seqLen, headDim / 2))
 
-        Assertions.assertArrayEquals(freqs.shape, intArrayOf(seqLen, headDim))
-        Assertions.assertEquals(freqs.size, seqLen * headDim)
+            val sin = freqs.sin()
+            val cos = freqs.cos()
 
-        val sin = freqs.sin().unsquize(0).unsquize(2)
-        val cos = freqs.cos().unsquize(0).unsquize(2)
+            return Pair(sin, cos)
+        }
 
-        Assertions.assertArrayEquals(sin.shape, intArrayOf(1, seqLen, 1, headDim))
-        Assertions.assertArrayEquals(cos.shape, intArrayOf(1, seqLen, 1, headDim))
+        fun applyRotation(
+            input: FloatTensor,
+            cos: FloatTensor,
+            sin: FloatTensor
+        ): FloatTensor {
+            val broadcastSin = sin.cat(sin).unsquize(0).unsquize(2)
+            val broadcastCos = cos.cat(cos).unsquize(0).unsquize(2)
 
-        return Pair(sin, cos)
+            val rotatedInput = rotateInput(input)
+            Assertions.assertArrayEquals(rotatedInput.shape, input.shape)
+
+            return input * broadcastCos + rotatedInput * broadcastSin
+        }
     }
 }

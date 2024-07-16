@@ -31,12 +31,6 @@ class AddOperation(name: String, leftOperation: Operation, rightOperation: Opera
         }
     }
 
-    override val inputAllocations: List<IntImmutableList>
-        get() = emptyList()
-
-    override val localAllocations: List<IntImmutableList>
-        get() = emptyList()
-
     override val singlePassAllocations: List<IntImmutableList>
         get() = listOf(maxResultShape)
 

@@ -17,7 +17,18 @@ abstract class AbstractOperation(
     final override var rightPreviousOperation: Operation?
 ) : Operation {
     final override var executionContext: InferenceExecutionContext
-    override val residentAllocations: List<IntImmutableList>
+
+    override val singlePassAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val localAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val inputAllocations: List<IntImmutableList>
+        get() = emptyList()
+    override val residentInt8Allocations: List<IntImmutableList>
+        get() = emptyList()
+    override val residentF16Allocations: List<IntImmutableList>
+        get() = emptyList()
+    override val residentF32Allocations: List<IntImmutableList>
         get() = emptyList()
 
     override var nextOperation: Operation? = null
@@ -63,7 +74,6 @@ abstract class AbstractOperation(
         leftPreviousOperation?.prepareForNextExecutionPass()
         rightPreviousOperation?.prepareForNextExecutionPass()
     }
-
 
     protected fun broadcastIfNeeded(
         taskGraph: TaskGraph,
@@ -120,14 +130,18 @@ abstract class AbstractOperation(
     }
 
     fun TensorPointer.buffer(): TvmArray {
-        return executionContext.getMemoryBuffer(pointer)
+        return executionContext.getMemoryBuffer(this)
     }
 
     fun TensorPointer.floatBuffer(): TvmFloatArray {
+        if (dtype != TensorPointer.DType.F32) {
+            throw IllegalArgumentException("Tensor is not of type F32")
+        }
+
         return buffer() as TvmFloatArray
     }
 
-    fun TensorPointer.offset() = InferenceExecutionContext.addressOffset(pointer)
+    fun TensorPointer.offset() = pointer.toInt()
 
     fun getTaskName(prefix: String? = null): String {
         return TvmCommons.generateName(

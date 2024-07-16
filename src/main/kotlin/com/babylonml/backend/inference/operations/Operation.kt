@@ -10,7 +10,9 @@ interface Operation {
 
     fun buildTaskGraph(taskGraph: TaskGraph): TensorPointer
 
-    val residentAllocations: List<IntImmutableList>
+    val residentInt8Allocations: List<IntImmutableList>
+    val residentF16Allocations : List<IntImmutableList>
+    val residentF32Allocations : List<IntImmutableList>
 
     val singlePassAllocations: List<IntImmutableList>
 

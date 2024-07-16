@@ -11,28 +11,19 @@ class WeightsOperation(
     override val name: String, executionContext: InferenceExecutionContext,
     private val data: ByteArray, val shape: IntImmutableList
 ) : AbstractOperation(name, executionContext, null, null) {
-    override val residentAllocations: List<IntImmutableList>
+    override val residentInt8Allocations: List<IntImmutableList>
         get() = listOf(shape)
 
     override val maxResultShape: IntImmutableList
         get() = IntImmutableList.of()
 
     override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {
-        val weightsPointer = executionContext.allocateResidentMemory(this, shape)
+        val weightsPointer = executionContext.allocateResidentMemory(this, shape, TensorPointer.DType.INT8)
 
-        val buffer = executionContext.getMemoryBuffer(weightsPointer.pointer) as TvmByteArray
+        val buffer = executionContext.getMemoryBuffer(weightsPointer) as TvmByteArray
         for (i in data.indices) {
             buffer[i] = data[i]
         }
         return weightsPointer
     }
-
-    override val singlePassAllocations: List<IntImmutableList>
-        get() = emptyList()
-
-    override val localAllocations: List<IntImmutableList>
-        get() = emptyList()
-
-    override val inputAllocations: List<IntImmutableList>
-        get() = emptyList()
 }

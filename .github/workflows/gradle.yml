@@ -26,7 +26,7 @@ jobs:
 
     steps:
     - name: Build with Gradle Wrapper
-      run: ./gradlew -Pbabylonml.tornadovm.home=/tornado/tornado/bin/sdk build
+      run: cd $(Build.SourcesDirectory) && ./gradlew -Pbabylonml.tornadovm.home=/tornado/tornado/bin/sdk build
   dependency-submission:
     runs-on: ubuntu-latest
     permissions:

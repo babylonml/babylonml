@@ -25,8 +25,11 @@ jobs:
       contents: read
 
     steps:
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
     - name: Build with Gradle Wrapper
-      run: cd $(Build.SourcesDirectory) && ./gradlew -Pbabylonml.tornadovm.home=/tornado/tornado/bin/sdk build
+      run: ./gradlew -Pbabylonml.tornadovm.home=/tornado/tornado/bin/sdk build
   dependency-submission:
     runs-on: ubuntu-latest
     permissions:

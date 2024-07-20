@@ -16,7 +16,9 @@ on:
 jobs:
   build:
 
-    runs-on: linux-gpu-t4
+    runs-on: 
+      group: public-gpu
+      labels: linux-gpu-t4
     container:
       image: beehivelab/tornadovm-nvidia-openjdk:1.0.6
     permissions:

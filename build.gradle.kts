@@ -58,7 +58,7 @@ dependencies {
     implementation("tornado:tornado-api:1.0.6")
     implementation("org.apache.commons:commons-rng-core:1.6")
     implementation("org.apache.commons:commons-rng-simple:1.6")
-    implementation("org.apache.commons:commons-rng-sampling:1.5")
+    implementation("org.apache.commons:commons-rng-sampling:1.6")
     implementation("net.openhft:zero-allocation-hashing:0.26ea0")
     implementation("it.unimi.dsi:fastutil:8.5.14")
     implementation("org.jspecify:jspecify:0.3.0")

@@ -68,7 +68,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    errorprone("com.google.errorprone:error_prone_core:2.28.0")
+    errorprone("com.google.errorprone:error_prone_core:2.29.2")
     errorprone("com.uber.nullaway:nullaway:0.11.0")
 }
 

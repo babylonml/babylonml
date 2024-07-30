@@ -35,7 +35,7 @@ class VectorKernelsTests : AbstractTvmTest() {
             val gridScheduler = GridScheduler()
 
             TvmVectorOperations.addVectorToVectorTask(
-                taskGraph, "addVectorToVector", gridScheduler,
+                taskGraph, testName, gridScheduler,
                 firstTvmArray, firstVectorOffset, secondTvmArray, secondVectorOffset,
                 calculationResult, resultOffset, vectorLength
             )

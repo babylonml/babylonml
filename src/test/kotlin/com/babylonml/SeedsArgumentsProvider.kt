@@ -13,15 +13,24 @@ class SeedsArgumentsProvider : ArgumentsProvider {
     private val securesRandom = SecureRandom()
 
     override fun provideArguments(extensionContext: ExtensionContext): Stream<out Arguments> {
-        val methodParametersCount = extensionContext.testMethod.get().parameterCount
+        val testMethod = extensionContext.testMethod.get()
+        val testMethodParams = testMethod.parameters
 
         val seeds = ArrayList<Arguments>()
         val batchSize =
             extensionContext.testMethod.get().getAnnotation(SeedBatchSize::class.java)?.value ?: DEFAULT_BATCH_SIZE
         for (k in 0 until batchSize) {
-            val seedArgs = Array(methodParametersCount) {
-                ByteBuffer.wrap(securesRandom.generateSeed(8)).getLong()
+            val seedArgs = Array(testMethodParams.size) {
+                val paramType = testMethodParams[it].type
+                if (paramType == Long::class.java) {
+                    ByteBuffer.wrap(securesRandom.generateSeed(8)).getLong()
+                } else if (paramType == String::class.java) {
+                    testMethod.name
+                } else {
+                    throw IllegalArgumentException("Unsupported parameter type: $paramType")
+                }
             }
+
             seeds.add(Arguments.of(*seedArgs))
         }
 

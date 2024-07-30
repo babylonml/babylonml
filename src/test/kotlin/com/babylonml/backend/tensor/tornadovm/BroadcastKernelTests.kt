@@ -33,7 +33,7 @@ class BroadcastKernelTests : AbstractTvmTest() {
         val taskGraph = taskGraph(inputArray)
         val gridScheduler = GridScheduler()
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, "vectorToMatrixByRowsBroadcastTest", gridScheduler,
+            taskGraph, testName, gridScheduler,
             inputArray, inputOffset, IntImmutableList.of(vectorSize),
             outputArray, outputOffset, IntImmutableList.of(matrixRows, vectorSize)
         )
@@ -66,7 +66,7 @@ class BroadcastKernelTests : AbstractTvmTest() {
         val gridScheduler = GridScheduler()
 
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, "matrixToMatrixByColumnsBroadcastTest", gridScheduler,
+            taskGraph, testName, gridScheduler,
             inputArray, inputOffset, IntImmutableList.of(matrixRows, 1),
             outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
         )
@@ -102,7 +102,7 @@ class BroadcastKernelTests : AbstractTvmTest() {
         val gridScheduler = GridScheduler()
 
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, "scalarToMatrixBroadcastTest", gridScheduler,
+            taskGraph, testName, gridScheduler,
             inputArray, inputOffset, IntImmutableList.of(1, 1),
             outputArray, outputOffset, IntImmutableList.of(matrixRows, matrixColumns)
         )
@@ -146,7 +146,7 @@ class BroadcastKernelTests : AbstractTvmTest() {
         val gridScheduler = GridScheduler()
 
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, "multipleDimensionsBroadcastTest", gridScheduler,
+            taskGraph, testName, gridScheduler,
             inputArray, inputOffset, IntImmutableList.of(*shape),
             outputArray, outputOffset, IntImmutableList.of(*newShape)
         )
@@ -193,7 +193,7 @@ class BroadcastKernelTests : AbstractTvmTest() {
         val gridScheduler = GridScheduler()
 
         TvmTensorOperations.addBroadcastTask(
-            taskGraph, "multipleDimensionsCountBroadcastTest", gridScheduler,
+            taskGraph, testName, gridScheduler,
             inputArray, inputOffset, IntImmutableList.of(*shape),
             outputArray, outputOffset, IntImmutableList.of(*newShape)
         )

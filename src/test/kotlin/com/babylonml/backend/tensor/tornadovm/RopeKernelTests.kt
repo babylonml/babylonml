@@ -49,7 +49,7 @@ class RopeKernelTests : AbstractTvmTest() {
         val taskGraph = taskGraph(inputArray, startPositionArray, cosArray, sinArray)
         val gridScheduler = GridScheduler()
         TvmTensorOperations.addRopeKernel(
-            taskGraph, "ropeTVMSeqFromStartTest", gridScheduler, inputArray,
+            taskGraph, testName, gridScheduler, inputArray,
             inputShape, inputOffset,
             cosArray, cosOffset,
             sinArray, sinOffset,
@@ -105,7 +105,7 @@ class RopeKernelTests : AbstractTvmTest() {
 
         val gridScheduler = GridScheduler()
         TvmTensorOperations.addRopeKernel(
-            taskGraph, "ropeTVMSeqSliceTest", gridScheduler, inputArray,
+            taskGraph, testName, gridScheduler, inputArray,
             inputShape, inputOffset,
             cosArray, cosOffset,
             sinArray, sinOffset,

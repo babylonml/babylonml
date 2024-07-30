@@ -2,7 +2,6 @@ package com.babylonml.backend.tensor.tornadovm;
 
 import com.babylonml.backend.tensor.common.CommonTensorOperations;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
-import org.apache.commons.math3.util.ArithmeticUtils;
 import org.jspecify.annotations.NonNull;
 import uk.ac.manchester.tornado.api.*;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
@@ -46,7 +45,7 @@ public class TvmTensorOperations {
         if (batchRank == -1) {
             var inputStride = CommonTensorOperations.stride(inputShape);
             TvmVectorOperations.addCopyVectorTask(taskGraph,
-                    TvmCommons.generateName(prefix + "-copyVectorForBroadcast"), gridScheduler, input, inputOffset,
+                    prefix + "-copyVectorForBroadcast", gridScheduler, input, inputOffset,
                     output, outputOffset, inputStride);
             return;
         }
@@ -56,18 +55,14 @@ public class TvmTensorOperations {
         var outputShapeArray = IntArray.fromArray(outputShape.toIntArray());
 
         taskGraph.transferToDevice(DataTransferMode.FIRST_EXECUTION, inputShapeArray, outputShapeArray);
-        var taskName = TvmCommons.generateName(prefix + "-broadcastKernel");
 
         var kernelContext = new KernelContext();
+
+        var taskName = TvmCommons.generateName(prefix + "-broadcastKernel");
         taskGraph.task(taskName,
                 TvmTensorOperations::broadcastKernel,
                 input, inputShapeArray, inputOffset, output, outputOffset, outputShapeArray, kernelContext);
-        var workerGrid = new WorkerGrid1D(outputStride);
-
-        final var maxGroupSizeX = (int) MAX_WORKGROUP_DIMENSIONS[0];
-        workerGrid.setLocalWork(ArithmeticUtils.gcd(maxGroupSizeX, outputStride), 1, 1);
-        gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName,
-                workerGrid);
+        TvmCommons.initMapWorkerGrid1D(outputStride, taskGraph, taskName, gridScheduler);
     }
 
     static void broadcastKernel(@NonNull FloatArray input, @NonNull IntArray inputShape, int inputOffset,
@@ -188,11 +183,6 @@ public class TvmTensorOperations {
         final int batchSequenceIterations = batchSize * sequenceSize;
         final int halfHeadDim = headDimension / 2;
 
-        var workerGrid = new WorkerGrid3D(batchSequenceIterations, numberOfHeads, halfHeadDim);
-        workerGrid.setLocalWork(ArithmeticUtils.gcd(8, batchSequenceIterations),
-                ArithmeticUtils.gcd(8, numberOfHeads),
-                ArithmeticUtils.gcd(8, halfHeadDim));
-
         var kernelContext = new KernelContext();
         var taskName = TvmCommons.generateName(name);
         taskGraph.task(taskName,
@@ -200,8 +190,7 @@ public class TvmTensorOperations {
                 input, inputOffset, batchSize, sequenceSize, numberOfHeads, headDimension, cosArray, cosOffset,
                 sinArray, sinOffset, startPosition, startPositionOffset,
                 result, resultOffset, kernelContext);
-        gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName,
-                workerGrid);
+        TvmCommons.initMapWorkerGrid3D(batchSequenceIterations, numberOfHeads, halfHeadDim, taskGraph, taskName, gridScheduler);
     }
 
     private static void sumKernel(@NonNull FloatArray inputTensor,
@@ -391,7 +380,6 @@ public class TvmTensorOperations {
                 input.get(tensorIndex + currenInputOffset) * weights.get(weightsOffset + tensorIndex)
                         /
                         TornadoMath.sqrt(squareSum.get(currentSquareSumOffset) / tensorLength + epsilon));
-
     }
 
     static void rmsNormF16WeightsKernel(@NonNull FloatArray input, int inputOffset, int tensorLength,
@@ -435,7 +423,7 @@ public class TvmTensorOperations {
                                         @NonNull String name,
                                         @NonNull GridScheduler gridScheduler,
                                         @NonNull FloatArray input, @NonNull IntImmutableList inputShape, int inputOffset,
-                                        @NonNull FloatArray meanSquareResult, int meanSquareResultOffset,
+                                        @NonNull FloatArray squareResult, int squareResultOffset,
                                         @NonNull TornadoNativeArray weights, int weightsOffset,
                                         @NonNull FloatArray result, int resultOffset,
                                         float epsilon) {
@@ -448,23 +436,27 @@ public class TvmTensorOperations {
 
         var tensorLength = inputShape.getInt(inputShape.size() - 1);
         addSquareSumKernel(taskGraph, meanSquareKernelName, gridScheduler,
-                input, inputOffset, tensorCount, tensorLength, meanSquareResult,
-                meanSquareResultOffset);
+                input, inputOffset, tensorCount, tensorLength, squareResult,
+                squareResultOffset);
 
-//        switch (weights) {
-//            case FloatArray floatWeights -> graph.task(name,
-//                    TvmTensorOperations::rmsNormF32WeightsKernel,
-//                    input, inputShape, inputOffset, floatWeights, weightsOffset, result, resultOffset,
-//                    meanSquareResult, meanSquareResultOffset, epsilon);
-//            case HalfFloatArray halfWeights -> graph.task(name,
-//                    TvmTensorOperations::rmsNormF16WeightsKernel,
-//                    input, inputShape, inputOffset, halfWeights, weightsOffset, result, resultOffset,
-//                    meanSquareResult, meanSquareResultOffset, epsilon);
-//            case ByteArray byteWeights -> graph.task(name,
-//                    TvmTensorOperations::rmsNormI8WeightsKernel,
-//                    input, inputShape, inputOffset, byteWeights, weightsOffset, result, resultOffset,
-//                    meanSquareResult, meanSquareResultOffset, epsilon);
-//            default -> throw new IllegalArgumentException("Unsupported type of weights: " + weights.getClass());
-//        }
+        var kernelContext = new KernelContext();
+        var taskName = TvmCommons.generateName(name);
+        switch (weights) {
+            case FloatArray floatWeights -> taskGraph.task(taskName,
+                    TvmTensorOperations::rmsNormF32WeightsKernel,
+                    input, inputOffset, tensorLength, floatWeights, weightsOffset, result, resultOffset,
+                    squareResult, squareResultOffset, epsilon, kernelContext);
+            case HalfFloatArray halfWeights -> taskGraph.task(taskName,
+                    TvmTensorOperations::rmsNormF16WeightsKernel,
+                    input, inputOffset, tensorLength, halfWeights, weightsOffset, result, resultOffset,
+                    squareResult, squareResultOffset, epsilon, kernelContext);
+            case ByteArray byteWeights -> taskGraph.task(taskName,
+                    TvmTensorOperations::rmsNormI8WeightsKernel,
+                    input, inputOffset, tensorLength, byteWeights, weightsOffset, result, resultOffset,
+                    squareResult, squareResultOffset, epsilon, kernelContext);
+            default -> throw new IllegalArgumentException("Unsupported type of weights: " + weights.getClass());
+        }
+
+        TvmCommons.initMapWorkerGrid2D(tensorLength, tensorCount, taskGraph, taskName, gridScheduler);
     }
 }

@@ -5,7 +5,6 @@ import com.babylonml.backend.TvmArray
 import com.babylonml.backend.TvmFloatArray
 import com.babylonml.backend.TvmIntArray
 import com.babylonml.backend.tensor.common.TensorPointer
-import com.babylonml.backend.tensor.tornadovm.TvmCommons
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
@@ -104,8 +103,6 @@ abstract class AbstractOperation(
     fun TensorPointer.offset() = pointer.toInt()
 
     fun getTaskName(prefix: String? = null): String {
-        return TvmCommons.generateName(
-            prefix ?: ("" + name)
-        )
+        return prefix ?: ("" + name)
     }
 }

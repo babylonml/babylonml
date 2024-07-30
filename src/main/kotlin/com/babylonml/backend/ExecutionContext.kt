@@ -83,7 +83,7 @@ class ExecutionContext : AutoCloseable {
             val executionResult = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
             TvmVectorOperations.addCopyVectorTask(
                 taskGraph,
-                TvmCommons.generateName("copyResult"),
+                "copyResult",
                 gridScheduler,
                 getMemoryBuffer(resultPointer),
                 resultPointer.pointer.toInt(),

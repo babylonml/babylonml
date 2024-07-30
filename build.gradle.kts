@@ -55,18 +55,22 @@ repositories {
 }
 
 dependencies {
-    implementation("tornado:tornado-api:1.0.6")
-    implementation("org.apache.commons:commons-rng-core:1.5")
-    implementation("org.apache.commons:commons-rng-simple:1.5")
-    implementation("org.apache.commons:commons-rng-sampling:1.5")
-    implementation("net.openhft:zero-allocation-hashing:0.26ea0")
+    implementation("tornado:tornado-api:1.0.7-dev")
+    implementation("org.apache.commons:commons-math3:3.6.1")
+
+
     implementation("it.unimi.dsi:fastutil:8.5.13")
     implementation("org.jspecify:jspecify:0.3.0")
 
     // Test dependencies
-    testImplementation(platform("org.junit:junit-bom:5.10.3"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    testImplementation(platform("org.junit:junit-bom:5.10.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.apache.commons:commons-rng-core:1.5")
+    testImplementation("org.apache.commons:commons-rng-simple:1.5")
+    testImplementation("org.apache.commons:commons-rng-sampling:1.5")
+
 
     errorprone("com.google.errorprone:error_prone_core:2.28.0")
     errorprone("com.uber.nullaway:nullaway:0.11.0")
@@ -95,42 +99,6 @@ tasks {
         jvmArgs = tvmArgs + listOf("-Xmx8g", "-da:org.graalvm.compiler...")
     }
 
-    register<JavaExec>("mnistBench") {
-        group = "application"
-        mainClass = "com.babylonml.backend.examples.mnist.MNISTBench"
-        classpath = sourceSets["main"].runtimeClasspath
-        jvmArgs = listOf(
-            "-Xmx16g",
-        )
-    }
-
-    register<JavaExec>("mnistBenchLight") {
-        group = "application"
-        mainClass = "com.babylonml.backend.examples.mnist.MNISTBenchLight"
-        classpath = sourceSets["main"].runtimeClasspath
-        jvmArgs = listOf(
-            "-server",
-            "-Xmx16g",
-            "--add-modules",
-            "jdk.incubator.vector",
-            "--enable-preview",
-            "-Djava.awt.headless=true"
-        )
-    }
-
-
-    register<JavaExec>("makemore") {
-        group = "application"
-        mainClass = "com.tornadoml.makemore.Makemore"
-        classpath = sourceSets["main"].runtimeClasspath
-        jvmArgs = listOf(
-            "-server",
-            "-Xmx16g",
-            "--add-modules",
-            "jdk.incubator.vector",
-            "--enable-preview",
-        )
-    }
 
     register<JavaExec>("showDevices") {
         val tvmArgs = createTornadoVMArgs() ?: error("TornadoVM args could not be created")

@@ -2,6 +2,7 @@ package com.babylonml
 
 import com.babylonml.backend.TvmArray
 import com.babylonml.backend.TvmFloatArray
+import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan
 import uk.ac.manchester.tornado.api.enums.DataTransferMode
@@ -9,23 +10,24 @@ import uk.ac.manchester.tornado.api.exceptions.TornadoExecutionPlanException
 
 abstract class AbstractTvmTest {
     fun taskGraph(vararg inputs: TvmArray): TaskGraph {
-        val taskGraph = TaskGraph("executionPass")
+        val taskGraph = TaskGraph("testExecutionPass")
         taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, *inputs)
         return taskGraph
     }
 
-    fun assertExecution(taskGraph: TaskGraph, vararg result: TvmFloatArray, assertions: () -> Unit) {
+    fun assertExecution(
+        taskGraph: TaskGraph, gridScheduler: GridScheduler,
+        vararg result: TvmFloatArray, assertions: () -> Unit
+    ) {
         taskGraph.transferToHost(DataTransferMode.EVERY_EXECUTION, *result)
         val immutableTaskGraph = taskGraph.snapshot()
         try {
             TornadoExecutionPlan(immutableTaskGraph).use { executionPlan ->
-                executionPlan.execute()
+                executionPlan.withGridScheduler(gridScheduler).execute()
             }
         } catch (e: TornadoExecutionPlanException) {
             throw RuntimeException("Failed to execute the task graph", e)
         }
         assertions()
     }
-
-
 }

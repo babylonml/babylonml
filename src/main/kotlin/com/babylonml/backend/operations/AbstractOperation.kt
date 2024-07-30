@@ -7,6 +7,7 @@ import com.babylonml.backend.TvmIntArray
 import com.babylonml.backend.tensor.common.TensorPointer
 import com.babylonml.backend.tensor.tornadovm.TvmCommons
 import it.unimi.dsi.fastutil.ints.IntImmutableList
+import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
 
 abstract class AbstractOperation(
@@ -68,12 +69,12 @@ abstract class AbstractOperation(
         }
     }
 
-    fun buildTaskGraph(taskGraph: TaskGraph): TensorPointer {
+    fun buildTaskGraph(taskGraph: TaskGraph, gridScheduler: GridScheduler): TensorPointer {
         prepareForNextExecutionPass()
-        return doBuildTaskGraph(taskGraph)
+        return doBuildTaskGraph(taskGraph, gridScheduler)
     }
 
-    abstract fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer
+    abstract fun doBuildTaskGraph(taskGraph: TaskGraph, gridScheduler: GridScheduler): TensorPointer
 
     open fun prepareForNextExecutionPass() {
         leftPreviousOperation?.prepareForNextExecutionPass()

@@ -3,7 +3,7 @@ package com.babylonml.backend.operations
 import com.babylonml.SeedsArgumentsProvider
 import com.babylonml.backend.ExecutionContext
 import com.babylonml.backend.TvmFloatArray
-import com.babylonml.backend.tensor.tornadovm.TvmTensorOperationsTest
+import com.babylonml.backend.tensor.tornadovm.RopeKernelTests
 import com.babylonml.backend.tensor.FloatTensor
 import it.unimi.dsi.fastutil.ints.IntImmutableList
 import org.apache.commons.rng.simple.RandomSource
@@ -32,7 +32,7 @@ class RoPEOperationTest {
                 intArrayOf(0), IntImmutableList.of(1), "startPosition", it
             )
 
-            val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
+            val (expectedSin, expectedCos) = RopeKernelTests.prepareRotationTensors(headDim, seqLen)
 
             val roPEOperation = RoPEOperation("rope", query, startPosition)
             val actualCos = TvmFloatArray(expectedCos.size)
@@ -59,8 +59,8 @@ class RoPEOperationTest {
         val headDim = (source.nextInt(2, 65) shr 1) shl 1
         val queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
-        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
-        val expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
+        val (expectedSin, expectedCos) = RopeKernelTests.prepareRotationTensors(headDim, seqLen)
+        val expectedResult = RopeKernelTests.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         ExecutionContext().use {
             val query = F32InputSourceOperation(
@@ -91,8 +91,8 @@ class RoPEOperationTest {
 
         var queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
 
-        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, seqLen)
-        var expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
+        val (expectedSin, expectedCos) = RopeKernelTests.prepareRotationTensors(headDim, seqLen)
+        var expectedResult = RopeKernelTests.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
         ExecutionContext().use {
             val query = F32InputSourceOperation(
@@ -112,7 +112,7 @@ class RoPEOperationTest {
                 Assertions.assertArrayEquals(expectedResult.toFlatArray(), result, 0.0001f)
 
                 queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
-                expectedResult = TvmTensorOperationsTest.applyRotation(queryTensor, expectedCos, expectedSin, 0)
+                expectedResult = RopeKernelTests.applyRotation(queryTensor, expectedCos, expectedSin, 0)
 
                 query.value = queryTensor.toFlatArray()
             }
@@ -134,8 +134,8 @@ class RoPEOperationTest {
         val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
         val startPositionValue = source.nextInt(0, maxSeqLen - seqLen + 1)
 
-        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, maxSeqLen)
-        val expectedResult = TvmTensorOperationsTest.applyRotation(
+        val (expectedSin, expectedCos) = RopeKernelTests.prepareRotationTensors(headDim, maxSeqLen)
+        val expectedResult = RopeKernelTests.applyRotation(
             queryTensor, expectedCos, expectedSin,
             startPositionValue
         )
@@ -173,9 +173,9 @@ class RoPEOperationTest {
         val maxSeqLen = (source.nextInt(seqLen, 2 * seqLen) shr 1) shl 1
         val startPositionValue = source.nextInt(0, maxSeqLen - seqLen + 1)
 
-        val (expectedSin, expectedCos) = TvmTensorOperationsTest.prepareRotationTensors(headDim, maxSeqLen)
+        val (expectedSin, expectedCos) = RopeKernelTests.prepareRotationTensors(headDim, maxSeqLen)
 
-        var expectedResult = TvmTensorOperationsTest.applyRotation(
+        var expectedResult = RopeKernelTests.applyRotation(
             queryTensor, expectedCos, expectedSin,
             startPositionValue
         )
@@ -200,7 +200,7 @@ class RoPEOperationTest {
                 Assertions.assertArrayEquals(expectedResult.toFlatArray(), result, 0.0001f)
 
                 queryTensor = FloatTensor.random(source, bs, seqLen, numHeads, headDim)
-                expectedResult = TvmTensorOperationsTest.applyRotation(
+                expectedResult = RopeKernelTests.applyRotation(
                     queryTensor, expectedCos, expectedSin,
                     startPositionValue
                 )

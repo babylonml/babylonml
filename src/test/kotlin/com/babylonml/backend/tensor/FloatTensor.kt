@@ -1,7 +1,9 @@
 package com.babylonml.backend.tensor
 
+import com.babylonml.backend.TvmByteArray
 import com.babylonml.backend.TvmFloatArray
 import org.apache.commons.rng.UniformRandomProvider
+import uk.ac.manchester.tornado.api.types.HalfFloat
 import kotlin.math.pow
 
 class FloatTensor {
@@ -224,6 +226,66 @@ class FloatTensor {
         return result
     }
 
+    fun pow(value: Float): FloatTensor {
+        val result = FloatTensor(*shape)
+
+        for (indexes in enumerateIndexes()) {
+            result.set(indexes, get(indexes).pow(value))
+        }
+
+        return result
+    }
+
+    fun sum(dim: Int, keepDim: Boolean = shape.size == 1): FloatTensor {
+        val resultDim = if (dim >= 0) {
+            dim
+        } else {
+            shape.size + dim
+        }
+
+        val newShape = shape.toMutableList()
+
+        val resultShape = if (keepDim) {
+            newShape[resultDim] = 1
+            newShape.toIntArray()
+        } else {
+            newShape.removeAt(resultDim)
+            newShape.toIntArray()
+        }
+
+        val result = FloatTensor(*resultShape)
+
+        for (indexes in result.enumerateIndexes()) {
+            var sum = 0.0f
+
+            for (i in 0 until shape[resultDim]) {
+                val currentIndexes = indexes.toMutableList()
+
+                if (keepDim) {
+                    currentIndexes[resultDim] = i
+                } else {
+                    currentIndexes.add(resultDim, i)
+                }
+
+                sum += get(currentIndexes.toIntArray())
+            }
+
+            result.set(indexes, sum)
+        }
+
+        return result
+    }
+
+    fun mean(dim: Int, keepDim: Boolean = false): FloatTensor {
+        val resultDim = if (dim >= 0) {
+            dim
+        } else {
+            shape.size + dim
+        }
+
+        return sum(resultDim, keepDim) / shape[resultDim]
+    }
+
     fun slice(vararg slices: IntRange): FloatTensor {
         val broadcastSlices = if (slices.size < shape.size) {
             val diff = shape.size - slices.size
@@ -315,6 +377,37 @@ class FloatTensor {
         return TvmFloatArray.fromArray(result)
     }
 
+    fun toTvmByteArray(length: Int = size, offset: Int = 0): TvmByteArray {
+        val flatArray = toFlatArray()
+        val result = ByteArray(length + offset)
+
+        for (i in 0 until length) {
+            val byteValue = flatArray[i].toInt().toByte()
+            if (byteValue.toFloat() != flatArray[i]) {
+                throw IllegalArgumentException("Cannot convert float to byte")
+            }
+            result[i + offset] = byteValue
+        }
+
+        return TvmByteArray.fromArray(result)
+    }
+
+    fun toTvmHalfFloatArray(length: Int = size, offset: Int = 0): TvmFloatArray {
+        val flatArray = toFlatArray()
+        val result = FloatArray(length + offset)
+
+        for (i in 0 until length) {
+            val halfFloat = HalfFloat(flatArray[i]).float32
+            if (halfFloat.toFloat() != flatArray[i]) {
+                throw IllegalArgumentException("Cannot convert float to half float")
+            }
+
+            result[i + offset] = halfFloat
+        }
+
+        return TvmFloatArray.fromArray(result)
+    }
+
     private fun flattenIndex(indexes: IntArray): Int {
         var result = 0
         var multiplier = 1
@@ -330,6 +423,26 @@ class FloatTensor {
 
     override fun toString(): String {
         return "FloatTensor(${shape.joinToString(",", "[", "])")}"
+    }
+
+    operator fun plus(epsilon: Float): FloatTensor {
+        val result = FloatTensor(*shape)
+
+        for (indexes in enumerateIndexes()) {
+            result.set(indexes, get(indexes) + epsilon)
+        }
+
+        return result
+    }
+
+    fun rsqrt(): FloatTensor {
+        val result = FloatTensor(*shape)
+
+        for (indexes in enumerateIndexes()) {
+            result.set(indexes, 1.0f / kotlin.math.sqrt(get(indexes)))
+        }
+
+        return result
     }
 
     companion object {
@@ -393,6 +506,26 @@ class FloatTensor {
 
             for (indexes in result.enumerateIndexes()) {
                 result.set(indexes, source.nextFloat(-1.0f, 1.0f))
+            }
+
+            return result
+        }
+
+        fun randomBytes(source: UniformRandomProvider, vararg shape: Int): FloatTensor {
+            val result = FloatTensor(*shape)
+
+            for (indexes in result.enumerateIndexes()) {
+                result.set(indexes, source.nextInt(0, Byte.MAX_VALUE + 1).toFloat())
+            }
+
+            return result
+        }
+
+        fun randomHalfFloat(source: UniformRandomProvider, vararg shape: Int): FloatTensor {
+            val result = FloatTensor(*shape)
+
+            for (indexes in result.enumerateIndexes()) {
+                result.set(indexes, HalfFloat(source.nextInt(0, Short.MAX_VALUE + 1).toShort()).float32)
             }
 
             return result

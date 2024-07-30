@@ -6,7 +6,7 @@ import com.babylonml.backend.tensor.common.TensorPointer
 import com.babylonml.backend.tensor.tornadovm.TvmCommons
 import com.babylonml.backend.tensor.tornadovm.TvmVectorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
-import uk.ac.manchester.tornado.api.ImmutableTaskGraph
+import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
 import uk.ac.manchester.tornado.api.TornadoExecutionPlan
 import uk.ac.manchester.tornado.api.enums.DataTransferMode
@@ -36,7 +36,7 @@ class ExecutionContext : AutoCloseable {
     private lateinit var terminalOperation: AbstractOperation
     private val stages = ArrayList<List<AbstractOperation>>()
 
-    private var taskGraph: ImmutableTaskGraph? = null
+
     private var executionPlan: TornadoExecutionPlan? = null
     private var executionResult: TvmFloatArray? = null
 
@@ -55,7 +55,7 @@ class ExecutionContext : AutoCloseable {
     }
 
     private fun checkInitialized() {
-        if (taskGraph != null) {
+        if (executionPlan != null) {
             throw IllegalStateException("Execution context is already initialized")
         }
     }
@@ -63,8 +63,10 @@ class ExecutionContext : AutoCloseable {
     fun executePass(): FloatArray {
         terminalOperation.prepareForNextExecutionPass()
 
-        if (taskGraph == null) {
+        if (executionPlan == null) {
+
             val taskGraph = TaskGraph(TvmCommons.generateName("executionPass"))
+            val gridScheduler = GridScheduler()
 
             taskGraph.transferToDevice(
                 DataTransferMode.FIRST_EXECUTION,
@@ -76,12 +78,13 @@ class ExecutionContext : AutoCloseable {
             )
 
             taskGraph.transferToDevice(DataTransferMode.EVERY_EXECUTION, inputMemoryF32.memoryBuffer)
-            val resultPointer = terminalOperation.buildTaskGraph(taskGraph)
+            val resultPointer = terminalOperation.buildTaskGraph(taskGraph, gridScheduler)
 
             val executionResult = TvmFloatArray(CommonTensorOperations.stride(resultPointer.shape))
             TvmVectorOperations.addCopyVectorTask(
                 taskGraph,
                 TvmCommons.generateName("copyResult"),
+                gridScheduler,
                 getMemoryBuffer(resultPointer),
                 resultPointer.pointer.toInt(),
                 executionResult,
@@ -90,11 +93,9 @@ class ExecutionContext : AutoCloseable {
             )
             taskGraph.transferToHost(DataTransferMode.EVERY_EXECUTION, executionResult)
 
-            this.taskGraph = taskGraph.snapshot()
-            this.executionPlan = TornadoExecutionPlan(this.taskGraph)
+            val immutableTaskGraph = taskGraph.snapshot()
+            this.executionPlan = TornadoExecutionPlan(immutableTaskGraph).withGridScheduler(gridScheduler)
             this.executionResult = executionResult
-        } else {
-            require(executionPlan != null) { "Execution plan is not initialized" }
         }
 
         try {

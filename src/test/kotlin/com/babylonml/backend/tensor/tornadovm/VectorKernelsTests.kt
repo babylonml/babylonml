@@ -8,9 +8,10 @@ import org.apache.commons.rng.simple.RandomSource
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ArgumentsSource
+import uk.ac.manchester.tornado.api.GridScheduler
 
 
-class TvmVectorOperationsTests : AbstractTvmTest() {
+class VectorKernelsTests : AbstractTvmTest() {
     @ParameterizedTest
     @ArgumentsSource(SeedsArgumentsProvider::class)
     fun addVectorToVectorTest(seed: Long) {
@@ -31,14 +32,15 @@ class TvmVectorOperationsTests : AbstractTvmTest() {
             val secondTvmArray = secondVector.toTvmFlatArray(offset = secondVectorOffset)
 
             val taskGraph = taskGraph(firstTvmArray, secondTvmArray)
+            val gridScheduler = GridScheduler()
 
             TvmVectorOperations.addVectorToVectorTask(
-                taskGraph, "addVectorToVector",
+                taskGraph, "addVectorToVector", gridScheduler,
                 firstTvmArray, firstVectorOffset, secondTvmArray, secondVectorOffset,
                 calculationResult, resultOffset, vectorLength
             )
 
-            assertExecution(taskGraph, calculationResult) {
+            assertExecution(taskGraph, gridScheduler, calculationResult) {
                 Assertions.assertArrayEquals(
                     (firstVector + secondVector).toFlatArray(),
                     calculationResult.toHeapArray()

@@ -4,6 +4,7 @@ import com.babylonml.backend.TvmFloatArray
 import com.babylonml.backend.tensor.common.TensorPointer
 import com.babylonml.backend.tensor.tornadovm.TvmTensorOperations
 import it.unimi.dsi.fastutil.ints.IntImmutableList
+import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
 import kotlin.math.cos
 import kotlin.math.pow
@@ -13,9 +14,9 @@ class RoPEOperation(name: String, qk: AbstractOperation, startPosition: Abstract
     name,
     qk, startPosition
 ) {
-    override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {
-        val qkPointer = leftPreviousOperation!!.buildTaskGraph(taskGraph)
-        val startPositionPointer = rightPreviousOperation!!.buildTaskGraph(taskGraph)
+    override fun doBuildTaskGraph(taskGraph: TaskGraph, gridScheduler: GridScheduler): TensorPointer {
+        val qkPointer = leftPreviousOperation!!.buildTaskGraph(taskGraph, gridScheduler)
+        val startPositionPointer = rightPreviousOperation!!.buildTaskGraph(taskGraph, gridScheduler)
 
         val headDimension = qkPointer.shape.getInt(3)
         val maxSeqLen = maxResultShape.getInt(1)
@@ -29,7 +30,7 @@ class RoPEOperation(name: String, qk: AbstractOperation, startPosition: Abstract
         )
 
         TvmTensorOperations.addRopeKernel(
-            taskGraph, getTaskName(),
+            taskGraph, getTaskName(), gridScheduler,
             qkPointer.floatBuffer(), qkPointer.shape, qkPointer.offset(),
             cosPointer.floatBuffer(), cosPointer.offset(),
             sinPointer.floatBuffer(), sinPointer.offset(),

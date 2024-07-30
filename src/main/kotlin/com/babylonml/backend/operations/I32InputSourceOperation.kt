@@ -3,6 +3,7 @@ package com.babylonml.backend.operations
 import com.babylonml.backend.ExecutionContext
 import com.babylonml.backend.tensor.common.TensorPointer
 import it.unimi.dsi.fastutil.ints.IntImmutableList
+import uk.ac.manchester.tornado.api.GridScheduler
 import uk.ac.manchester.tornado.api.TaskGraph
 
 class I32InputSourceOperation(
@@ -24,7 +25,7 @@ class I32InputSourceOperation(
     override val maxResultShape: IntImmutableList
         get() = maxShape
 
-    override fun doBuildTaskGraph(taskGraph: TaskGraph): TensorPointer {
+    override fun doBuildTaskGraph(taskGraph: TaskGraph, gridScheduler: GridScheduler): TensorPointer {
         val dataPointer = executionContext.allocateInputMemory(this, shape, TensorPointer.DType.INT32)
 
         val buffer = dataPointer.intBuffer()

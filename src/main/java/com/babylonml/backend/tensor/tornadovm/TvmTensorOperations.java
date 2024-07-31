@@ -6,13 +6,9 @@ import org.jspecify.annotations.NonNull;
 import uk.ac.manchester.tornado.api.*;
 import uk.ac.manchester.tornado.api.enums.DataTransferMode;
 import uk.ac.manchester.tornado.api.math.TornadoMath;
-import uk.ac.manchester.tornado.api.runtime.TornadoRuntimeProvider;
 import uk.ac.manchester.tornado.api.types.arrays.*;
 
 public class TvmTensorOperations {
-    private static final long[] MAX_WORKGROUP_DIMENSIONS =
-            TornadoRuntimeProvider.getTornadoRuntime().getDefaultDevice().getDeviceMaxWorkgroupDimensions();
-
     public static void addBroadcastTask(TaskGraph taskGraph, String prefix,
                                         @NonNull GridScheduler gridScheduler,
                                         @NonNull FloatArray input,
@@ -203,7 +199,7 @@ public class TvmTensorOperations {
         //context.globalIdx is the index of the current element in the tensor
         //context.globalIdy is the index of the current tensor in the batch
         var currentInputOffset = inputOffset + context.globalIdy * tensorLength + context.globalIdx;
-        var localSnippet = context.allocateFloatLocalArray(64);
+        var localSnippet = context.allocateFloatLocalArray(TvmCommons.DEFAULT_REDUCE_LOCAL_ALLOCATION);
 
         localSnippet[context.localIdx] = inputTensor.get(currentInputOffset);
 
@@ -248,7 +244,7 @@ public class TvmTensorOperations {
         //context.globalIdx is the index of the current element in the tensor
         //context.globalIdy is the index of the current tensor in the batch
         var currentInputOffset = inputOffset + context.globalIdy * tensorLength + context.globalIdx;
-        var localSnippet = context.allocateFloatLocalArray(64);
+        var localSnippet = context.allocateFloatLocalArray(TvmCommons.DEFAULT_REDUCE_LOCAL_ALLOCATION);
 
         float value = inputTensor.get(currentInputOffset);
         localSnippet[context.localIdx] = value * value;
@@ -283,21 +279,6 @@ public class TvmTensorOperations {
         }
     }
 
-    public static int tensorReduceResultSize(@NonNull IntImmutableList inputShape) {
-        var inputShapeSize = inputShape.size();
-        var iterations = 1;
-
-        for (int i = 0; i < inputShapeSize - 1; i++) {
-            iterations *= inputShape.getInt(i);
-        }
-
-        var currentTensorLength = inputShape.getInt(inputShapeSize - 1);
-        final var maxGroupSizeX = (int) MAX_WORKGROUP_DIMENSIONS[0];
-
-        var localWorkSizeX = Math.min(Math.min(currentTensorLength, maxGroupSizeX), 64);
-        return (currentTensorLength / localWorkSizeX) * iterations;
-    }
-
     public static void addSquareSumKernel(@NonNull TaskGraph taskGraph, String name,
                                           @NonNull GridScheduler gridScheduler,
                                           @NonNull FloatArray inputTensor,
@@ -306,24 +287,15 @@ public class TvmTensorOperations {
                                           int tensorLength,
                                           @NonNull FloatArray resultTensor,
                                           int resultOffset) {
-        final var maxGroupSizeX = (int) MAX_WORKGROUP_DIMENSIONS[0];
-
-        var localWorkSizeX = Math.min(Math.min(tensorLength, maxGroupSizeX), 64);
-        var xWorkSize = (tensorLength / localWorkSizeX) * localWorkSizeX;
-
-        var workerGrid = new WorkerGrid2D(xWorkSize, tensorCount);
-        workerGrid.setLocalWork(localWorkSizeX, 1, 1);
-
         var kernelContext = new KernelContext();
-        var resultTensorLength = xWorkSize / localWorkSizeX;
-
         var taskName = TvmCommons.generateName(name);
+
+        var resultTensorLength = TvmCommons.initReduceWorkerGrid(tensorLength, tensorCount,
+                TvmCommons.DEFAULT_REDUCE_LOCAL_ALLOCATION, taskGraph, taskName, gridScheduler);
+
         taskGraph.task(taskName, TvmTensorOperations::squareSumKernel,
                 inputTensor, inputOffset, tensorLength,
                 resultTensor, resultOffset, resultTensorLength, kernelContext);
-
-        gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName,
-                workerGrid);
 
         if (resultTensorLength > 1) {
             addSumKernel(taskGraph, name + "-sqr-sum-tail", gridScheduler, resultTensor, resultOffset, tensorCount,
@@ -339,24 +311,16 @@ public class TvmTensorOperations {
                                     int tensorLength,
                                     @NonNull FloatArray resultTensor,
                                     int resultOffset) {
-        final var maxGroupSizeX = (int) MAX_WORKGROUP_DIMENSIONS[0];
         var currentTensorLength = tensorLength;
         do {
-            var localWorkSizeX = Math.min(Math.min(tensorLength, maxGroupSizeX), 64);
-            var xWorkSize = (currentTensorLength / localWorkSizeX) * localWorkSizeX;
-
-            var workerGrid = new WorkerGrid2D(xWorkSize, tensorCount);
-            workerGrid.setLocalWork(localWorkSizeX, 1, 1);
-
             var kernelContext = new KernelContext();
-            var resultTensorLength = xWorkSize / localWorkSizeX;
+            var resultTensorLength = TvmCommons.initReduceWorkerGrid(currentTensorLength, tensorCount,
+                    TvmCommons.DEFAULT_REDUCE_LOCAL_ALLOCATION, taskGraph, name, gridScheduler);
 
             var taskName = TvmCommons.generateName(name);
             taskGraph.task(taskName, TvmTensorOperations::sumKernel,
                     inputTensor, inputOffset, tensorLength,
                     resultTensor, resultOffset, resultTensorLength, kernelContext);
-            gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName,
-                    workerGrid);
 
             currentTensorLength = resultTensorLength;
             inputOffset = resultOffset;

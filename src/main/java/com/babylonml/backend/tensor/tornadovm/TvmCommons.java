@@ -7,10 +7,13 @@ import uk.ac.manchester.tornado.api.runtime.TornadoRuntimeProvider;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TvmCommons {
+    public static final int DEFAULT_REDUCE_LOCAL_ALLOCATION = 256;
     private static final int[] MAX_WORKGROUP_DIMENSIONS;
 
     static {
-        var maxDimensions = TornadoRuntimeProvider.getTornadoRuntime().getDefaultDevice().getDeviceMaxWorkgroupDimensions();
+        var maxDimensions =
+                TornadoRuntimeProvider.getTornadoRuntime().getDefaultDevice().getDeviceMaxWorkgroupDimensions();
+
         MAX_WORKGROUP_DIMENSIONS = new int[maxDimensions.length];
         for (int i = 0; i < maxDimensions.length; i++) {
             MAX_WORKGROUP_DIMENSIONS[i] = (int) maxDimensions[i];
@@ -45,5 +48,29 @@ public class TvmCommons {
         workerGrid.setLocalWork(ArithmeticUtils.gcd(firstDim, 8),
                 ArithmeticUtils.gcd(secondDim, 8), ArithmeticUtils.gcd(thirdDim, 8));
         gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName, workerGrid);
+    }
+
+    public static int tensorReduceResultSize(int tensorCount,  int tensorLength) {
+        final var maxGroupSizeX = MAX_WORKGROUP_DIMENSIONS[0];
+        var localWorkSizeX = Math.min(Math.min(tensorLength, maxGroupSizeX),
+                TvmCommons.DEFAULT_REDUCE_LOCAL_ALLOCATION);
+
+        return (tensorLength/ localWorkSizeX) * tensorCount;
+    }
+
+    public static int initReduceWorkerGrid(int firstDim, int secondDim, int localSnippetSize, TaskGraph taskGraph,
+                                           String taskName, GridScheduler gridScheduler) {
+        final var maxGroupSizeX = MAX_WORKGROUP_DIMENSIONS[0];
+        var localWorkSizeX = Math.min(Math.min(firstDim, maxGroupSizeX), localSnippetSize);
+
+        var xWorkSize = (firstDim / localWorkSizeX) * localWorkSizeX;
+
+        var workerGrid = new WorkerGrid2D(xWorkSize, secondDim);
+        workerGrid.setLocalWork(localWorkSizeX, 1, 1);
+
+        gridScheduler.setWorkerGrid(taskGraph.getTaskGraphName() + "." + taskName,
+                workerGrid);
+
+        return xWorkSize / localWorkSizeX;
     }
 }

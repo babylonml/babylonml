@@ -25,11 +25,9 @@ class RMSKernelTests : AbstractTvmTest() {
         val hostInput = FloatTensor.random(source, batchSize, seqSize, dim)
 
         val hostOutput = (hostInput * hostInput).sum(-1)
-        val inputShape = IntImmutableList.of(*hostInput.shape)
-
         val deviceInput = hostInput.toTvmFlatArray()
 
-        val deviceOutput = TvmFloatArray(TvmTensorOperations.tensorReduceResultSize(inputShape))
+        val deviceOutput = TvmFloatArray(TvmCommons.tensorReduceResultSize(batchSize * seqSize, dim))
         val taskGraph = taskGraph(deviceInput)
 
         val gridScheduler = GridScheduler()

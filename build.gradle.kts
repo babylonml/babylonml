@@ -141,6 +141,50 @@ tasks {
         classpath = sourceSets["main"].runtimeClasspath
 
     }
+
+//    register<JavaExec>("tornadoTest") {
+//        val tvmArgs = createTornadoVMArgs() ?: error("TornadoVM args could not be created")
+//        jvmArgs = tvmArgs + listOf(
+//            "-Xmx16g",
+//            "-Dtornado.fullDebug=true",
+////            "-Dtornado.concurrent.devices=true",
+//            "-Ds0.t0.device=1:0"
+//        )
+//        args = listOf("verbose")
+//        group = "application"
+//        mainClass = "com.babylonml.temp.TornadoAttempt"
+//        classpath = sourceSets["main"].runtimeClasspath
+//    }
+
+    register<JavaExec>("gemmDemo") {
+        val tvmArgs = createTornadoVMArgs() ?: error("TornadoVM args could not be created")
+        jvmArgs = tvmArgs + listOf(
+            "-Xmx16g",
+//            "-ea"
+            //"-Dtornado.fullDebug=true",
+            // "-Dtornado.concurrent.devices=true",
+            // "-Ds0.t0.device=1:0"
+        )
+        args = listOf("verbose")
+        group = "application"
+        mainClass = "com.babylonml.backend.gemm.GemmDemo"
+        classpath = sourceSets["main"].runtimeClasspath
+    }
+
+    register<JavaExec>("coalescingDemo") {
+        val tvmArgs = createTornadoVMArgs() ?: error("TornadoVM args could not be created")
+        jvmArgs = tvmArgs + listOf(
+            "-Xmx16g",
+            //"-Dtornado.fullDebug=true",
+            // "-Dtornado.concurrent.devices=true",
+            // "-Ds0.t0.device=1:0"
+        )
+        args = listOf("verbose")
+        group = "application"
+        mainClass = "com.babylonml.backend.gemm.CoalescingDemo"
+        classpath = sourceSets["main"].runtimeClasspath
+    }
+
 }
 
 fun createTornadoVMArgs(): List<String>? {

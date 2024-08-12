@@ -32,7 +32,7 @@ val tvmArgs = createTornadoVMArgs()
 
 plugins {
     java
-    kotlin("jvm") version "2.0.0"
+    kotlin("jvm") version "2.0.10"
     id("net.ltgt.errorprone") version "4.0.1"
 }
 

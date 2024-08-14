@@ -16,7 +16,7 @@ on:
 jobs:
   build:
 
-    runs-on: 
+    runs-on:
       group: public-gpu
       labels: linux-gpu-t4
     container:
@@ -24,9 +24,24 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      # The base OS for beehivelab/tornadovm-nvidia-openjdk:1.0.6 is too old and doesn't support Node.js v20 (which depends on glibc 2.28)
+      # As a workaround, we need to both:
+      # * Downgrade Actions to versions that still use node16
+      # * Set ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true so that the runner doesn't force Actions to use node20
+      # See:
+      # * https://github.blog/changelog/2023-09-22-github-actions-transitioning-from-node-16-to-node-20/
+      # * https://github.blog/changelog/2024-05-17-updated-dates-for-actions-runner-using-node20-instead-of-node16-by-default/
+      # * https://github.com/nodejs/node/issues/43246
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
     steps:
+    # We can't use actions/checkout@v4 b/c it uses node20
+    - uses: actions/checkout@v3
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
+      # We can't use gradle/actions/setup-gradle@v3 b/c it uses node20
+      # This is an older version of the Action that uses node16, see https://github.com/gradle/actions/blob/v2.12.0/README.md
+      uses: gradle/gradle-build-action@v2
 
     - name: Build with Gradle Wrapper
       run: ./gradlew -Pbabylonml.tornadovm.home=/tornado/tornado/bin/sdk build
